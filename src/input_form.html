@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>经济指标输入</title>
+  </head>
+  <body>
+    <h2>经济指标</h2>
+
+    <h3>基础信息</h3>
+    <label>容积率:</label>
+    <input type="text" id="floor_area_ratio" /><br />
+    <label>不可售计容配套面积:</label>
+    <input type="text" id="non_sellable_area" /><br />
+
+    <h3>预计税费情况</h3>
+    <label>增值税附加税:</label>
+    <input type="text" id="vat_surcharge" /><br />
+    <label>所得税预征收毛利率:</label>
+    <input type="text" id="pretax_profit_margin" /><br />
+    <label>企业所得税:</label>
+    <input type="text" id="corporate_income_tax" /><br />
+    <label>土地增值税预缴率:</label>
+    <input type="text" id="land_value_tax_pre_rate" /><br />
+
+    <h3>成本</h3>
+    <label>土地及政府规费:</label>
+    <input type="text" id="land_government_fees" /><br />
+    <label>地价付款节奏:</label>
+    <input type="text" id="land_payment_rhythm" /><br />
+    <label>分摊前地下基准成本:</label>
+    <input type="text" id="pre_sharing_underground_cost" /><br />
+    <label>产品土地地价外基准成本:</label>
+    <input type="text" id="product_land_outside_cost" /><br />
+    <label>不可售计容配套地价外总成本:</label>
+    <input type="text" id="non_sellable_land_outside_total_cost" /><br />
+    <label>不可售计容配套地价外成本付款节奏:</label>
+    <input type="text" id="non_sellable_land_outside_payment_rhythm" /><br />
+
+    <label for="saveTagSelect">Choose existing or enter new:</label>
+    <select id="saveTagSelect"></select>
+    <input type="text" id="newTagName" placeholder="Or enter new tag" />
+    <button onclick="saveData()">Save</button>
+
+    <!-- Load Options -->
+    <label for="loadTagSelect">Load:</label>
+    <select id="loadTagSelect"></select>
+    <button onclick="loadData()">Load</button>
+
+    <script>
+      function updateTagOptions(tags) {
+        const saveSelect = document.getElementById("saveTagSelect");
+        const loadSelect = document.getElementById("loadTagSelect");
+        saveSelect.innerHTML = '<option value="">Select a tag...</option>';
+        loadSelect.innerHTML = '<option value="">Select a tag...</option>';
+        tags.forEach((tag) => {
+          let option = new Option(tag, tag);
+          saveSelect.appendChild(option.cloneNode(true));
+          loadSelect.appendChild(option);
+        });
+      }
+
+      function saveData() {
+        var tag = document.getElementById("saveTagSelect").value;
+        var newTag = document.getElementById("newTagName").value.trim();
+        tag = newTag || tag; // Use new tag if provided, otherwise fall back to selected tag
+
+        if (!tag) {
+          alert("Please enter or select a tag before saving.");
+          return;
+        }
+
+        var data = {
+          floor_area_ratio: document.getElementById("floor_area_ratio").value,
+          non_sellable_area: document.getElementById("non_sellable_area").value,
+          vat_surcharge: document.getElementById("vat_surcharge").value,
+          pretax_profit_margin: document.getElementById("pretax_profit_margin")
+            .value,
+          corporate_income_tax: document.getElementById("corporate_income_tax")
+            .value,
+          land_value_tax_pre_rate: document.getElementById(
+            "land_value_tax_pre_rate"
+          ).value,
+          land_government_fees: document.getElementById("land_government_fees")
+            .value,
+          land_payment_rhythm: document.getElementById("land_payment_rhythm")
+            .value,
+          pre_sharing_underground_cost: document.getElementById(
+            "pre_sharing_underground_cost"
+          ).value,
+          product_land_outside_cost: document.getElementById(
+            "product_land_outside_cost"
+          ).value,
+          non_sellable_land_outside_total_cost: document.getElementById(
+            "non_sellable_land_outside_total_cost"
+          ).value,
+          non_sellable_land_outside_payment_rhythm: document.getElementById(
+            "non_sellable_land_outside_payment_rhythm"
+          ).value,
+        };
+        window.location.href =
+          "skp:save_data@" + JSON.stringify({ tag: tag, data: data });
+      }
+
+      function loadData() {
+        var tag = document.getElementById("loadTagSelect").value;
+        if (tag) {
+          window.location.href = "skp:load_data@" + encodeURIComponent(tag);
+        } else {
+          alert("Please select a tag to load.");
+        }
+      }
+
+      function updateInputs(data) {
+        // Assuming data keys match the input IDs
+        document.getElementById("floor_area_ratio").value =
+          data.floor_area_ratio || "";
+        document.getElementById("non_sellable_area").value =
+          data.non_sellable_area || "";
+        document.getElementById("vat_surcharge").value =
+          data.vat_surcharge || "";
+        document.getElementById("pretax_profit_margin").value =
+          data.pretax_profit_margin || "";
+        document.getElementById("corporate_income_tax").value =
+          data.corporate_income_tax || "";
+        document.getElementById("land_value_tax_pre_rate").value =
+          data.land_value_tax_pre_rate || "";
+        document.getElementById("land_government_fees").value =
+          data.land_government_fees || "";
+        document.getElementById("land_payment_rhythm").value =
+          data.land_payment_rhythm || "";
+        document.getElementById("pre_sharing_underground_cost").value =
+          data.pre_sharing_underground_cost || "";
+        document.getElementById("product_land_outside_cost").value =
+          data.product_land_outside_cost || "";
+        document.getElementById("non_sellable_land_outside_total_cost").value =
+          data.non_sellable_land_outside_total_cost || "";
+        document.getElementById(
+          "non_sellable_land_outside_payment_rhythm"
+        ).value = data.non_sellable_land_outside_payment_rhythm || "";
+      }
+    </script>
+  </body>
+</html>
