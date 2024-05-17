@@ -4,7 +4,7 @@
 # require_relative 'building_manager'
 
 require_relative 'input'
-# require_relative 'basement_pick'
+require_relative 'basement_pick'
 require_relative 'propertyline_pick'
 # require_relative 'insert_building'
 # require_relative 'output'
@@ -34,14 +34,14 @@ module Urban_Banal
           cmd_propertyline_pick.status_bar_text = "Propertyline Pick"
           toolbar.add_item(cmd_propertyline_pick)
 
-          # cmd_basement_pick = UI::Command.new("Basement Pick") {
-          #   BasementPick.pick
-          # }
-          # cmd_basement_pick.small_icon = "../icons/basement_pick.png"
-          # cmd_basement_pick.large_icon = "../icons/basement_pick.png"
-          # cmd_basement_pick.tooltip = "Basement Pick"
-          # cmd_basement_pick.status_bar_text = "Basement Pick"
-          # toolbar.add_item(cmd_basement_pick)
+          cmd_basement_pick = UI::Command.new("Basement Pick") {
+            BasementPick.pick
+          }
+          cmd_basement_pick.small_icon = "../icons/basement_pick.png"
+          cmd_basement_pick.large_icon = "../icons/basement_pick.png"
+          cmd_basement_pick.tooltip = "Basement Pick"
+          cmd_basement_pick.status_bar_text = "Basement Pick"
+          toolbar.add_item(cmd_basement_pick)
 
           # cmd_apartment_manager = UI::Command.new("Manage Apartment Types") {
           #   ApartmentManager.add_apartment_type  # Call the method from ApartmentManager module
