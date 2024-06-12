@@ -42,7 +42,7 @@ module Urban_Banal
         toolbar.add_item(cmd_basement_pick)
 
         cmd_apartment_manager = UI::Command.new("Manage Apartment Types") {
-          ApartmentManager.add_apartment_type  # Call the method from ApartmentManager module
+          ApartmentManager.show_dialog  # Call the method from ApartmentManager module
         }
         cmd_apartment_manager.small_icon = "../icons/apartment.png"
         cmd_apartment_manager.large_icon = "../icons/apartment.png"

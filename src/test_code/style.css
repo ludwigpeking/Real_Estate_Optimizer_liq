@@ -1,0 +1,42 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+  }
+  .form-section {
+    margin-bottom: 20px;
+  }
+  .form-section label {
+    display: block;
+    margin-bottom: 5px;
+  }
+  .form-section input, .form-section select {
+    display: block;
+    margin-bottom: 10px;
+  }
+  .form-section button {
+    margin: 5px;
+  }
+  .pricing-scene {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .pricing-scene input {
+    margin-right: 10px;
+  }
+  .pricing-scene button {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: none;
+    font-size: 20px;
+  }
+  .pricing-scene button.add {
+    background-color: #a1a1a1;
+    color: white;
+  }
+  .pricing-scene button.remove {
+    background-color: #a1a1a1;
+    color: white;
+  }
+  

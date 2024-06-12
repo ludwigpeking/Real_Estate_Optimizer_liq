@@ -1,5 +1,6 @@
 #TODO: Variable Names are to be cleaned up
 #TODO: Add add some more input fields
+#TODO: CSS
 
 # ok, so now I will give you a more complex scenario:
 # the dialog title is "户型维护”，there are many DOMs following:
@@ -50,18 +51,7 @@ module Urban_Banal
         <html>
         <head>
           <meta charset="UTF-8">
-          <style>
-            body { font-family: Arial, sans-serif; margin: 20px; }
-            .form-section { margin-bottom: 20px; }
-            .form-section label { display: block; margin-bottom: 5px; }
-            .form-section input, .form-section select { display: block; margin-bottom: 10px; }
-            .form-section button { margin: 5px; }
-            .pricing-scene { display: flex; align-items: center; margin-bottom: 10px; }
-            .pricing-scene input { margin-right: 10px; }
-            .pricing-scene button { width: 30px; height: 30px; border-radius: 50%; border: none; font-size: 20px; }
-            .pricing-scene button.add { background-color: #4CAF50; color: white; }
-            .pricing-scene button.remove { background-color: #f44336; color: white; }
-          </style>
+          <link rel="stylesheet" type="text/css" href="file:///#{File.join(__dir__, 'style.css')}">
           <script>
             function updateApartmentTypeName() {
               var area = document.getElementById('apartment_type_area').value;
@@ -170,8 +160,8 @@ module Urban_Banal
             <div id="apartment_type_name">110小高层</div>
           </div>
           <div class="form-section">
-            <label for="external_cost_per_sqm">地价外分摊外单方成本 (元/平米)</label>
-            <input type="number" id="external_cost_per_sqm">
+            <label for="cost_per_sqm_exclude_overhead">地价外分摊外单方成本 (元/平米)</label>
+            <input type="number" id="cost_per_sqm_exclude_overhead">
             <label for="width">面宽 (m)</label>
             <input type="number" id="width">
             <label for="depth">进深 (m)</label>
