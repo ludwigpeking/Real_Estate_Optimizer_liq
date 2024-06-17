@@ -1,4 +1,3 @@
-require_relative 'apartment_type'
 require_relative 'apartment_manager'
 require_relative 'building_generator'  # Add this line
 

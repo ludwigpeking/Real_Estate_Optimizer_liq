@@ -4,13 +4,35 @@ require 'json'
 module Urban_Banal
   module Real_Estate_Optimizer
     module BuildingGenerator
-      def self.generate
-        dialog = UI::WebDialog.new("Building Type Management Panel", false, "BuildingGenerator", 600, 800, 150, 150, true)
+      APARTMENT_TYPE_LIST_KEY = 'apartment_type_names'
+      BUILDING_TYPE_LIST_KEY = 'building_type_names'
 
-        html = <<-HTML
+
+      def self.show_dialog
+        dialog = UI::HtmlDialog.new(
+          {
+            :dialog_title => "Building Type Management Panel",
+            :preferences_key => "com.example.building_generator",
+            :scrollable => true,
+            :resizable => true,
+            :width => 600,
+            :height => 800,
+            :left => 100,
+            :top => 100,
+            :min_width => 300,
+            :min_height => 200,
+            :max_width => 1000,
+            :max_height => 1000,
+            :style => UI::HtmlDialog::STYLE_DIALOG
+          }
+        )
+
+        html_content = <<-HTML
+          <!DOCTYPE html>
           <html>
           <head>
             <meta charset="UTF-8">
+            <link rel="stylesheet" type="text/css" href="file:///#{File.join(__dir__, 'style.css')}">
             <style>
               body { font-family: Arial, sans-serif; }
               .form-section { margin-bottom: 20px; }
@@ -21,41 +43,31 @@ module Urban_Banal
               .form-section td { width: 6.6%; font-size: 12px; } /* Set each cell to be 1/3 of the original width */
               .add-btn { margin-top: 10px; }
               input[type="text"], input[type="number"] { width: 50px; } /* Adjust the width as needed */
-              .modal {
-                display: none;
-                position: fixed;
-                z-index: 1;
-                left: 0;
-                top: 0;
-                width: 100%;
-                height: 100%;
-                overflow: auto;
-                background-color: rgb(0,0,0);
-                background-color: rgba(0,0,0,0.4);
-                padding-top: 60px;
+              .pricing-scene {
+                display: flex;
+                align-items: center;
+                margin-bottom: 10px;
               }
-              .modal-content {
-                background-color: #fefefe;
-                margin: 5% auto;
-                padding: 20px;
-                border: 1px solid #888;
-                width: 80%;
+              .pricing-scene input {
+                margin-right: 10px;
               }
-              .close {
-                color: #aaa;
-                float: right;
-                font-size: 28px;
-                font-weight: bold;
+              .pricing-scene button {
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                border: 1px solid black;
+                font-size: 15px;
               }
-              .close:hover,
-              .close:focus {
+              .pricing-scene button.add {
+                background-color: #eee;
                 color: black;
-                text-decoration: none;
-                cursor: pointer;
+              }
+              .pricing-scene button.remove {
+                background-color: #eee;
+                color: black;
               }
             </style>
-
-            <script type="text/javascript">
+            <script>
               function addFloorType() {
                 var floorTypesContainer = document.getElementById('floorTypesContainer');
                 var floorTypeIndex = floorTypesContainer.children.length;
@@ -70,15 +82,17 @@ module Urban_Banal
                   + '<div>'
                   + '<label>户型名称 Apartment Name:</label>'
                   + '<select id="apartmentName' + floorTypeIndex + '_0">'
-                  + '<!-- Options will be dynamically filled from SketchUp -->'
                   + '</select>'
                   + '<label>相对原点的平面位移 X Position:</label>'
                   + '<input type="number" id="apartmentX' + floorTypeIndex + '_0" value="0" step="0.1">'
                   + '<label>相对原点的平面位移 Y Position:</label>'
                   + '<input type="number" id="apartmentY' + floorTypeIndex + '_0" value="0" step="0.1">'
+                  + '<button type="button" class="add" onclick="addApartmentType(' + floorTypeIndex + ')">+</button>'
+                  + '<button type="button" class="remove" onclick="removeApartmentType(' + floorTypeIndex + ', 0)">-</button>'
                   + '</div>'
                   + '</div>'
-                  + '<button type="button" onclick="addApartmentType(' + floorTypeIndex + ')">+ 增加该楼层户型 Add Apartment Type</button>'
+                  + '<button type="button" class="add-btn" onclick="addApartmentType(' + floorTypeIndex + ')">+ 增加该楼层户型 Add Apartment Type</button>'
+                  + '<button type="button" class="remove-btn" onclick="removeFloorType(' + floorTypeIndex + ')">- 删除楼层类型 Remove Floor Type</button>'
                   + '</div>';
                 floorTypesContainer.insertAdjacentHTML('beforeend', floorTypeHtml);
                 populateApartmentOptions(floorTypeIndex, 0);
@@ -90,15 +104,26 @@ module Urban_Banal
                 var apartmentHtml = '<div>'
                   + '<label>户型名称 Apartment Name:</label>'
                   + '<select id="apartmentName' + floorTypeIndex + '_' + apartmentIndex + '">'
-                  + '<!-- Options will be dynamically filled from SketchUp -->'
                   + '</select>'
                   + '<label>相对原点的平面位移 X Position:</label>'
                   + '<input type="number" id="apartmentX' + floorTypeIndex + '_' + apartmentIndex + '" value="0" step="0.1">'
                   + '<label>相对原点的平面位移 Y Position:</label>'
                   + '<input type="number" id="apartmentY' + floorTypeIndex + '_' + apartmentIndex + '" value="0" step="0.1">'
+                  + '<button type="button" class="remove" onclick="removeApartmentType(' + floorTypeIndex + ', ' + apartmentIndex + ')">-</button>'
                   + '</div>';
                 container.insertAdjacentHTML('beforeend', apartmentHtml);
                 populateApartmentOptions(floorTypeIndex, apartmentIndex);
+              }
+
+              function removeFloorType(floorTypeIndex) {
+                var floorType = document.getElementById('floorType' + floorTypeIndex);
+                floorType.parentNode.removeChild(floorType);
+              }
+
+              function removeApartmentType(floorTypeIndex, apartmentIndex) {
+                var container = document.getElementById('apartmentTypesContainer' + floorTypeIndex);
+                var apartmentType = container.children[apartmentIndex];
+                apartmentType.parentNode.removeChild(apartmentType);
               }
 
               function populateApartmentOptions(floorTypeIndex, apartmentIndex) {
@@ -107,77 +132,80 @@ module Urban_Banal
               }
 
               function submitForm() {
-                console.log("submitForm called"); // Debugging statement
-                var formData = { floorTypes: [] };
+    console.log("submitForm called"); // Debugging statement
+    var formData = { floorTypes: [] };
 
-                var floorTypesContainer = document.getElementById('floorTypesContainer');
-                for (var i = 0; i < floorTypesContainer.children.length; i++) {
-                  var floorTypeDiv = floorTypesContainer.children[i];
-                  var floorTypeIndex = floorTypeDiv.id.replace('floorType', '');
+    var floorTypesContainer = document.getElementById('floorTypesContainer');
+    for (var i = 0; i < floorTypesContainer.children.length; i++) {
+        var floorTypeDiv = floorTypesContainer.children[i];
+        var floorTypeIndex = floorTypeDiv.id.replace('floorType', '');
 
-                  var floorTypeData = {
-                    number: parseInt(document.getElementById('numberFloors' + floorTypeIndex).value),
-                    levelHeight: parseFloat(document.getElementById('levelHeight' + floorTypeIndex).value),
-                    apartmentTypes: []
-                  };
+        // Debugging statement
+        if (!document.getElementById('numberFloors' + floorTypeIndex)) {
+            console.log("Missing element: numberFloors" + floorTypeIndex);
+        }
+        if (!document.getElementById('levelHeight' + floorTypeIndex)) {
+            console.log("Missing element: levelHeight" + floorTypeIndex);
+        }
 
-                  var apartmentTypesContainer = document.getElementById('apartmentTypesContainer' + floorTypeIndex);
-                  for (var j = 0; j < apartmentTypesContainer.children.length; j++) {
-                    var apartmentTypeData = {
-                      name: document.getElementById('apartmentName' + floorTypeIndex + '_' + j).value,
-                      x: parseFloat(document.getElementById('apartmentX' + floorTypeIndex + '_' + j).value),
-                      y: parseFloat(document.getElementById('apartmentY' + floorTypeIndex + '_' + j).value)
-                    };
-                    floorTypeData.apartmentTypes.push(apartmentTypeData);
-                  }
+        var floorTypeData = {
+            number: parseInt(document.getElementById('numberFloors' + floorTypeIndex).value),
+            levelHeight: parseFloat(document.getElementById('levelHeight' + floorTypeIndex).value),
+            apartmentTypes: []
+        };
 
-                  formData.floorTypes.push(floorTypeData);
-                }
+        var apartmentTypesContainer = document.getElementById('apartmentTypesContainer' + floorTypeIndex);
+        for (var j = 0; j < apartmentTypesContainer.children.length; j++) {
+            var apartmentTypeDiv = apartmentTypesContainer.children[j];
 
-                formData.standardConstructionTime = {
-                  daysFromConstructionInitToZeroLevel: parseInt(document.getElementById('daysFromConstructionInitToZeroLevel').value),
-                  daysFromZeroLevelToRoofLevel: parseInt(document.getElementById('daysFromZeroLevelToRoofLevel').value),
-                  daysFromRoofLevelToDelivery: parseInt(document.getElementById('daysFromRoofLevelToDelivery').value),
-                  daysFromConstructionInitToSale: parseInt(document.getElementById('daysFromConstructionInitToSale').value),
-                  supervisionFundPercentage: parseFloat(document.getElementById('supervisionFundPercentage').value)
-                };
+            // Debugging statement
+            if (!document.getElementById('apartmentName' + floorTypeIndex + '_' + j)) {
+                console.log("Missing element: apartmentName" + floorTypeIndex + '_' + j);
+            }
+            if (!document.getElementById('apartmentX' + floorTypeIndex + '_' + j)) {
+                console.log("Missing element: apartmentX" + floorTypeIndex + '_' + j);
+            }
+            if (!document.getElementById('apartmentY' + floorTypeIndex + '_' + j)) {
+                console.log("Missing element: apartmentY" + floorTypeIndex + '_' + j);
+            }
 
-                formData.supervisionFundReleaseSchedule = [];
-                formData.constructionPaymentSchedule = [];
+            var apartmentTypeData = {
+                name: document.getElementById('apartmentName' + floorTypeIndex + '_' + j).value,
+                x: parseFloat(document.getElementById('apartmentX' + floorTypeIndex + '_' + j).value),
+                y: parseFloat(document.getElementById('apartmentY' + floorTypeIndex + '_' + j).value)
+            };
+            floorTypeData.apartmentTypes.push(apartmentTypeData);
+        }
 
-                for (var k = 0; k < 36; k++) {
-                  formData.supervisionFundReleaseSchedule.push(parseFloat(document.getElementById('supervisionFundReleaseSchedule' + k).value));
-                  formData.constructionPaymentSchedule.push(parseFloat(document.getElementById('constructionPaymentSchedule' + k).value));
-                }
+        formData.floorTypes.push(floorTypeData);
+    }
 
-                var buildingName = document.getElementById('buildingTypeName').value;
-                if (buildingName) {
-                  formData.name = buildingName;
-                  console.log("Submitting form with name: " + buildingName); // Debugging statement
-                  window.location = 'skp:submit_form@' + JSON.stringify(formData);
-                } else {
-                  alert('Please enter a building name.');
-                }
-              }
+    formData.standardConstructionTime = {
+        daysFromConstructionInitToZeroLevel: parseInt(document.getElementById('daysFromConstructionInitToZeroLevel').value),
+        daysFromZeroLevelToRoofLevel: parseInt(document.getElementById('daysFromZeroLevelToRoofLevel').value),
+        daysFromRoofLevelToDelivery: parseInt(document.getElementById('daysFromRoofLevelToDelivery').value),
+        daysFromConstructionInitToSale: parseInt(document.getElementById('daysFromConstructionInitToSale').value),
+        supervisionFundPercentage: parseFloat(document.getElementById('supervisionFundPercentage').value)
+    };
 
-              function loadBuildingType(name) {
-                console.log("Loading building type: " + name); // Debugging statement
-                window.location = 'skp:load_building_type@' + name;
-              }
+    formData.supervisionFundReleaseSchedule = [];
+    formData.constructionPaymentSchedule = [];
 
-              function updateSavedBuildingTypes(buildingNames) {
-                console.log("Updating saved building types: " + buildingNames); // Debugging statement
-                var savedTypesContainer = document.getElementById('savedTypesContainer');
-                savedTypesContainer.innerHTML = '';
-                buildingNames.forEach(function(name) {
-                  var button = document.createElement('button');
-                  button.textContent = name;
-                  button.onclick = function() {
-                    loadBuildingType(name);
-                  };
-                  savedTypesContainer.appendChild(button);
-                });
-              }
+    for (var k = 0; k < 36; k++) {
+        formData.supervisionFundReleaseSchedule.push(parseFloat(document.getElementById('supervisionFundReleaseSchedule' + k).value));
+        formData.constructionPaymentSchedule.push(parseFloat(document.getElementById('constructionPaymentSchedule' + k).value));
+    }
+
+    var buildingName = document.getElementById('buildingTypeName').value;
+    if (buildingName) {
+        formData.name = buildingName;
+        console.log("Submitting form with name: " + buildingName); // Debugging statement
+        window.location = 'skp:submit_form@' + JSON.stringify(formData);
+    } else {
+        alert('Please enter a building name.');
+    }
+}
+
 
               window.onload = function() {
                 console.log("Window loaded"); // Debugging statement
@@ -236,25 +264,40 @@ module Urban_Banal
           </html>
         HTML
 
-        dialog.set_html(html)
-        
-        dialog.add_action_callback("populate_apartment_types") do |dialog, params|
+        dialog.set_html(html_content)
+
+        dialog.add_action_callback("populate_apartment_types") do |action_context, params|
           floor_type_index, apartment_index = params.split('@')
-          apartment_types = ['80小高层首层', '110小高层首层', '90小高层', '120小高层'] # Retrieve from SketchUp or Apartment Manager
-          js_code = apartment_types.map { |type| "document.getElementById('apartmentName#{floor_type_index}_#{apartment_index}').insertAdjacentHTML('beforeend', '<option value=\"#{type}\">#{type}</option>');" }.join
+          model = Sketchup.active_model
+          apartment_type_names = model.get_attribute('Urban_Banal', APARTMENT_TYPE_LIST_KEY, [])
+          js_code = apartment_type_names.map { |type| "document.getElementById('apartmentName#{floor_type_index}_#{apartment_index}').insertAdjacentHTML('beforeend', '<option value=\"#{type}\">#{type}</option>');" }.join
           dialog.execute_script(js_code)
         end
+        
 
-        dialog.add_action_callback("submit_form") do |dialog, form_data|
+        dialog.add_action_callback("submit_form") do |action_context, form_data|
           puts "submit_form callback called with form_data: #{form_data}" # Debugging statement
           form_data = JSON.parse(form_data)
           model = Sketchup.active_model
+          building_type_names = model.get_attribute('Urban_Banal', BUILDING_TYPE_LIST_KEY, [])
+        
+          if building_type_names.include?(form_data['name'])
+            result = UI.messagebox("楼型名已存在。是否覆盖？ Building type name already exists. Overwrite?", MB_YESNO)
+            return if result == IDNO
+          else
+            building_type_names << form_data['name']
+            model.set_attribute('Urban_Banal', BUILDING_TYPE_LIST_KEY, building_type_names)
+          end
+        
           model.set_attribute('Urban_Banal', form_data['name'], form_data.to_json)
+          puts "Stored data for #{form_data['name']}: #{form_data.inspect}"  # Debugging line
           UI.messagebox("Building type '#{form_data['name']}' saved.")
-          update_saved_building_types(dialog)
+          update_saved_building_types(dialog) # Correctly call the method with dialog
         end
+        
+        
 
-        dialog.add_action_callback("load_building_type") do |dialog, name|
+        dialog.add_action_callback("load_building_type") do |action_context, name|
           puts "load_building_type callback called with name: #{name}" # Debugging statement
           model = Sketchup.active_model
           if model.attribute_dictionaries && model.attribute_dictionaries['Urban_Banal']
@@ -264,33 +307,34 @@ module Urban_Banal
             UI.messagebox("No saved building types found.")
           end
         end
+        
 
-        dialog.add_action_callback("get_saved_building_types") do |dialog|
+        dialog.add_action_callback("get_saved_building_types") do |action_context|
           puts "get_saved_building_types callback called" # Debugging statement
           model = Sketchup.active_model
-          if model.attribute_dictionaries && model.attribute_dictionaries['Urban_Banal']
-            keys = model.attribute_dictionaries['Urban_Banal'].keys
-            dialog.execute_script("updateSavedBuildingTypes(#{keys.to_json})")
-          end
+          building_type_names = model.get_attribute('Urban_Banal', BUILDING_TYPE_LIST_KEY, [])
+          dialog.execute_script("updateSavedBuildingTypes(#{building_type_names.to_json})")
         end
+        
+        
+        
 
         dialog.show
       end
 
       def self.update_saved_building_types(dialog)
         model = Sketchup.active_model
-        if model.attribute_dictionaries && model.attribute_dictionaries['Urban_Banal']
-          keys = model.attribute_dictionaries['Urban_Banal'].keys
-          dialog.execute_script("updateSavedBuildingTypes(#{keys.to_json})")
-        end
+        building_type_names = model.get_attribute('Urban_Banal', BUILDING_TYPE_LIST_KEY, [])
+        dialog.execute_script("updateSavedBuildingTypes(#{building_type_names.to_json})")
       end
+      
 
       def self.load_building_data(dialog, building_data)
         js_code = <<-JS
           var floorTypesContainer = document.getElementById('floorTypesContainer');
           floorTypesContainer.innerHTML = '';
         JS
-
+      
         building_data['floorTypes'].each_with_index do |floor_type, ft_index|
           js_code += "addFloorType();\n"
           js_code += "document.getElementById('numberFloors#{ft_index}').value = #{floor_type['number']};\n"
@@ -299,12 +343,16 @@ module Urban_Banal
             js_code += "populateApartmentOptions(#{ft_index}, #{apt_index});\n"
             js_code += "document.getElementById('apartmentName#{ft_index}_#{apt_index}').value = '#{apt['name']}';\n"
             js_code += "document.getElementById('apartmentX#{ft_index}_#{apt_index}').value = #{apt['x']};\n"
-            js_code += "document.getElementById('apartmentY#{ft_index}_#{apt_index}').value = #{apt['y']};\n"
+            js_code += "document.getElementById('apartmentY#{ft_index}_#{apt_index}').value = #{apt['y']}';\n"
           end
         end
-
+      
         dialog.execute_script(js_code)
       end
+      
     end
   end
 end
+
+# To show the dialog, call:
+# Urban_Banal::Real_Estate_Optimizer::BuildingGenerator.show_dialog
