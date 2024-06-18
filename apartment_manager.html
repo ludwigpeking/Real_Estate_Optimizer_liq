@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <link
+      rel="stylesheet"
+      type="text/css"
+      href="file:///#{File.join(__dir__, 'style.css')}"
+    />
+    <script>
+      var projectData = {
+        apartmentTypes: [],
+      };
+
+      function updateApartmentTypeName() {
+        var area = document.getElementById("apartment_type_area").value;
+        var type = document.getElementById("apartment_in_building_type").value;
+        var tag = document.getElementById("tag").value;
+        document.getElementById("apartment_type_name").innerText =
+          area + type + tag;
+      }
+
+      function validateInputs() {
+        var area = document.getElementById("apartment_type_area").value;
+        if (!area || isNaN(area) || area <= 0) {
+          alert(
+            "请填写有效的户型建筑面积 Please enter a valid apartment type area."
+          );
+          return false;
+        }
+        return true;
+      }
+
+      function saveApartmentType() {
+        if (!validateInputs()) {
+          return;
+        }
+
+        var apartmentData = {
+          apartment_in_building_type: document.getElementById(
+            "apartment_in_building_type"
+          ).value,
+          apartment_type_area: parseFloat(
+            document.getElementById("apartment_type_area").value
+          ),
+          tag: document.getElementById("tag").value,
+          apartment_type_name: document.getElementById("apartment_type_name")
+            .innerText,
+          external_cost_per_sqm: parseFloat(
+            document.getElementById("external_cost_per_sqm").value
+          ),
+          width: parseFloat(document.getElementById("width").value),
+          depth: parseFloat(document.getElementById("depth").value),
+          pricing_scenes: [],
+        };
+
+        document.querySelectorAll(".pricing-scene").forEach(function (scene) {
+          var price_per_sqm = parseFloat(
+            scene.querySelector(".price_per_sqm").value
+          );
+          var units_per_month = parseInt(
+            scene.querySelector(".units_per_month").value
+          );
+          apartmentData.pricing_scenes.push({
+            price_per_sqm: price_per_sqm,
+            units_per_month: units_per_month,
+          });
+        });
+
+        var apartmentTypeName = apartmentData.apartment_type_name;
+        projectData.apartmentTypes.push(apartmentData);
+        saveProjectData();
+      }
+
+      function saveProjectData() {
+        window.location =
+          "skp:save_project_data@" + JSON.stringify(projectData);
+      }
+
+      function loadProjectData() {
+        window.location = "skp:load_project_data";
+      }
+
+      function onProjectDataLoaded(data) {
+        projectData = JSON.parse(data);
+        // Populate dialog with projectData.apartmentTypes
+      }
+
+      function addPricingScene(price_per_sqm = "", units_per_month = "") {
+        var container = document.getElementById("pricingScenesContainer");
+        var index = container.children.length;
+        var div = document.createElement("div");
+        div.className = "pricing-scene";
+        div.innerHTML =
+          '<input class="price_per_sqm" type="text" value="' +
+          price_per_sqm +
+          '" placeholder="销售场景' +
+          (index + 1) +
+          ' (元/平米)">' +
+          '<input class="units_per_month" type="text" value="' +
+          units_per_month +
+          '" placeholder="15套/月">' +
+          '<button class="add" onclick="addPricingScene()">+</button>';
+        if (index > 0) {
+          var removeButton = document.createElement("button");
+          removeButton.className = "remove";
+          removeButton.innerText = "-";
+          removeButton.onclick = function () {
+            container.removeChild(div);
+          };
+          div.appendChild(removeButton);
+        }
+        container.appendChild(div);
+      }
+
+      window.onload = function () {
+        document.getElementById("apartment_type_area").oninput =
+          updateApartmentTypeName;
+        document.getElementById("apartment_in_building_type").onchange =
+          updateApartmentTypeName;
+        document.getElementById("tag").oninput = updateApartmentTypeName;
+        addPricingScene();
+        loadProjectData();
+      };
+    </script>
+  </head>
+  <body>
+    <h2>Apartment Manager</h2>
+    <div class="form-section">
+      <label for="apartment_in_building_type">户型属于类型</label>
+      <select id="apartment_in_building_type">
+        <option value="高层">高层</option>
+        <option value="小高层" selected>小高层</option>
+        <option value="洋房">洋房</option>
+      </select>
+      <label for="apartment_type_area">户型建筑面积 (平米)</label>
+      <input type="number" id="apartment_type_area" value="110" />
+      <label for="tag">备注</label>
+      <input type="text" id="tag" value="" />
+      <label for="apartment_type_name">户型名</label>
+      <div id="apartment_type_name">110小高层</div>
+    </div>
+    <div class="form-section">
+      <label for="external_cost_per_sqm">地价外分摊外单方成本 (元/平米)</label>
+      <input type="number" id="external_cost_per_sqm" />
+      <label for="width">面宽 (m)</label>
+      <input type="number" id="width" />
+      <label for="depth">进深 (m)</label>
+      <input type="number" id="depth" />
+    </div>
+    <div class="form-section">
+      <h3>销售场景</h3>
+      <div id="pricingScenesContainer"></div>
+      <button onclick="saveApartmentType()">保存属性 Save Attributes</button>
+    </div>
+    <div class="form-section">
+      <h3>加载户型 Load Apartment Type</h3>
+      <select id="savedApartmentTypes">
+        <option value="">选择户型...</option>
+      </select>
+    </div>
+  </body>
+</html>

@@ -238,8 +238,81 @@
 
     
 
+project = {
+    inputs:{
+        site_area: 50000; //平米
+        FAR:2.0;
+        amenity_GFA_in_FAR: 1400; //只计算计容配套；不计容配套不参与计算，计入地价分摊
+
+        saleable_GFA : site_area * FAR - amenity_GFA_in_FAR;
+
+        commercial_percentage_upper_limit: 0.1;
+        commercial_percentage_lower_limit: 0.05; //各种指标分配关系只是检查项，不参与现金流计算        
+
+        management_fee:0.03
+        sales_fee:0.25
+
+        land_cost: 30000; //万元
+        land_cost_payment:[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,.....,0]; //48 months
+        land_cost_payment_valid: land_cost_payment.sum ===1;
+        unsaleable_amenity_cost: 5000; //万元
+        unsaleable_amenity_cost_payment: [0,0,0.1,0,0,0.1,0,0,0.1,0,0,0.1,0,0,0.1,0,0,0.1,0,0,0.1,0,0,0.1,0,0,0.1,0,0,0.1,....,0] ; //48 months
+        unsaleable_amenity_cost_payment_valid: land_cost_payment.sum ===1?
 
 
+        product_baseline_unit_cost_before_allocation: 5500, //元/平米
+        basement_unit_cost_before_allocation: 3400; //元/平米
+
+        VAT_surchage_rate: 0.0025; //增值税附加税，包括城市维护建设税，教育费附加，地方教育附加之类
+        corp_pretax_gross_profit_rate_threshould: 0.15; //所得税预征收毛利率
+        corp_tax_rate:0.25; //企业所得税率
+        LVIT_provisional_rate:0.02; //土地增值税预缴税率
+    };
+
+    apartment_category_list: ["叠拼","洋房","小高层","大高","超高"] //按核心筒分类，小于11层为洋房，12到18层为小高，大于18层小于100米为大高，大于100米为超高
+
+    apartment_types:[
+        {
+            apartment_category: "小高层"; //choose from apartment_category_list
+            area: 110;
+            tag: "标准层";
+            apartment_type_name:  area + apartment_category + tag; 
+            product_baseline_unit_cost_before_allocation: 5500, //元/平米, this value overwrite the value in the input
+            width: 10.8; //m
+            depth: 11.0; //m
+            color: #yellow; //lerp from yellow to blue, 70sqm-160sqm
+            sales_scenes:[
+                {
+                    price: 10000; //yuan per sqm
+                    volumn: 15; //units per month
+                }, 
+                {
+                    price: 11000; //yuan per sqm
+                    volumn: 11; //units per month
+                },
+                {
+                    price: 12000; //yuan per sqm
+                    volumn: 3; //units per month
+                }
+            ]; //sales_scenes starts from one scene, create a button to add one more scene, and a button to remove the scene, unless there's only one left
+        },
+        // a dialog deals with one apartment type. clicking the icon creates a new apartment type, and you can load the existing types from a drop list, modify and save the type in the panel.  
+        {}
+    ];
+
+    building_types:[
+        {
+            floor_types:[
+                {
+                    
+                },
+            ]
+        }
+    ]
+
+}
+
+sketchup_model_entities : traverse the model and find all component instances that present in build_type_names 
 
             
 

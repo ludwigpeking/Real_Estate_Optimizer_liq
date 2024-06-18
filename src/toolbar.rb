@@ -1,6 +1,6 @@
+require 'sketchup.rb'
 require_relative 'apartment_manager'
-require_relative 'building_generator'  # Add this line
-
+require_relative 'building_generator'
 require_relative 'input'
 require_relative 'basement_pick'
 require_relative 'propertyline_pick'
@@ -41,7 +41,7 @@ module Urban_Banal
         toolbar.add_item(cmd_basement_pick)
 
         cmd_apartment_manager = UI::Command.new("Manage Apartment Types") {
-          ApartmentManager.show_dialog  # Call the method from ApartmentManager module
+          Urban_Banal::Real_Estate_Optimizer::ApartmentManager.show_dialog  # Ensure the correct namespace
         }
         cmd_apartment_manager.small_icon = "../icons/apartment.png"
         cmd_apartment_manager.large_icon = "../icons/apartment.png"
@@ -50,7 +50,7 @@ module Urban_Banal
         toolbar.add_item(cmd_apartment_manager)
 
         cmd_building_type = UI::Command.new("Manage Building Types") {
-          BuildingGenerator.generate
+          Urban_Banal::Real_Estate_Optimizer::BuildingGenerator.show_dialog  # Ensure the correct method call
         }
         cmd_building_type.small_icon = "../icons/building_type.png"
         cmd_building_type.large_icon = "../icons/building_type.png"
@@ -58,27 +58,11 @@ module Urban_Banal
         cmd_building_type.status_bar_text = "Generates a new building."
         toolbar.add_item(cmd_building_type)
 
-        # cmd_insert_building = UI::Command.new("Insert Building") {
-        #   InsertBuilding.insert
-        # }
-        # cmd_insert_building.small_icon = "../icons/insert_building.png"
-        # cmd_insert_building.large_icon = "../icons/insert_building.png"
-        # cmd_insert_building.tooltip = "Insert Building"
-        # cmd_insert_building.status_bar_text = "Insert Building"
-        # toolbar.add_item(cmd_insert_building)
-
-        # cmd_output = UI::Command.new("Output") {
-        #   Output.output
-        # }
-        # cmd_output.small_icon = "../icons/output.png"
-        # cmd_output.large_icon = "../icons/output.png"
-        # cmd_output.tooltip = "Output"
-        # cmd_output.status_bar_text = "Output"
-        # toolbar.add_item(cmd_output)
-
         # Ensure the toolbar is visible
         toolbar.show if toolbar.get_last_state == TB_VISIBLE
       end
     end
   end
 end
+
+Urban_Banal::Real_Estate_Optimizer::Toolbar.create_toolbar

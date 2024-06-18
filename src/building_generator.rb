@@ -132,79 +132,79 @@ module Urban_Banal
               }
 
               function submitForm() {
-    console.log("submitForm called"); // Debugging statement
-    var formData = { floorTypes: [] };
+                console.log("submitForm called"); // Debugging statement
+                var formData = { floorTypes: [] };
 
-    var floorTypesContainer = document.getElementById('floorTypesContainer');
-    for (var i = 0; i < floorTypesContainer.children.length; i++) {
-        var floorTypeDiv = floorTypesContainer.children[i];
-        var floorTypeIndex = floorTypeDiv.id.replace('floorType', '');
+                var floorTypesContainer = document.getElementById('floorTypesContainer');
+                for (var i = 0; i < floorTypesContainer.children.length; i++) {
+                    var floorTypeDiv = floorTypesContainer.children[i];
+                    var floorTypeIndex = floorTypeDiv.id.replace('floorType', '');
 
-        // Debugging statement
-        if (!document.getElementById('numberFloors' + floorTypeIndex)) {
-            console.log("Missing element: numberFloors" + floorTypeIndex);
-        }
-        if (!document.getElementById('levelHeight' + floorTypeIndex)) {
-            console.log("Missing element: levelHeight" + floorTypeIndex);
-        }
+                    // Debugging statement
+                    if (!document.getElementById('numberFloors' + floorTypeIndex)) {
+                        console.log("Missing element: numberFloors" + floorTypeIndex);
+                    }
+                    if (!document.getElementById('levelHeight' + floorTypeIndex)) {
+                        console.log("Missing element: levelHeight" + floorTypeIndex);
+                    }
 
-        var floorTypeData = {
-            number: parseInt(document.getElementById('numberFloors' + floorTypeIndex).value),
-            levelHeight: parseFloat(document.getElementById('levelHeight' + floorTypeIndex).value),
-            apartmentTypes: []
-        };
+                    var floorTypeData = {
+                        number: parseInt(document.getElementById('numberFloors' + floorTypeIndex).value),
+                        levelHeight: parseFloat(document.getElementById('levelHeight' + floorTypeIndex).value),
+                        apartmentTypes: []
+                    };
 
-        var apartmentTypesContainer = document.getElementById('apartmentTypesContainer' + floorTypeIndex);
-        for (var j = 0; j < apartmentTypesContainer.children.length; j++) {
-            var apartmentTypeDiv = apartmentTypesContainer.children[j];
+                    var apartmentTypesContainer = document.getElementById('apartmentTypesContainer' + floorTypeIndex);
+                    for (var j = 0; j < apartmentTypesContainer.children.length; j++) {
+                        var apartmentTypeDiv = apartmentTypesContainer.children[j];
 
-            // Debugging statement
-            if (!document.getElementById('apartmentName' + floorTypeIndex + '_' + j)) {
-                console.log("Missing element: apartmentName" + floorTypeIndex + '_' + j);
-            }
-            if (!document.getElementById('apartmentX' + floorTypeIndex + '_' + j)) {
-                console.log("Missing element: apartmentX" + floorTypeIndex + '_' + j);
-            }
-            if (!document.getElementById('apartmentY' + floorTypeIndex + '_' + j)) {
-                console.log("Missing element: apartmentY" + floorTypeIndex + '_' + j);
-            }
+                        // Debugging statement
+                        if (!document.getElementById('apartmentName' + floorTypeIndex + '_' + j)) {
+                            console.log("Missing element: apartmentName" + floorTypeIndex + '_' + j);
+                        }
+                        if (!document.getElementById('apartmentX' + floorTypeIndex + '_' + j)) {
+                            console.log("Missing element: apartmentX" + floorTypeIndex + '_' + j);
+                        }
+                        if (!document.getElementById('apartmentY' + floorTypeIndex + '_' + j)) {
+                            console.log("Missing element: apartmentY" + floorTypeIndex + '_' + j);
+                        }
 
-            var apartmentTypeData = {
-                name: document.getElementById('apartmentName' + floorTypeIndex + '_' + j).value,
-                x: parseFloat(document.getElementById('apartmentX' + floorTypeIndex + '_' + j).value),
-                y: parseFloat(document.getElementById('apartmentY' + floorTypeIndex + '_' + j).value)
-            };
-            floorTypeData.apartmentTypes.push(apartmentTypeData);
-        }
+                        var apartmentTypeData = {
+                            name: document.getElementById('apartmentName' + floorTypeIndex + '_' + j).value,
+                            x: parseFloat(document.getElementById('apartmentX' + floorTypeIndex + '_' + j).value),
+                            y: parseFloat(document.getElementById('apartmentY' + floorTypeIndex + '_' + j).value)
+                        };
+                        floorTypeData.apartmentTypes.push(apartmentTypeData);
+                    }
 
-        formData.floorTypes.push(floorTypeData);
-    }
+                    formData.floorTypes.push(floorTypeData);
+                }
 
-    formData.standardConstructionTime = {
-        daysFromConstructionInitToZeroLevel: parseInt(document.getElementById('daysFromConstructionInitToZeroLevel').value),
-        daysFromZeroLevelToRoofLevel: parseInt(document.getElementById('daysFromZeroLevelToRoofLevel').value),
-        daysFromRoofLevelToDelivery: parseInt(document.getElementById('daysFromRoofLevelToDelivery').value),
-        daysFromConstructionInitToSale: parseInt(document.getElementById('daysFromConstructionInitToSale').value),
-        supervisionFundPercentage: parseFloat(document.getElementById('supervisionFundPercentage').value)
-    };
+                formData.standardConstructionTime = {
+                    daysFromConstructionInitToZeroLevel: parseInt(document.getElementById('daysFromConstructionInitToZeroLevel').value),
+                    daysFromZeroLevelToRoofLevel: parseInt(document.getElementById('daysFromZeroLevelToRoofLevel').value),
+                    daysFromRoofLevelToDelivery: parseInt(document.getElementById('daysFromRoofLevelToDelivery').value),
+                    daysFromConstructionInitToSale: parseInt(document.getElementById('daysFromConstructionInitToSale').value),
+                    supervisionFundPercentage: parseFloat(document.getElementById('supervisionFundPercentage').value)
+                };
 
-    formData.supervisionFundReleaseSchedule = [];
-    formData.constructionPaymentSchedule = [];
+                formData.supervisionFundReleaseSchedule = [];
+                formData.constructionPaymentSchedule = [];
 
-    for (var k = 0; k < 36; k++) {
-        formData.supervisionFundReleaseSchedule.push(parseFloat(document.getElementById('supervisionFundReleaseSchedule' + k).value));
-        formData.constructionPaymentSchedule.push(parseFloat(document.getElementById('constructionPaymentSchedule' + k).value));
-    }
+                for (var k = 0; k < 36; k++) {
+                    formData.supervisionFundReleaseSchedule.push(parseFloat(document.getElementById('supervisionFundReleaseSchedule' + k).value));
+                    formData.constructionPaymentSchedule.push(parseFloat(document.getElementById('constructionPaymentSchedule' + k).value));
+                }
 
-    var buildingName = document.getElementById('buildingTypeName').value;
-    if (buildingName) {
-        formData.name = buildingName;
-        console.log("Submitting form with name: " + buildingName); // Debugging statement
-        window.location = 'skp:submit_form@' + JSON.stringify(formData);
-    } else {
-        alert('Please enter a building name.');
-    }
-}
+                var buildingName = document.getElementById('buildingTypeName').value;
+                if (buildingName) {
+                    formData.name = buildingName;
+                    console.log("Submitting form with name: " + buildingName); // Debugging statement
+                    window.location = 'skp:submit_form@' + JSON.stringify(formData);
+                } else {
+                    alert('Please enter a building name.');
+                }
+              }
 
 
               window.onload = function() {
