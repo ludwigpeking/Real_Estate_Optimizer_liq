@@ -1,101 +1,210 @@
-require 'sketchup.rb'
-require 'extensions.rb'
+require 'sketchup'
+require 'json'
+require_relative 'data_handler'
+require_relative 'default_values'
 
-module Urban_Banal
-    module Real_Estate_Optimizer
-        module Input
-            @@dialog = nil
-            def self.input
-                @@dialog ||= UI::HtmlDialog.new(
-                    {
-                        :dialog_title => "输入经济指标",
-                        :scrollable => true,
-                        :resizable => true,
-                        :width => 500,
-                        :height => 700,
-                        :left => 100,
-                        :top => 100,
-                        :style => UI::HtmlDialog::STYLE_DIALOG
-                    }
-                )
-            
-                file_path = File.join(__dir__, "input_form.html")
-                @@dialog.set_file(file_path)
-            
-                @@dialog.add_action_callback("save_data") do |action_context, data|
-                    data = JSON.parse(data)
-                    save_data(data['tag'], data['data'])
-                end
-            
-                @@dialog.add_action_callback("load_data") do |action_context, tag|
-                    load_data(tag)
-                end
-            
-                update_tag_options  # Ensure tags are updated whenever the dialog is opened
-                @@dialog.show unless @@dialog.visible?
-            end
-            
-            def self.update_tag_options
-                model = Sketchup.active_model
-                dictionary = model.attribute_dictionaries["EconomicIndicators"]
-                tags = dictionary ? dictionary.keys.sort : []
-                @@dialog.execute_script("updateTagOptions(#{tags.to_json})") if @@dialog && @@dialog.visible?
-            end
-            
-            
+module Real_Estate_Optimizer
+  module Input
+    def self.show_dialog
+      dialog = UI::HtmlDialog.new(
+        {
+          :dialog_title => "项目输入 Project Inputs",
+          :preferences_key => "com.example.project_inputs",
+          :scrollable => true,
+          :resizable => true,
+          :width => 800,
+          :height => 800,
+          :left => 100,
+          :top => 100,
+          :min_width => 600,
+          :min_height => 600,
+          :style => UI::HtmlDialog::STYLE_DIALOG
+        }
+      )
 
-            def self.save_data(tag, data)
-                model = Sketchup.active_model
-                begin
-                    model.start_operation('Save Economic Data', true)
-                    dictionary = model.attribute_dictionary("EconomicIndicators", true)
-                    
-                    # Serialize data to JSON before storing
-                    dictionary[tag] = data.to_json
-                    model.commit_operation
-                    UI.messagebox("Data saved successfully under tag: #{tag}")
-                    
-                    update_tag_options  # Make sure to update the tags in the UI
-                rescue => e
-                    model.abort_operation
-                    UI.messagebox("Error saving data: #{e.message}")
-                end
-            end
-            
-            
-            def self.update_tag_options
-                model = Sketchup.active_model
-                dictionary = model.attribute_dictionaries["EconomicIndicators"]
-                tags = dictionary ? dictionary.keys.sort : []  # Ensure tags are sorted or manage duplicates
-                dialog = get_dialog
-                if dialog && dialog.visible?
-                    dialog.execute_script("updateTagOptions(#{tags.to_json})")
-                end
-            end
-            
+      html_content = <<-HTML
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="UTF-8">
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; }
+            p { font-size: 12px;}
+            .form-group { margin-bottom: 5px; }
+            label { display: inline-block; width: 400px; }
+            input[type="number"] { width: 120px; }
+            .error { color: red; }
+            table { border-collapse: collapse; }
+            th, td { border: 1px solid #ddd; padding: 2px; font-size: 12px; }
+            td input { width: 40px; font-size: 12px; }
+          </style>
+          <script>
+            let project = #{DefaultValues::PROJECT_DEFAULTS.to_json};
 
-            def self.load_data(tag)
-                model = Sketchup.active_model
-                dictionary = model.attribute_dictionaries["EconomicIndicators"]
-                
-                if dictionary && dictionary[tag]
-                    data = JSON.parse(dictionary[tag])
-                    js_command = "updateInputs(#{data.to_json})"
-                    get_dialog.execute_script(js_command)
-            
-                    update_tag_options  # Call after load too if it affects tag list
-                else
-                    UI.messagebox("No data found for tag: #{tag}.")
-                end
-            end
-            
+            function loadProjectData(data) {
+              if (data) {
+                project = JSON.parse(data);
+              }
+              for (let key in project.inputs) {
+                if (document.getElementById(key)) {
+                  document.getElementById(key).value = project.inputs[key];
+                }
+              }
+              
+              populatePaymentTable('land_cost_payment', project.inputs.land_cost_payment);
+              populatePaymentTable('unsaleable_amenity_cost_payment', project.inputs.unsaleable_amenity_cost_payment);
+            }
 
-            def self.get_dialog
-                # Ensure this returns your current dialog instance.
-                # You may need to adjust this part to correctly fetch or store the dialog instance.
-                @@dialog
-            end
+            function populatePaymentTable(tableId, data) {
+              const table = document.getElementById(tableId);
+              table.innerHTML = '';
+              
+              for (let year = 1; year <= 4; year++) {
+                let row = table.insertRow();
+                for (let month = 1; month <= 12; month++) {
+                  let cell = row.insertCell();
+                  let input = document.createElement('input');
+                  input.type = 'number';
+                  input.step = '0.01';
+                  input.min = '0';
+                  input.max = '1';
+                  input.value = data[(year-1)*12 + (month-1)];
+                  input.style.width = '40px';
+                  input.oninput = function() { validatePaymentSum(tableId); };
+                  cell.appendChild(input);
+                }
+              }
+              validatePaymentSum(tableId);
+            }
 
-        end
+            function validatePaymentSum(tableId) {
+              const inputs = document.querySelectorAll(`#${tableId} input`);
+              let sum = Array.from(inputs).reduce((acc, input) => acc + Number(input.value), 0);
+              document.getElementById(`${tableId}_sum`).textContent = sum.toFixed(2);
+              document.getElementById(`${tableId}_error`).style.display = Math.abs(sum - 1) < 0.0001 ? 'none' : 'block';
+            }
+
+            function saveProjectData() {
+              for (let key in project.inputs) {
+                if (document.getElementById(key)) {
+                  project.inputs[key] = parseFloat(document.getElementById(key).value);
+                }
+              }
+
+              project.inputs.land_cost_payment = getPaymentData('land_cost_payment');
+              project.inputs.unsaleable_amenity_cost_payment = getPaymentData('unsaleable_amenity_cost_payment');
+
+              const data = JSON.stringify(project);
+              window.location = 'skp:save_project_data@' + encodeURIComponent(data);
+            }
+
+            function getPaymentData(tableId) {
+              return Array.from(document.querySelectorAll(`#${tableId} input`)).map(input => parseFloat(input.value));
+            }
+
+            window.onload = function() {
+              window.location = 'skp:load_project_data';
+            }
+          </script>
+        </head>
+        <body>
+          <h2>项目基本信息输入 Project General Inputs</h2>
+          <h3>核心信息 Essential Information</h3>
+          <div class="form-group">
+            <label for="site_area">总用地面积 Site Area (平米):</label>
+            <input type="number" id="site_area" min="0" step="1">
+          </div>
+          <div class="form-group">
+            <label for="FAR">容积率 FAR:</label>
+            <input type="number" id="FAR" min="0" step="0.01">
+          </div>
+          <h3>配套有关信息 Amenity Related Info</h3>
+          <div class="form-group">
+            <label for="amenity_GFA_in_FAR">计容配套面积 Amenity GFA in FAR (平米):</label>
+            <input type="number" id="amenity_GFA_in_FAR" min="0" step="1">
+          </div>
+          <div class="form-group">
+            <label for="commercial_percentage_upper_limit">商业比例上限 Commercial Percentage Upper Limit:</label>
+            <input type="number" id="commercial_percentage_upper_limit" min="0" max="1" step="0.01">
+          </div>
+          <div class="form-group">
+            <label for="commercial_percentage_lower_limit">商业比例下限 Commercial Percentage Lower Limit:</label>
+            <input type="number" id="commercial_percentage_lower_limit" min="0" max="1" step="0.01">
+          </div>
+          <h3>成本信息 Cost Information</h3>
+          <div class="form-group">
+            <label for="management_fee">管理费率 Management Fee Rate:</label>
+            <input type="number" id="management_fee" min="0" max="1" step="0.001">
+          </div>
+          <div class="form-group">
+            <label for="sales_fee">销售费率 Sales Fee Rate:</label>
+            <input type="number" id="sales_fee" min="0" max="1" step="0.001">
+          </div>
+          <div class="form-group">
+            <label for="land_cost">土地成本 Land Cost (万元):</label>
+            <input type="number" id="land_cost" min="0" step="1">
+          </div>
+          <div class="form-group">
+            <label for="unsaleable_amenity_cost">不可售配套成本 Unsaleable Amenity Cost (万元):</label>
+            <input type="number" id="unsaleable_amenity_cost" min="0" step="1">
+          </div>
+          <div class="form-group">
+            <label for="product_baseline_unit_cost_before_allocation">产品基准单位成本 Product Baseline Unit Cost (元/平米):</label>
+            <input type="number" id="product_baseline_unit_cost_before_allocation" min="0" step="1">
+          </div>
+          <div class="form-group">
+            <label for="basement_unit_cost_before_allocation">地下室单位成本 Basement Unit Cost (元/平米):</label>
+            <input type="number" id="basement_unit_cost_before_allocation" min="0" step="1">
+          </div>
+          <h3>税费信息 Tax Information</h3>
+          <div class="form-group">
+            <label for="VAT_surchage_rate">增值税附加税率 VAT Surcharge Rate:</label>
+            <input type="number" id="VAT_surchage_rate" min="0" max="1" step="0.0001">
+          </div>
+          <div class="form-group">
+            <label for="corp_pretax_gross_profit_rate_threshould">所得税预征收毛利率 Corp Pretax Gross Profit Rate Threshold:</label>
+            <input type="number" id="corp_pretax_gross_profit_rate_threshould" min="0" max="1" step="0.01">
+          </div>
+          <div class="form-group">
+            <label for="corp_tax_rate">企业所得税率 Corp Tax Rate:</label>
+            <input type="number" id="corp_tax_rate" min="0" max="1" step="0.01">
+          </div>
+          <div class="form-group">
+            <label for="LVIT_provisional_rate">土地增值税预缴税率 LVIT Provisional Rate:</label>
+            <input type="number" id="LVIT_provisional_rate" min="0" max="1" step="0.01">
+          </div>
+
+          <h3>土地成本支付计划（48个月） Land Cost Payment (48 months)</h3>
+          <table id="land_cost_payment"></table>
+          <div>总和 Sum: <span id="land_cost_payment_sum">0</span></div>
+          <div id="land_cost_payment_error" class="error" style="display: none;">总和必须等于1 Sum must equal 1</div>
+      
+          <h3>不可售配套成本支付计划（48个月） Unsaleable Amenity Cost Payment (48 months)</h3>
+          <table id="unsaleable_amenity_cost_payment"></table>
+          <div>总和 Sum: <span id="unsaleable_amenity_cost_payment_sum">0</span></div>
+          <div id="unsaleable_amenity_cost_payment_error" class="error" style="display: none;">总和必须等于1 Sum must equal 1</div>
+      
+          <button onclick="saveProjectData()">保存项目数据 Save Project Data</button>
+        </body>
+        </html>
+      HTML
+
+      dialog.set_html(html_content)
+
+      dialog.add_action_callback("load_project_data") do |action_context|
+        project_data = Real_Estate_Optimizer::DataHandler.load_project_data
+        dialog.execute_script("loadProjectData('#{project_data.to_json.gsub("'", "\\'")}');")
+      end
+
+      dialog.add_action_callback("save_project_data") do |action_context, data_json|
+        Real_Estate_Optimizer::DataHandler.save_project_data(data_json)
+        UI.messagebox("项目数据保存成功！ Project data saved successfully!")
+      end
+
+      dialog.show
     end
+  end
 end
+
+# Call this method to show the dialog when necessary
+# Real_Estate_Optimizer::Input.show_dialog
