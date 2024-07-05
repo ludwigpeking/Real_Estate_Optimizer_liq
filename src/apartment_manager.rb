@@ -221,6 +221,10 @@ module Real_Estate_Optimizer
 
         model.set_attribute('property_data', apartment_type_name, apartment_data.to_json)
         puts "Stored data for #{apartment_type_name}: #{apartment_data.inspect}"  # Debugging line
+
+        # Create or update the apartment component
+        create_apartment_component(apartment_data)
+
         UI.messagebox("属性已保存 Attributes saved: " + apartment_data['apartment_type_name'])
         update_saved_apartment_types(dialog)
       end
@@ -254,6 +258,90 @@ module Real_Estate_Optimizer
 
       dialog.show
     end
+
+    def self.create_apartment_component(apartment_data)
+      model = Sketchup.active_model
+      definitions = model.definitions
+      
+      component_name = apartment_data['apartment_type_name']
+      
+      model.start_operation('Create/Update Apartment Component', true)
+    
+      # Check if a component definition already exists
+      apartment_def = definitions[component_name]
+      if apartment_def
+        # Clear existing geometry if component exists
+        apartment_def.entities.clear!
+      else
+        # Create new component definition if it doesn't exist
+        apartment_def = definitions.add(component_name)
+      end
+    
+      # Create the geometry for the apartment
+      width = apartment_data['width'].to_f.m
+      depth = apartment_data['depth'].to_f.m
+      height = 3.m  # Assuming a standard floor height of 3 meters
+    
+      face = apartment_def.entities.add_face([0, 0, 0], [width, 0, 0], [width, depth, 0], [0, depth, 0])
+      face.pushpull(height)
+    
+      # Add a material to the apartment with the new color logic
+      material = model.materials.add(component_name)
+      hue = (apartment_data['area'].to_f - 50) * 2 % 360
+      rgb = hsl_to_rgb(hue, 100, 50)
+      material.color = Sketchup::Color.new(*rgb)
+      apartment_def.entities.grep(Sketchup::Face).each { |entity| entity.material = material }
+    
+      # Add attributes to the component
+      apartment_def.set_attribute('apartment_data', 'area', apartment_data['area'])
+      apartment_def.set_attribute('apartment_data', 'category', apartment_data['apartment_category'])
+      apartment_def.set_attribute('apartment_data', 'product_baseline_unit_cost', apartment_data['product_baseline_unit_cost_before_allocation'])
+    
+      model.commit_operation
+    
+      # Place the component in the model for inspection
+      place_component_in_model(apartment_def)
+    
+      apartment_def
+    end
+    
+    def self.hsl_to_rgb(h, s, l)
+      h /= 360.0
+      s /= 100.0
+      l /= 100.0
+      
+      c = (1 - (2 * l - 1).abs) * s
+      x = c * (1 - ((h * 6) % 2 - 1).abs)
+      m = l - c / 2
+    
+      r, g, b = case (h * 6).to_i
+                when 0 then [c, x, 0]
+                when 1 then [x, c, 0]
+                when 2 then [0, c, x]
+                when 3 then [0, x, c]
+                when 4 then [x, 0, c]
+                else [c, 0, x]
+                end
+    
+      [(r + m) * 255, (g + m) * 255, (b + m) * 255].map(&:round)
+    end
+
+    def self.place_component_in_model(component_def)
+      model = Sketchup.active_model
+      entities = model.active_entities
+      
+      # Find a clear space to place the component
+      bbox = component_def.bounds
+      max_dimension = [bbox.width, bbox.height, bbox.depth].max
+      placement_point = Geom::Point3d.new(max_dimension, max_dimension, 0)
+      
+      # Add the component to the model
+      instance = entities.add_instance(component_def, placement_point)
+      
+      # Zoom to the newly placed component
+      model.active_view.zoom(instance)
+    end
+    
 
     def self.update_saved_apartment_types(dialog)
       model = Sketchup.active_model
