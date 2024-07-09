@@ -316,4 +316,22 @@ sketchup_model_entities : traverse the model and find all component instances th
 
             
 
+monthlyIncome = function();
+
+stock = [];
+stock[0] = 0;
+
+<!-- apartment types,  -->
+monthlyOutcome
+
+cashflow = []  <!-- Array of 48 month -->
+
+accumulated_cashflow = []
+
+地价分摊简化版，按品类，比如：
+    商业类*3
+    洋房*1.5
+    小高*1
+    持有/3
+跨期公摊，合并给地价
 

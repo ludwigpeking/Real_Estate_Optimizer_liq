@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apartment and Building Types</title>
+</head>
+<body>
+    <h1> 地产量价推演 </h1>
+    <h2> 输入信息表 </h2>
+    <label for="totalConstructionArea"> 总建筑面积 (㎡)（住宅地上计容）totalConstructionArea:</label>
+    <input type="number" id="totalConstructionArea" value="100000" required><br>
+
+    <label for="totalLandArea"> 总用地面积 (㎡) totalLandArea:</label>
+    <input type="number" id="totalLandArea" value=50000 required><br>
+
+    <label for="landUnitCost"> 楼面地价 (元/㎡) landUnitCost:</label>
+    <input type="number" id="landUnitCost" value=3000 required><br>
+
+    <label for="downPaymentRate"> 开工时工程款支付比例 downPaymentRate:</label>
+    <input type="number" id="downPaymentRate" value=0.15 step = 0.01 required><br>
+
+    <label for="period"> 拿地到售完周期 (月)（留余量的估算） Sales period:</label>
+    <input type="number" id="period" value=60 required><br>
+
+    <label for="periodProlong"> 拿地到结算周期 (月)（留余量的估算） periodProlong:</label>
+    <input type="number" id="periodProlong" value=75 required><br>
+
+    <h3>高级选项 Advanced Options </h3>
+    <label for="selectionBar"> 初始选择阈值 selectionBar:</label>
+    <input type="number" id="selectionBar" value=0.3 required><br>
+
+    <label for="startingPoolSize"> 首轮个体数 startingPoolSize：</label>
+    <input type="number" id="startingPoolSize" value=1000 required><br>
+
+    <label for="raiseBarIteration"> 门槛提高轮数 raiseBarIteration： </label>
+    <input type="number" id="raiseBarIteration" value=150 required><br>
+
+    <label for="raiseBarStep"> 门槛提高值 raiseBarStep： </label>
+    <input type="number" id="raiseBarStep" value=0.01 required><br>
+
+    <label for="crossoverIteration"> 每轮杂交轮数 crossoverIteration： </label>
+    <input type="number" id="crossoverIteration" value=400 required><br>
+
+    <label for="mutationIteration"> 每轮突变轮数 mutationIteration： </label>
+    <input type="number" id="mutationIteration" value=1000 required><br>
+
+    <!-- numberOfSolutionKept -->
+    <label for="numberOfSolutionKept"> 保留个体数 numberOfSolutionKept： </label>
+    <input type="number" id="numberOfSolutionKept" value=1000 required><br>
+
+    <h2>户型信息 Apartment Types</h2>
+    <label for="numAptTypes">户型数量 Number of Apartment Types:</label>
+    <input type="number" id="numAptTypes" required><br>
+
+    <div id="aptTypesInputs"></div>
+
+    <h2>楼型信息 Building Types</h2>
+    <label for="numBuildingTypes">楼型数量 Number of Building Types:</label>
+    <input type="number" id="numBuildingTypes" required><br>
+    <div id="buildingTypesInputs"></div>
+
+    <button id="generate">Generate Arrays</button>
+    <pre id="output" style="display:none;"></pre>
+
+    <script>
+        const totalConstructionArea = parseFloat(document.getElementById("totalConstructionArea").value);
+
+
+        const totalLandArea = parseFloat(document.getElementById("totalLandArea").value);
+        const landUnitCost = parseFloat(document.getElementById("landUnitCost").value);
+
+        const downPaymentRate = parseFloat(document.getElementById("downPaymentRate").value);
+        const periodProlong  = parseInt(document.getElementById("periodProlong").value);
+        const period = parseInt(document.getElementById("period").value);
+
+        const selectionBar = parseFloat(document.getElementById("selectionBar").value);
+        const startingPoolSize = parseInt(document.getElementById("startingPoolSize").value);
+        const raiseBarIteration = parseInt(document.getElementById("raiseBarIteration").value);
+        const raiseBarStep = parseFloat(document.getElementById("raiseBarStep").value);
+        const crossoverIteration = parseInt(document.getElementById("crossoverIteration").value);
+        const mutationIteration = parseInt(document.getElementById("mutationIteration").value);
+        const numberOfSolutionKept = parseInt(document.getElementById("numberOfSolutionKept").value);
+        
+        //doms
+        const numAptTypes = document.getElementById("numAptTypes");
+        const aptTypesInputs = document.getElementById("aptTypesInputs");
+        const numBuildingTypes = document.getElementById("numBuildingTypes");
+        const buildingTypesInputs = document.getElementById("buildingTypesInputs");
+        const generate = document.getElementById("generate");
+        const output = document.getElementById("output");
+        let maxBuilding;
+
+        const landPrice = totalConstructionArea * landUnitCost;
+      
+        let aptTypes = [];
+        let buildingTypes = [];
+        
+
+        numAptTypes.addEventListener("input", () => {
+            aptTypesInputs.innerHTML = "";
+            const n = parseInt(numAptTypes.value);
+
+            for (let i = 0; i < n; i++) {
+                aptTypesInputs.innerHTML += `
+                <div>
+                    <h3> 户型 Apartment Type ${i + 1}</h3>
+                    <label for="area_${i}" >户型面积 Area:</label>
+                    <input type="number" id="area_${i}" value=100  required><br>
+                    
+                    <label for="constructionUnitCost_${i}">地价外单方成本 Construction Unit Cost:</label>
+                    <input type="number" id="constructionUnitCost_${i}" value=5000 required><br>
+                    
+                    <label for="lowPrice_${i}">低价走量价格 Low Price:</label>
+                    <input type="number" id="lowPrice_${i}" value=9000 required><br>
+                    
+                    <label for="lowPace_${i}">低价走量价格下月速度 Low Pace:</label>
+                    <input type="number" id="lowPace_${i}" value=50 required><br>
+                    
+                    <label for="highPrice_${i}">利润导向的价格 High Price:</label>
+                    <input type="number" id="highPrice_${i}" value=10000 required><br>
+                    
+                    <label for="highPace_${i}">利润导向的价格下月流速 High Pace:</label>
+                    <input type="number" id="highPace_${i}" value=15 required><br>
+                </div>
+                `;
+            }
+        });
+
+        numBuildingTypes.addEventListener("input", () => {
+            buildingTypesInputs.innerHTML = "";
+            const n = parseInt(numBuildingTypes.value);
+            const aptCount = parseInt(numAptTypes.value);
+
+            for (let i = 0; i < n; i++) {
+                buildingTypesInputs.innerHTML += `
+                <div>
+                    <h3> 楼型 Building Type ${i + 1}</h3>
+                `;
+                
+                for (let j = 0; j < aptCount; j++) {
+                    buildingTypesInputs.innerHTML += `
+                    <label for="buildingType_${i}_apt_${j}"> ${
+                        window['area_' + j].value} ㎡ 户型数量 Number of Apartment Type:</label>
+                    <input type="number" id="buildingType_${i}_apt_${j}" required><br>
+                    `;
+                }
+                buildingTypesInputs.innerHTML += `</div>`;
+            }
+        });
+
+        generate.addEventListener("click", () => {
+            const n = parseInt(numAptTypes.value);
+            const m = parseInt(numBuildingTypes.value);
+
+            aptTypes = [];
+            for (let i = 0; i < n; i++) {
+                aptTypes.push({
+                    area: parseFloat(document.getElementById(`area_${i}`).value),
+                    constructionUnitCost: parseFloat(document.getElementById(`constructionUnitCost_${i}`).value),
+                    lowPrice: parseFloat(document.getElementById(`lowPrice_${i}`).value),
+                    lowPace: parseFloat(document.getElementById(`lowPace_${i}`).value),
+                    highPrice: parseFloat(document.getElementById(`highPrice_${i}`).value),
+                    highPace: parseFloat(document.getElementById(`highPace_${i}`).value)
+                });
+            }
+
+            buildingTypes = [];
+            for (let i = 0; i < m; i++) {
+                const buildingType = [];
+                for (let j = 0; j < n; j++) {
+                    buildingType.push(parseInt(document.getElementById(`buildingType_${i}_apt_${j}`).value));
+                }
+                buildingTypes.push(buildingType);
+            }
+            let numberOfBuildingType = buildingTypes.length;
+
+            output.style.display = "block";
+            output.textContent = `const aptTypes = ${JSON.stringify(aptTypes, null, 2)};\n\nconst buildingTypes = ${JSON.stringify(buildingTypes, null, 2)};`;
+
+            //calculate building type total area
+        let buildingMinArea = 999999;
+        for (let i =0; i < buildingTypes.length; i++){
+            let buildingArea = 0;
+            for (let j = 0; j < buildingTypes[i].length; j++){
+                buildingArea += buildingTypes[i][j] * aptTypes[j].area;
+            }
+            if (buildingArea < buildingMinArea){
+                buildingMinArea = buildingArea;
+            }
+        }
+        maxBuilding = Math.floor(totalConstructionArea / buildingMinArea + 0.999);
+        process();
+
+        });
+        function process(){
+            console.log('starting');
+            for(let i = 0; i < startingPoolSize; i++){
+            generateRandomSolution();
+            }
+            //from solutions, choose random parents
+  
+            for(let i = 0; i < raiseBarIteration; i++){
+                for(let j = 0; j < crossoverIteration; j++){
+                    let crossovered = crossover(solutions[Math.floor(Math.random() * solutions.length)], solutions[Math.floor(Math.random() * solutions.length)]);
+                    calculateFitness(crossovered);
+                }
+                //perform mutation
+                for(let k = 0; k < mutationIteration; k++){
+                let mutatedSolution = mutate(solutions[Math.floor(Math.random() * solutions.length)].slice());
+                calculateFitness(mutatedSolution);
+    
+                // solutions.push()
+                }
+                selectionBar += raiseBarStep
+                for (let solutionC of solutions){
+                    calculateFitness(solutionC);
+                }
+                console.log(solutions.length);
+                if (solutions.length < numberOfSolutionKept) {
+                    for (let j = 0; j < solutions.length; j++){
+                        console.log(solutions[j]);
+                    }
+                }
+            }
+        }
+  
+        function mutate(solutionX) {
+            console.log('mutating');
+            let randomIndex = Math.floor(Math.random() * maxBuilding) * 2;
+            let randomIndex2 = Math.floor(Math.random() * aptTypes.length * 2);
+            solutionX[0][randomIndex] = (solutionX[0][randomIndex] + 1) % buildingTypes.length;
+            solutionX[1][randomIndex2] = (solutionX[1][randomIndex2] + 1) % periodProlong;
+            return solutionX;
+        }
+
+        
+        function crossover(parent1, parent2) {
+            console.log('crossing');
+            const crossoverPoint0 = Math.floor(Math.random() * parent1[0].length);
+            const crossoverPoint1 = Math.floor(Math.random() * parent1[1].length);
+            const offspring = [parent1[0].slice(0, crossoverPoint0).concat(parent2[0].slice(crossoverPoint0)),parent1[1].slice(0, crossoverPoint1).concat(parent2[1].slice(crossoverPoint1))]
+            return offspring;
+            }
+            
+        function generateRandomSolution()
+        {
+            //initial building event, type and month 
+            let solution = [[],[],0,0];
+            for(let i = 0; i < maxBuilding; i++)
+            {
+                solution[0].push( Math.floor(Math.random() * numberOfBuildingType), Math.floor(Math.random() * period))
+            }
+            //price rasing event
+            for(let i = 0; i < aptTypes.length; i++) 
+            {
+                solution[1].push(Math.floor(Math.random() * periodProlong))
+            }
+            // console.log(solution);
+            calculateFitness(solution);
+        }
+            
+        function calculateFitness(solution) {
+            // Calculate the fitness of the given solution (IRR)
+            // add stock
+            let sheet = new Sheet();
+            
+            //pay land price
+            sheet.expenses[0] += landPrice;
+            let accumulatedArea = 0;
+            let areaLeft = totalConstructionArea;
+            
+            // 
+            for (let i = 0; i < maxBuilding; i++)
+            {
+                    let buildingType = solution[0][i*2];
+                    let startMonth = solution[0][i*2+1];
+                    // add buildings
+                    sheet.buildingTypes[buildingType][startMonth] +=  1;
+                
+                    // add area and test if there is area left
+                    //building area
+                    let buildingArea = 0;
+                    let buildingCost = 0;
+
+                    for (let j = 0; j < aptTypes.length; j++) {
+                    buildingArea += buildingTypes[buildingType][j] * aptTypes[j].area;
+                    buildingCost += buildingTypes[buildingType][j] * aptTypes[j].area * aptTypes[j].constructionUnitCost;
+                    }
+
+                    areaLeft = totalConstructionArea - accumulatedArea;
+                    if (buildingArea < areaLeft) {
+                    accumulatedArea += buildingArea;
+
+                    // add apartments
+                    for (let j = 0; j < aptTypes.length; j++) {
+                        sheet.apartmentData[j].stock[startMonth] += buildingTypes[buildingType][j];
+                    }
+
+                    // add cost
+                    let expense = 0;
+                    sheet.expenses[startMonth] += buildingCost * downPaymentRate;
+                    expense += buildingCost * downPaymentRate;
+                    let monthNumber = startMonth;
+                    while (expense < buildingCost) {
+                        monthNumber += 1;
+                        sheet.expenses[monthNumber] += Math.min(buildingCost * 0.03, buildingCost - expense);
+                        expense += Math.min(buildingCost * 0.03, buildingCost - expense);
+                    }
+        
+                } else { 
+                    // if not enough for a whole building, it will reduce to a rate
+                        let rate = areaLeft / buildingArea;
+
+                        // Update building area and building cost according to the rate
+                        buildingArea *= rate;
+                        buildingCost *= rate;
+                        
+                        // add apartments with rate
+                        for (let j = 0; j < aptTypes.length; j++) {
+                            sheet.apartmentData[j].stock[startMonth] += Math.floor(buildingTypes[buildingType][j] * rate);
+                        }     
+                }
+                // update price and sales cap
+            for (let j = 0; j < aptTypes.length; j++) {
+                sheet.apartmentData[j].price.fill(aptTypes[j].highPrice, solution[1][j]);
+                sheet.apartmentData[j].salesCap.fill(aptTypes[j].highPace, solution[1][j]);
+            }
+            }
+        
+            // month by month stock and sales changes
+            for (let j = 0; j < periodProlong; j++) {
+            for (let i = 0; i < aptTypes.length; i++) {
+                let aptData = sheet.apartmentData[i];
+        
+                aptData.stock[j + 1] = aptData.stock[j] - aptData.sales[j];
+                aptData.sales[j] = Math.min(aptData.salesCap[j], aptData.stock[j]);
+                sheet.revenues[j] += aptData.price[j] * aptData.sales[j] * aptTypes[i].area;
+                sheet.totalSales[j] += aptData.sales[j];
+            }       
+                    
+            //cashFlow
+            sheet.cashFlows[j] = sheet.revenues[j] - sheet.expenses[j];
+
+            sheet.accumulatedCashFlow[j] = (sheet.accumulatedCashFlow[j - 1]) + sheet.cashFlows[j] || sheet.cashFlows[j];
+            if (j > 0) {
+            sheet.accumulatedSale[j] = sheet.accumulatedSale[j - 1] + sheet.totalSales[j];
+            } else {
+            sheet.accumulatedSale[j] = sheet.totalSales[j];
+            }
+        }
+
+        //calculate GPR and IRR
+        let grossProfitRate = GrossProfitRate(sheet.revenues, sheet.expenses);
+        solution[2] = grossProfitRate;
+        let monthlyIRR = IRR(sheet.cashFlows);
+        let yearlyIRR = convertMonthlyToYearlyIRR(monthlyIRR);
+        solution[3] = yearlyIRR;
+
+        if (grossProfitRate + yearlyIRR > selectionBar && grossProfitRate > 0.12 + selectionBar / 30) {
+            if (!solutions.includes(solution)) {
+            solutions.push(solution);
+            console.log('Bar: ', selectionBar, 'Length: ', solutions.length, grossProfitRate, yearlyIRR, grossProfitRate + yearlyIRR, solution, sheet);
+            }
+        } else {
+            removeElementFromArray(solutions, solution);
+        }
+        }
+
+        function IRR(cashFlows, guess = 0.02) {
+            const maxIterations = 400;
+            const tolerance = 1e-4;
+            
+            function NPV(rate) {
+                let npv = 0;
+                for (let i = 0; i < cashFlows.length; i++) {
+                npv += cashFlows[i] / Math.pow(1 + rate, i);
+                }
+                return npv;
+            }
+            
+            let rate = guess;
+            for (let i = 0; i < maxIterations; i++) {
+                const npv = NPV(rate);
+                if (Math.abs(npv) < tolerance) {
+                return rate;
+                }
+            
+                const npvNext = NPV(rate + tolerance);
+                rate = rate - npv / (npvNext - npv) * tolerance;
+            }
+        }
+            
+        function GrossProfitRate(revenues, expenses) {
+            const totalRevenue = revenues.reduce((total, current) => total + current, 0);
+            const totalExpenses = expenses.reduce((total, current) => total + current, 0);
+            
+            return (totalRevenue - totalExpenses) / totalRevenue;
+        }
+            
+        function convertMonthlyToYearlyIRR(monthlyIRR) {
+            const yearlyIRR = Math.pow(1 + monthlyIRR, 12) - 1;
+            return yearlyIRR;
+        }
+        
+        function removeElementFromArray(array, element) {
+            const index = array.indexOf(element);
+            
+            if (index !== -1) {
+                array.splice(index, 1);
+            }
+        }
+    </script>
+    <script  src="./classes2.js"></script>
+</body>
+</html>
+

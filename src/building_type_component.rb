@@ -3,12 +3,14 @@ require 'sketchup.rb'
 
 module Real_Estate_Optimizer
     module BuildingTypeComponent
+      APARTMENT_TYPE_LIST_KEY = 'apartment_type_names'
+
       def self.create_or_update_component(building_type)
         model = Sketchup.active_model
         definitions = model.definitions
         
         model.start_operation('Create/Update Building Type Component', true)
-  
+
         component_name = building_type['name']
         
         # Check if a component definition already exists
@@ -20,17 +22,58 @@ module Real_Estate_Optimizer
           # Create a new component definition if it doesn't exist
           building_def = definitions.add(component_name)
         end
-  
+
         # Create the geometry for the building type
         create_building_geometry(building_def, building_type)
+
+        # Pre-calculate apartment stocks and total cost
+        apartment_stocks = {}
+        total_cost = 0
+        total_area = 0
+
+        building_type['floorTypes'].each do |floor_type|
+          num_floors = floor_type['number'].to_i
+          
+          floor_type['apartmentTypes'].each do |apartment|
+            apt_name = apartment['name']
+            
+            # Fetch apartment type data
+            apt_data = get_apartment_type_data(model, apt_name)
+            
+            apartment_stocks[apt_name] ||= 0
+            apartment_stocks[apt_name] += num_floors  # Each apartment type appears once per floor
+            
+            apt_area = apt_data['area'].to_f
+            apt_cost = apt_data['product_baseline_unit_cost_before_allocation'].to_f
+            
+            # Calculate cost and area for this apartment type
+            apt_total_cost = num_floors * apt_area * apt_cost
+            apt_total_area = num_floors * apt_area
+            
+            total_cost += apt_total_cost
+            total_area += apt_total_area
+          end
+        end
+
+        # Save data to the component definition
+        building_def.set_attribute('building_data', 'apartment_stocks', apartment_stocks)
+        building_def.set_attribute('building_data', 'total_cost', total_cost)
+        building_def.set_attribute('building_data', 'total_area', total_area)
+
+        # Log the calculated values for inspection
+        puts "Building Type: #{component_name}"
+        puts "Apartment Stocks: #{apartment_stocks}"
+        puts "Total Cost: #{total_cost}"
+        puts "Total Area: #{total_area}"
+
         model.commit_operation
-  
+
         # Place the component in the model for inspection
         instance = place_component_in_model(building_def)
-  
+
         # Add dynamic component attributes
         add_dynamic_attributes(instance, building_type)
-  
+
         building_def
       end
   
@@ -62,6 +105,21 @@ module Real_Estate_Optimizer
         # Create a new instance of the apartment and add it to the building
         transform = Geom::Transformation.new([x_offset.m, y_offset.m, z_offset.m])
         building_def.entities.add_instance(apartment_def, transform)
+      end
+
+      def self.get_apartment_type_data(model, apt_name)
+        apartment_data = JSON.parse(model.get_attribute('property_data', apt_name) || '{}')
+        
+        if apartment_data.empty?
+          puts "Warning: No data found for apartment type '#{apt_name}'"
+          return {}
+        end
+      
+        {
+          'area' => apartment_data['area'],
+          'category' => apartment_data['apartment_category'],
+          'product_baseline_unit_cost_before_allocation' => apartment_data['product_baseline_unit_cost_before_allocation']
+        }
       end
   
       def self.create_apartment_material(name, area)
