@@ -5,6 +5,7 @@ require_relative 'basement_pick'
 require_relative 'propertyline_pick'
 require_relative 'insert_building'
 require_relative 'output'
+require_relative 'building_attribute_editor'
 
 
 module Real_Estate_Optimizer
@@ -75,6 +76,15 @@ module Real_Estate_Optimizer
       cmd_insert_building.tooltip = "Insert Building"
       cmd_insert_building.status_bar_text = "Insert Building"
       toolbar.add_item(cmd_insert_building)
+
+      cmd_edit_building_attributes = UI::Command.new("Edit Building Attributes") {
+        BuildingAttributeEditor.show_dialog
+      }
+      cmd_edit_building_attributes.small_icon = "../icons/building_attribute_editor.png"
+      cmd_edit_building_attributes.large_icon = "../icons/building_attribute_editor.png"
+      cmd_edit_building_attributes.tooltip = "Edit Building Attributes"
+      cmd_edit_building_attributes.status_bar_text = "Edit attributes of selected building components"
+      toolbar.add_item(cmd_edit_building_attributes)
 
       cmd_output = UI::Command.new("Output") {
         Output.output

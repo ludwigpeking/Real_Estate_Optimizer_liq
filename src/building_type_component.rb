@@ -1,3 +1,4 @@
+require 'sketchup.rb'
 # building_type_component.rb
 
 module Real_Estate_Optimizer
@@ -6,7 +7,6 @@ module Real_Estate_Optimizer
         model = Sketchup.active_model
         definitions = model.definitions
         
-        # Start the SketchUp operation
         model.start_operation('Create/Update Building Type Component', true)
   
         component_name = building_type['name']
@@ -14,23 +14,22 @@ module Real_Estate_Optimizer
         # Check if a component definition already exists
         building_def = definitions[component_name]
         if building_def
-          # Clear existing geometry if component exists
+          # Clear existing geometry if the component exists
           building_def.entities.clear!
         else
-          # Create new component definition if it doesn't exist
+          # Create a new component definition if it doesn't exist
           building_def = definitions.add(component_name)
         end
   
         # Create the geometry for the building type
         create_building_geometry(building_def, building_type)
-  
-        # Add dynamic component attributes
-        add_dynamic_attributes(building_def, building_type)
+        model.commit_operation
   
         # Place the component in the model for inspection
-        place_component_in_model(building_def)
+        instance = place_component_in_model(building_def)
   
-        model.commit_operation
+        # Add dynamic component attributes
+        add_dynamic_attributes(instance, building_type)
   
         building_def
       end
@@ -72,15 +71,13 @@ module Real_Estate_Optimizer
         material
       end
   
-      def self.add_dynamic_attributes(building_def, building_type)
-        # Use the 'set_attribute' method instead of 'add_attribute'
-        building_def.set_attribute('dynamic_attributes', 'x_coordinate', 0.0)
-        building_def.set_attribute('dynamic_attributes', 'y_coordinate', 0.0)
-        building_def.set_attribute('dynamic_attributes', 'z_coordinate', 0.0)
-        building_def.set_attribute('dynamic_attributes', 'construction_init_time', 0)
-        building_def.set_attribute('dynamic_attributes', 'sales_permit_time', building_type['standardConstructionTime']['monthsFromConstructionInitToSale'])
+      def self.add_dynamic_attributes(instance, building_type)
+        # Set dynamic attributes on the component instance
+        instance.set_attribute('dynamic_attributes', 'construction_init_time', 0)
+        sales_permit_time = building_type['standardConstructionTime']['monthsFromConstructionInitToSale'].to_i
+        instance.set_attribute('dynamic_attributes', 'sales_permit_time', sales_permit_time)
       end
-  
+      
       def self.place_component_in_model(building_def)
         model = Sketchup.active_model
         entities = model.active_entities
@@ -95,6 +92,7 @@ module Real_Estate_Optimizer
         
         # Zoom to the newly placed component
         model.active_view.zoom(instance)
+        instance # Return the instance for further manipulation
       end
   
       def self.hsl_to_rgb(h, s, l)

@@ -282,8 +282,8 @@ module Real_Estate_Optimizer
       depth = apartment_data['depth'].to_f.m
       height = 3.m  # Assuming a standard floor height of 3 meters
     
-      face = apartment_def.entities.add_face([0, 0, 0], [width, 0, 0], [width, depth, 0], [0, depth, 0])
-      face.pushpull(height)
+      face = apartment_def.entities.add_face([0, 0, 0], [0, depth, 0],[width, depth, 0],[width, 0, 0] )
+      face.pushpull(-height)
     
       # Add a material to the apartment with the new color logic
       material = model.materials.add(component_name)
