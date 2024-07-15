@@ -26,6 +26,11 @@ module Real_Estate_Optimizer
         Sketchup.active_model.selection.remove_observer(selection_observer)
       }
       
+      # Add this new callback
+      dialog.add_action_callback("initialize_dialog") { |action_context|
+        update_dialog_with_selection(Sketchup.active_model.selection, dialog)
+      }
+      
       dialog.show
     end
 
@@ -70,6 +75,9 @@ module Real_Estate_Optimizer
               console.log('Setting attributes:', attributes); // Debug log
               document.getElementById('construction_init_time').value = attributes.construction_init_time !== null ? attributes.construction_init_time : '';
               document.getElementById('sales_permit_time').value = attributes.sales_permit_time !== null ? attributes.sales_permit_time : '';
+          }
+          window.onload = function() {
+              sketchup.initialize_dialog();
           }
           </script>
         </body>

@@ -275,20 +275,35 @@ module Real_Estate_Optimizer
                 }
 
                 function createScheduleTables() {
-                    const supervisionTable = document.getElementById('supervisionFundReleaseSchedule');
-                    const constructionTable = document.getElementById('constructionPaymentSchedule');
+                  const supervisionTable = document.getElementById('supervisionFundReleaseSchedule');
+                  const constructionTable = document.getElementById('constructionPaymentSchedule');
+                  const defaultSupervisionSchedule = #{Real_Estate_Optimizer::DefaultValues::PROJECT_DEFAULTS[:inputs][:supervision_fund_release_schedule].to_json};
+                  const defaultConstructionSchedule = #{Real_Estate_Optimizer::DefaultValues::PROJECT_DEFAULTS[:inputs][:construction_payment_schedule].to_json};
+                  
+                  [
+                    { table: supervisionTable, defaultSchedule: defaultSupervisionSchedule, id: 'supervisionFundReleaseSchedule' },
+                    { table: constructionTable, defaultSchedule: defaultConstructionSchedule, id: 'constructionPaymentSchedule' }
+                  ].forEach(({ table, defaultSchedule, id }) => {
+                    table.innerHTML = '';
                     
-                    for (let i = 0; i < 3; i++) {
-                        let supervisionRow = supervisionTable.insertRow();
-                        let constructionRow = constructionTable.insertRow();
-                        for (let j = 0; j < 12; j++) {
-                            let index = i * 12 + j;
-                            let supervisionCell = supervisionRow.insertCell();
-                            let constructionCell = constructionRow.insertCell();
-                            supervisionCell.innerHTML = `<input type="number" id="supervisionFundReleaseSchedule${index}" value="0" step="0.01">`;
-                            constructionCell.innerHTML = `<input type="number" id="constructionPaymentSchedule${index}" value="0" step="0.01">`;
-                        }
+                    for (let i = 0; i < 4; i++) {
+                      let row = table.insertRow();
+                      for (let j = 0; j < 12; j++) {
+                        let index = i * 12 + j;
+                        let cell = row.insertCell();
+                        let input = document.createElement('input');
+                        input.type = 'number';
+                        input.step = '0.01';
+                        input.min = '0';
+                        input.max = '1';
+                        input.value = defaultSchedule[index];
+                        input.style.width = '40px';
+                        input.oninput = function() { validatePaymentSum(id); };
+                        cell.appendChild(input);
+                      }
                     }
+                    validatePaymentSum(id);
+                  });
                 }
             </script>
             </head>
@@ -309,7 +324,7 @@ module Real_Estate_Optimizer
                 <label>开工到取销售证月数 Months From Construction Init To Sale:</label>
                 <input type="number" id="monthsFromConstructionInitToSale" value="2"><br>
                 <label>资金监管比例 Supervision Fund Percentage:</label>
-                <input type="number" id="supervisionFundPercentage" value="60"><br>
+                <input type="number" id="supervisionFundPercentage" value="1"><br>
             </div>
         
             <div class="form-section">
@@ -359,6 +374,10 @@ module Real_Estate_Optimizer
             project_data = project_data ? JSON.parse(project_data) : {}
             project_data['building_types'] ||= []
             project_data['building_types'].delete_if { |bt| bt['name'] == form_data['name'] }
+        
+            form_data['supervisionFundReleaseSchedule'] = form_data['supervisionFundReleaseSchedule'].is_a?(String) ? JSON.parse(form_data['supervisionFundReleaseSchedule']) : form_data['supervisionFundReleaseSchedule']
+            form_data['constructionPaymentSchedule'] = form_data['constructionPaymentSchedule'].is_a?(String) ? JSON.parse(form_data['constructionPaymentSchedule']) : form_data['constructionPaymentSchedule']
+            
             project_data['building_types'] << form_data
             model.set_attribute('project_data', 'data', project_data.to_json)
             
@@ -465,8 +484,8 @@ module Real_Estate_Optimizer
         # Populate payment schedules
         js_code_lines << "console.log('Loading Supervision Fund Release Schedule:', #{building_data['supervisionFundReleaseSchedule'].to_json});"
         js_code_lines << "console.log('Loading Construction Payment Schedule:', #{building_data['constructionPaymentSchedule'].to_json});"
-        js_code_lines << "populatePaymentTable('supervisionFundReleaseSchedule', #{building_data['supervisionFundReleaseSchedule'].to_json});"
-        js_code_lines << "populatePaymentTable('constructionPaymentSchedule', #{building_data['constructionPaymentSchedule'].to_json});"
+        js_code_lines << "populatePaymentTable('supervisionFundReleaseSchedule', #{(building_data['supervisionFundReleaseSchedule'] || Real_Estate_Optimizer::DefaultValues::PROJECT_DEFAULTS[:inputs][:supervision_fund_release_schedule]).to_json});"
+        js_code_lines << "populatePaymentTable('constructionPaymentSchedule', #{(building_data['constructionPaymentSchedule'] || Real_Estate_Optimizer::DefaultValues::PROJECT_DEFAULTS[:inputs][:construction_payment_schedule]).to_json});"
       
         # Validate payment sums after populating
         js_code_lines << "validatePaymentSum('supervisionFundReleaseSchedule');"

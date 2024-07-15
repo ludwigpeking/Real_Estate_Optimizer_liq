@@ -18,7 +18,20 @@ module Real_Estate_Optimizer
           VAT_surchage_rate: 0.0025,
           corp_pretax_gross_profit_rate_threshould: 0.15,
           corp_tax_rate: 0.25,
-          LVIT_provisional_rate: 0.02
+          LVIT_provisional_rate: 0.02,
+          supervision_fund_release_schedule: [
+          0, 0, 0.3, 0, 0, 0, 0.4, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0.25, 0, 0, 0, 0, 0,
+          0.05, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+          0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+          ],
+          
+          construction_payment_schedule: [
+            0.1, 0, 0.2, 0, 0, 0, 0.2, 0, 0, 0, 0, 0,
+            0.1, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0,
+            0.1, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0,
+            0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
+          ],
         }
       }
   
