@@ -410,18 +410,45 @@ module Real_Estate_Optimizer
   
         dialog.add_action_callback("load_building_type") do |action_context, name|
           model = Sketchup.active_model
-          project_data = model.get_attribute('project_data', 'data')
-          if project_data
-            project_data = JSON.parse(project_data)
-            building_data = project_data['building_types'].find { |bt| bt['name'] == name }
-            if building_data
-              load_building_data(dialog, building_data)
-            else
-              UI.messagebox("Building type data not found.")
-            end
-          else
+          project_data_json = model.get_attribute('project_data', 'data')
+          
+          puts "Project data JSON: #{project_data_json}"
+          
+          if project_data_json.nil? || project_data_json.empty?
+            puts "Warning: No project data found"
             UI.messagebox("No project data found.")
+            return
           end
+          
+          begin
+            project_data = JSON.parse(project_data_json)
+          rescue JSON::ParserError => e
+            puts "Error parsing project data JSON: #{e.message}"
+            UI.messagebox("Error parsing project data.")
+            return
+          end
+          
+          if project_data['building_types'].nil?
+            puts "Warning: No building types found in project data"
+            UI.messagebox("No building types found in project data.")
+            return
+          end
+          
+          building_type = nil
+          project_data['building_types'].each do |bt|
+            if bt['name'] == name
+              building_type = bt
+              break
+            end
+          end
+          
+          if building_type.nil?
+            puts "Warning: Building type '#{name}' not found"
+            UI.messagebox("Building type '#{name}' not found.")
+            return
+          end
+          
+          load_building_data(dialog, building_type)
         end
   
         dialog.add_action_callback("delete_building_type") do |action_context, name|

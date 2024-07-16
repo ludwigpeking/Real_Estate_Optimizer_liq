@@ -5,6 +5,36 @@ module Real_Estate_Optimizer
     module BuildingTypeComponent
       APARTMENT_TYPE_LIST_KEY = 'apartment_type_names'
 
+      def self.print_all_apartment_types
+        model = Sketchup.active_model
+        apartment_type_names = model.get_attribute('property_data', APARTMENT_TYPE_LIST_KEY, [])
+        
+        puts "All Apartment Types in the Project:"
+        if apartment_type_names.empty?
+          puts "  No apartment types found."
+        else
+          apartment_type_names.each_with_index do |name, index|
+            puts "  #{index + 1}. #{name}"
+            
+            # Retrieve and print detailed data for each apartment type
+            apartment_data = JSON.parse(model.get_attribute('property_data', name, '{}'))
+            puts "     Area: #{apartment_data['area']} sq.m"
+            puts "     Category: #{apartment_data['apartment_category']}"
+            puts "     Baseline Cost: #{apartment_data['product_baseline_unit_cost_before_allocation']} per sq.m"
+            
+            # Print sales scenes if available
+            if apartment_data['sales_scenes'] && !apartment_data['sales_scenes'].empty?
+              puts "     Sales Scenes:"
+              apartment_data['sales_scenes'].each_with_index do |scene, scene_index|
+                puts "       Scene #{scene_index + 1}: Price: #{scene['price']}, Volume: #{scene['volumn']}"
+              end
+            end
+            
+            puts "" # Empty line for readability
+          end
+        end
+      end
+
       def self.create_or_update_component(building_type)
         model = Sketchup.active_model
         definitions = model.definitions
@@ -56,9 +86,12 @@ module Real_Estate_Optimizer
         end
 
         # Save data to the component definition
-        building_def.set_attribute('building_data', 'apartment_stocks', apartment_stocks)
+        apartment_stocks_json = apartment_stocks.to_json
+        building_def.set_attribute('building_data', 'apartment_stocks', apartment_stocks_json)
+        puts "Debug: apartment_stocks saved as: #{apartment_stocks_json}"
         building_def.set_attribute('building_data', 'total_cost', total_cost)
         building_def.set_attribute('building_data', 'total_area', total_area)
+
 
         # Log the calculated values for inspection
         puts "Building Type: #{component_name}"

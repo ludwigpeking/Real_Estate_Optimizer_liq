@@ -335,3 +335,12 @@ accumulated_cashflow = []
     持有/3
 跨期公摊，合并给地价
 
+traverse the model, find all instances of the building types, check when the apartments each contains are added to the stock. n = Construction Init Time + Sales Permit Time. at month[n], all the apartment stocks are added to the current stock, the apartment stocks should be counted type by type. 
+
+the apartment stock should be an array of 48 month, it has actually three values for each type of apartment: one, the reminding stock from the last month, for month[0], it starts with 0. two, its stock added this month, if there's a building acquires sales permit this month ( n = Construction Init Time + Sales Permit Time), and remember, each type of apartment has one or more sales scene. the current apartment stock are sold to the customer at the speed of the first scene. you can sell more than you have in the stock. so the actual sales is no greater than the current stock. we sell the apartments, which reduces the current stock and create a positive cash flow inward, at the unit prices * area of each apartment type.
+
+each_apartment_type_stock
+
+income_each_period = 
+
+I have a few apartment types, show me a code to calculate the stock added and sold for each period. you take consideration of when the building instance inits construction, when it gets selling permit (added to sellable stock). and at what velocity is the stock sold (per sales scene). give me a way to calculate this, as a part of the cashflow code. the sales income should be the number_of_unit_of_the_apartment * area_per_apartment  apartment_unit_price ** velocity_of_selling, which is an income cashflow

@@ -87,7 +87,7 @@ module Real_Estate_Optimizer
       toolbar.add_item(cmd_edit_building_attributes)
 
       cmd_output = UI::Command.new("Output") {
-        Output.output
+        Output.show_dialog
       }
       cmd_output.small_icon = "../icons/output.png"
       cmd_output.large_icon = "../icons/output.png"

@@ -1,7 +1,3 @@
-require 'json'
-require 'sketchup'
-require_relative 'default_values'
-
 module Real_Estate_Optimizer
   module DataHandler
     def self.save_project_data(data_json)
@@ -16,8 +12,15 @@ module Real_Estate_Optimizer
       if data_json.nil?
         DefaultValues::PROJECT_DEFAULTS
       else
-        JSON.parse(data_json, symbolize_names: true)
+        stored_data = JSON.parse(data_json, symbolize_names: true)
+        merge_with_defaults(stored_data, DefaultValues::PROJECT_DEFAULTS)
       end
+    end
+
+    def self.merge_with_defaults(stored_data, default_data)
+      stored_data[:inputs] ||= {}
+      default_data[:inputs].merge!(stored_data[:inputs])
+      default_data
     end
   end
 end

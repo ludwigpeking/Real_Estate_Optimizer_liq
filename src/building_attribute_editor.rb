@@ -48,15 +48,14 @@ module Real_Estate_Optimizer
         </head>
         <body>
           <div class="attribute">
-          <label for="construction_init_time">第几月开工 Construction Init Time (months):</label>
-          <input type="number" id="construction_init_time">
+            <label for="construction_init_time">第几月开工 Construction Init Time (months):</label>
+            <input type="number" id="construction_init_time" onchange="updateAttributes()">
           </div>
           <div class="attribute">
-          <label for="sales_permit_time">开工后第几月取预售证 Sales Permit Time (months):</label>
-          <input type="number" id="sales_permit_time">
+            <label for="sales_permit_time">开工后第几月取预售证 Sales Permit Time (months):</label>
+            <input type="number" id="sales_permit_time" onchange="updateAttributes()">
           </div>
-          <button onclick="updateAttributes()">Update</button>
-          
+        
           <script>
           function updateAttributes() {
               var constructionInitTime = document.getElementById('construction_init_time').value;
@@ -82,6 +81,7 @@ module Real_Estate_Optimizer
           </script>
         </body>
         </html>
+      
       HTML
     end
 
