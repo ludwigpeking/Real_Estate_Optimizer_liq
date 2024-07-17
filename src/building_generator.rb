@@ -443,8 +443,8 @@ module Real_Estate_Optimizer
           end
           
           if building_type.nil?
-            puts "Warning: Building type '#{name}' not found"
-            UI.messagebox("Building type '#{name}' not found.")
+            puts "Warning: Building type '#{name}' not found in project data"
+            UI.messagebox("Building type '#{name}' not found in project data.")
             return
           end
           
@@ -475,6 +475,7 @@ module Real_Estate_Optimizer
       def self.update_saved_building_types(dialog)
         model = Sketchup.active_model
         building_type_names = model.get_attribute('project_data', BUILDING_TYPE_LIST_KEY, [])
+        puts "Available building types: #{building_type_names.inspect}"
         js_code = "var select = document.getElementById('savedBuildingTypes');"
         js_code += "select.innerHTML = '<option value=\"\">Select a building type</option>';"
         building_type_names.each do |name|

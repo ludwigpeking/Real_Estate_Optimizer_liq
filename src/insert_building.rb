@@ -71,6 +71,10 @@ module Real_Estate_Optimizer
         transformation = Geom::Transformation.new(@ip.position)
         instance = model.active_entities.add_instance(building_def, transformation)
 
+        # Set default values for Construction Init Time and Sales Permit Time
+        instance.set_attribute('dynamic_attributes', 'construction_init_time', 0)
+        instance.set_attribute('dynamic_attributes', 'sales_permit_time', 2)
+
         # Commit the operation
         model.commit_operation
 

@@ -88,11 +88,11 @@ module Real_Estate_Optimizer
               
               # Add headers
               csv << ['Month', 'Land Payment', 'Construction Payment', 'Sales Income', 'Monthly Cashflow', 'Accumulated Cashflow']
-              puts "Added headers to CSV"
+            #   puts "Added headers to CSV"
         
               # Write data
               48.times do |index|
-                puts "Processing row for month #{index}"
+                # puts "Processing row for month #{index}"
                 row = [
                   index,
                   cashflow_data[:land_payments] ? cashflow_data[:land_payments][index] : 'N/A',
@@ -101,9 +101,9 @@ module Real_Estate_Optimizer
                   cashflow_data[:monthly_cashflow] ? cashflow_data[:monthly_cashflow][index] : 'N/A',
                   cashflow_data[:accumulated_cashflow] ? cashflow_data[:accumulated_cashflow][index] : 'N/A'
                 ]
-                puts "Row data: #{row.inspect}"
+                # puts "Row data: #{row.inspect}"
                 csv << row.map { |item| item.nil? ? 'N/A' : item.to_s }
-                puts "Wrote row to CSV"
+                # puts "Wrote row to CSV"
               end
             end
             puts "CSV generation completed successfully"

@@ -153,11 +153,15 @@ module Real_Estate_Optimizer
           <div class="form-section">
             <label for="apartment_category">户型属于类型</label>
             <select id="apartment_category">
+              <option value="联排">联排</option>
               <option value="叠拼">叠拼</option>
               <option value="洋房">洋房</option>
               <option value="小高层" selected>小高层</option>
               <option value="大高">大高</option>
               <option value="超高">超高</option>
+              <option value="商铺">商铺</option>
+              <option value="办公">办公</option>
+              <option value="公寓">公寓</option>
             </select><br>
 
             <label for="apartment_type_area">户型建筑面积 (平米)</label>
@@ -287,9 +291,18 @@ module Real_Estate_Optimizer
     
       # Add a material to the apartment with the new color logic
       material = model.materials.add(component_name)
-      hue = (apartment_data['area'].to_f - 50) * 2 % 360
-      rgb = hsl_to_rgb(hue, 100, 50)
-      material.color = Sketchup::Color.new(*rgb)
+      
+      # Set color based on category
+      category = apartment_data['apartment_category']
+      if ['商铺', '办公', '公寓'].include?(category)
+        material.color = Sketchup::Color.new(255, 0, 0)  # Red for commercial, office, and apartment
+      else
+        # Original area-based color logic for other categories
+        hue = (apartment_data['area'].to_f - 50) * 2 % 360
+        rgb = hsl_to_rgb(hue, 100, 50)
+        material.color = Sketchup::Color.new(*rgb)
+      end
+      
       apartment_def.entities.grep(Sketchup::Face).each { |entity| entity.material = material }
     
       # Add attributes to the component
