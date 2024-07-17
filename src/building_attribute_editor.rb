@@ -196,6 +196,11 @@ module Real_Estate_Optimizer
           entity.set_attribute('dynamic_attributes', 'sales_permit_time', attributes['sales_permit_time'].to_i)
           definition.set_attribute('dynamic_attributes', 'sales_permit_time', attributes['sales_permit_time'].to_i)
         end
+    
+        if attributes['parking_lot_number'] != ''
+          entity.set_attribute('dynamic_attributes', 'parking_lot_number', attributes['parking_lot_number'].to_i)
+          definition.set_attribute('dynamic_attributes', 'parking_lot_number', attributes['parking_lot_number'].to_i)
+        end
       end
     
       model.commit_operation
