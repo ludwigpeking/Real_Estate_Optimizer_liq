@@ -175,6 +175,16 @@ module Real_Estate_Optimizer
     <input type="number" id="LVIT_provisional_rate" min="0" max="1" step="0.01">
   </div>
 
+  <div class="form-group">
+    <label for="parking_lot_average_price">停车位平均价格 Parking Lot Average Price (万元):</label>
+    <input type="number" id="parking_lot_average_price" min="0" step="0.01">
+  </div>
+  <div class="form-group">
+    <label for="parking_lot_sales_velocity">停车位销售速度 Parking Lot Sales Velocity (个/月):</label>
+    <input type="number" id="parking_lot_sales_velocity" min="0" step="1">
+  </div>
+
+
   <h3>土地成本支付计划（48个月） Land Cost Payment (48 months)</h3>
   <table id="land_cost_payment"></table>
   <div>总和 Sum: <span id="land_cost_payment_sum">0</span></div>
@@ -211,3 +221,6 @@ end
 
 # Call this method to show the dialog when necessary
 # Real_Estate_Optimizer::Input.show_dialog
+
+# code to test the input dialog
+# puts JSON.parse(Sketchup.active_model.get_attribute('project_data', 'data', '{}'), symbolize_names: true).fetch(:inputs, {}).map { |k, v| "#{k}: #{v.inspect}" }.join("\n")

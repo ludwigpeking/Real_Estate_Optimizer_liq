@@ -6,7 +6,7 @@ module Real_Estate_Optimizer
       selection = model.selection
 
       if selection.empty?
-        UI.messagebox("No selection. Please select some edges or a component.")
+        UI.messagebox("未选择任何图元。 No selection. Please select some edges or a component.")
         return
       end
 

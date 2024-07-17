@@ -70,6 +70,7 @@ module Real_Estate_Optimizer
 
     def self.calculate_and_print_stocks_table
       model = Sketchup.active_model
+      project_data = JSON.parse(model.get_attribute('project_data', 'data') || '{}')
       building_instances = model.active_entities.grep(Sketchup::ComponentInstance).select do |instance|
         instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
       end
@@ -300,6 +301,9 @@ module Real_Estate_Optimizer
       income_data = calculate_sales_income
       total_income = income_data[:total_income]
 
+      # Calculate basement-related cashflows
+      basement_cashflows = calculate_basement_cashflows
+
       # Initialize cashflow arrays
       monthly_cashflow = Array.new(48, 0)
       accumulated_cashflow = Array.new(48, 0)
@@ -309,25 +313,31 @@ module Real_Estate_Optimizer
         land_payment = land_cost * land_cost_payment_schedule[month]
         construction_payment = construction_payments[month]
         income = total_income[month]
+        basement_income = basement_cashflows[:income][month]
+        basement_expense = basement_cashflows[:expenses][month]
 
-        monthly_cashflow[month] = income - land_payment - construction_payment
+        monthly_cashflow[month] = income + basement_income - land_payment - construction_payment - basement_expense
         accumulated_cashflow[month] = (month > 0 ? accumulated_cashflow[month-1] : 0) + monthly_cashflow[month]
       end
 
       # Print cashflow table (you can keep or remove this part)
       puts "Full Cashflow Table (48 months):"
-      puts "Month | Land Payment | Construction Payment | Sales Income | Monthly Cashflow | Accumulated Cashflow"
+      puts "Month | Land Payment | Construction Payment | Sales Income | Basement Income | Basement Expense | Monthly Cashflow | Accumulated Cashflow"
       
       (0...48).each do |month|
         land_payment = land_cost * land_cost_payment_schedule[month]
         construction_payment = construction_payments[month]
         income = total_income[month]
+        basement_income = basement_cashflows[:income][month]
+        basement_expense = basement_cashflows[:expenses][month]
 
         row = [
           month.to_s.rjust(5),
           land_payment.round(2).to_s.rjust(12),
           construction_payment.round(2).to_s.rjust(21),
           income.round(2).to_s.rjust(12),
+          basement_income.round(2).to_s.rjust(15),
+          basement_expense.round(2).to_s.rjust(16),
           monthly_cashflow[month].round(2).to_s.rjust(16),
           accumulated_cashflow[month].round(2).to_s.rjust(21)
         ]
@@ -335,11 +345,14 @@ module Real_Estate_Optimizer
       end
 
       result = {
-        :monthly_cashflow => monthly_cashflow || [],
-        :accumulated_cashflow => accumulated_cashflow || [],
+        :monthly_cashflow => monthly_cashflow,
+        :accumulated_cashflow => accumulated_cashflow,
         :land_payments => land_cost_payment_schedule.map { |percentage| land_cost * percentage },
-        :construction_payments => construction_payments || [],
-        :total_income => total_income || []
+        :construction_payments => construction_payments,
+        :total_income => total_income,
+        :basement_income => basement_cashflows[:income],
+        :basement_expenses => basement_cashflows[:expenses],
+        :basement_parking_lot_stock => basement_cashflows[:parking_lot_stock]
       }
 
       # For debugging
@@ -349,7 +362,46 @@ module Real_Estate_Optimizer
       result
     end
     
-   
+    def self.calculate_basement_cashflows
+      model = Sketchup.active_model
+      project_data = JSON.parse(model.get_attribute('project_data', 'data') || '{}')
+      parking_lot_price = project_data['inputs']['parking_lot_average_price']  
+      parking_lot_velocity = project_data['inputs']['parking_lot_sales_velocity']
+      basement_unit_cost = project_data['inputs']['basement_unit_cost_before_allocation'] # Make sure this input exists
+    
+      income = Array.new(48, 0)
+      expenses = Array.new(48, 0)
+      parking_lot_stock = Array.new(48, 0)
+    
+      model.active_entities.grep(Sketchup::ComponentInstance).each do |instance|
+        next unless instance.definition.get_attribute('dynamic_attributes', 'basement_type')
+    
+        construction_init_time = instance.definition.get_attribute('dynamic_attributes', 'construction_init_time').to_i
+        sales_permit_time = instance.definition.get_attribute('dynamic_attributes', 'sales_permit_time').to_i
+        parking_lots = instance.definition.get_attribute('dynamic_attributes', 'parking_lot_number').to_i
+        basement_area = instance.definition.get_attribute('dynamic_attributes', 'basement_area').to_f
+    
+        # Calculate basement construction cost
+        basement_cost = basement_area * basement_unit_cost
+    
+        # Add basement construction cost as a one-time expense at Construction Init Time
+        expenses[construction_init_time] += basement_cost
+    
+        # Add parking lots to stock when sales permit is obtained
+        market_entry_month = construction_init_time + sales_permit_time
+        parking_lot_stock[market_entry_month] += parking_lots if market_entry_month < 48
+    
+        # Calculate sales
+        (market_entry_month...48).each do |month|
+          available_stock = parking_lot_stock[month]
+          sales = [available_stock, parking_lot_velocity].min
+          income[month] += sales * parking_lot_price
+          parking_lot_stock[month + 1] = available_stock - sales if month < 47
+        end
+      end
+    
+      {income: income, expenses: expenses, parking_lot_stock: parking_lot_stock}
+    end
 
 
     def self.calculate_construction_payments

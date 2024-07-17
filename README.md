@@ -344,3 +344,7 @@ each_apartment_type_stock
 income_each_period = 
 
 I have a few apartment types, show me a code to calculate the stock added and sold for each period. you take consideration of when the building instance inits construction, when it gets selling permit (added to sellable stock). and at what velocity is the stock sold (per sales scene). give me a way to calculate this, as a part of the cashflow code. the sales income should be the number_of_unit_of_the_apartment * area_per_apartment  apartment_unit_price ** velocity_of_selling, which is an income cashflow
+
+ok, so now, using a similar logic, we can put the sales income and expenses for the basement. the parking lots are generic, having a price (requiring adding an entry in the input dialog"parking lot average price"), the basement object add parking lot stocks when it receives sales permit (construction init months + sales permit months), and they sell at a velocity (requiring adding an entry in the input dialog"parking lot sales velocity"). sales activity consumes parking lot stock until depletion. the basement also requires construction cost = basement area * Basement Unit Cost(input) . its payment happen as a lampsum at the construction init time. 
+
+you should modify the input dialog to accomodate the new input, add stock logic, income and expense logic of the basements in the cashflow code. and put them into the output along with the existing items.

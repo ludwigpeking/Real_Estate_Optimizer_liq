@@ -55,25 +55,52 @@ module Real_Estate_Optimizer
             <label for="sales_permit_time">开工后第几月取预售证 Sales Permit Time (months):</label>
             <input type="number" id="sales_permit_time" onchange="updateAttributes()">
           </div>
+          <div id="basement_fields" style="display: none;">
+            <div class="attribute">
+              <label for="basement_type">地下室类型 Basement Type:</label>
+              <input type="text" id="basement_type" readonly>
+            </div>
+            <div class="attribute">
+              <label for="basement_area">地下室面积 Basement Area (square meters):</label>
+              <input type="number" id="basement_area" readonly>
+            </div>
+            <div class="attribute">
+              <label for="parking_lot_number">车位数量 Parking Lot Number:</label>
+              <input type="number" id="parking_lot_number" onchange="updateAttributes()">
+            </div>
+          </div>
         
           <script>
           function updateAttributes() {
               var constructionInitTime = document.getElementById('construction_init_time').value;
               var salesPermitTime = document.getElementById('sales_permit_time').value;
+              var parkingLotNumber = document.getElementById('parking_lot_number').value;
               console.log('Updating attributes:', {
                   construction_init_time: constructionInitTime,
-                  sales_permit_time: salesPermitTime
-              }); // Debug log
+                  sales_permit_time: salesPermitTime,
+                  parking_lot_number: parkingLotNumber
+              });
               sketchup.update_attributes(JSON.stringify({
                   construction_init_time: constructionInitTime,
-                  sales_permit_time: salesPermitTime
+                  sales_permit_time: salesPermitTime,
+                  parking_lot_number: parkingLotNumber
               }));
           }
           
           function setAttributes(attributes) {
-              console.log('Setting attributes:', attributes); // Debug log
+              console.log('Setting attributes:', attributes);
               document.getElementById('construction_init_time').value = attributes.construction_init_time !== null ? attributes.construction_init_time : '';
               document.getElementById('sales_permit_time').value = attributes.sales_permit_time !== null ? attributes.sales_permit_time : '';
+              
+              var basementFields = document.getElementById('basement_fields');
+              if (attributes.basement_type) {
+                basementFields.style.display = 'block';
+                document.getElementById('basement_type').value = attributes.basement_type || '';
+                document.getElementById('basement_area').value = attributes.basement_area !== null ? attributes.basement_area : '';
+                document.getElementById('parking_lot_number').value = attributes.parking_lot_number !== null ? attributes.parking_lot_number : '';
+              } else {
+                basementFields.style.display = 'none';
+              }
           }
           window.onload = function() {
               sketchup.initialize_dialog();
@@ -81,7 +108,6 @@ module Real_Estate_Optimizer
           </script>
         </body>
         </html>
-      
       HTML
     end
 
@@ -102,59 +128,76 @@ module Real_Estate_Optimizer
     def self.get_common_attributes(selection)
       common_attributes = {
         'construction_init_time' => nil,
-        'sales_permit_time' => nil
+        'sales_permit_time' => nil,
+        'basement_type' => nil,
+        'basement_area' => nil,
+        'parking_lot_number' => nil
       }
     
       selection.each do |entity|
         next unless entity.is_a?(Sketchup::ComponentInstance)
         
-        construction_init_time = entity.get_attribute('dynamic_attributes', 'construction_init_time')
-        sales_permit_time = entity.get_attribute('dynamic_attributes', 'sales_permit_time')
+        definition = entity.definition
         
-        puts "Entity: #{entity}, Construction Init Time: #{construction_init_time}, Sales Permit Time: #{sales_permit_time}" # Debug log
+        # Check both instance and definition for attributes
+        construction_init_time = entity.get_attribute('dynamic_attributes', 'construction_init_time') || 
+                                 definition.get_attribute('dynamic_attributes', 'construction_init_time')
+        sales_permit_time = entity.get_attribute('dynamic_attributes', 'sales_permit_time') || 
+                            definition.get_attribute('dynamic_attributes', 'sales_permit_time')
+        basement_type = entity.get_attribute('dynamic_attributes', 'basement_type') || 
+                        definition.get_attribute('dynamic_attributes', 'basement_type')
+        basement_area = entity.get_attribute('dynamic_attributes', 'basement_area') || 
+                        definition.get_attribute('dynamic_attributes', 'basement_area')
+        parking_lot_number = entity.get_attribute('dynamic_attributes', 'parking_lot_number') || 
+                             definition.get_attribute('dynamic_attributes', 'parking_lot_number')
+        
+        puts "Entity: #{entity}, Definition: #{definition.name}"
+        puts "Construction Init Time: #{construction_init_time}"
+        puts "Sales Permit Time: #{sales_permit_time}"
+        puts "Basement Type: #{basement_type}"
+        puts "Basement Area: #{basement_area}"
+        puts "Parking Lot Number: #{parking_lot_number}"
     
-        if common_attributes['construction_init_time'].nil? || common_attributes['construction_init_time'] == construction_init_time
-          common_attributes['construction_init_time'] = construction_init_time
-        else
-          common_attributes['construction_init_time'] = nil
-        end
-    
-        if common_attributes['sales_permit_time'].nil? || common_attributes['sales_permit_time'] == sales_permit_time
-          common_attributes['sales_permit_time'] = sales_permit_time
-        else
-          common_attributes['sales_permit_time'] = nil
-        end
+        common_attributes['construction_init_time'] = construction_init_time if common_attributes['construction_init_time'].nil? || common_attributes['construction_init_time'] == construction_init_time
+        common_attributes['sales_permit_time'] = sales_permit_time if common_attributes['sales_permit_time'].nil? || common_attributes['sales_permit_time'] == sales_permit_time
+        common_attributes['basement_type'] = basement_type if common_attributes['basement_type'].nil? || common_attributes['basement_type'] == basement_type
+        common_attributes['basement_area'] = basement_area if common_attributes['basement_area'].nil? || common_attributes['basement_area'] == basement_area
+        common_attributes['parking_lot_number'] = parking_lot_number if common_attributes['parking_lot_number'].nil? || common_attributes['parking_lot_number'] == parking_lot_number
       end
     
-      puts "Common attributes: #{common_attributes}" # Debug log
+      puts "Common attributes: #{common_attributes}"
       common_attributes
     end
 
     def self.update_attributes(value)
       attributes = JSON.parse(value)
-      puts "Updating attributes with: #{attributes}" # Debug log
+      puts "Updating attributes with: #{attributes}"
       selection = Sketchup.active_model.selection
       
       if selection.empty?
         puts "No selection to update."
         return
       end
-
+    
       model = Sketchup.active_model
       model.start_operation('Update Attributes', true)
-
+    
       selection.each do |entity|
         next unless entity.is_a?(Sketchup::ComponentInstance)
         
+        definition = entity.definition
+        
         if attributes['construction_init_time'] != ''
           entity.set_attribute('dynamic_attributes', 'construction_init_time', attributes['construction_init_time'].to_i)
+          definition.set_attribute('dynamic_attributes', 'construction_init_time', attributes['construction_init_time'].to_i)
         end
-
+    
         if attributes['sales_permit_time'] != ''
           entity.set_attribute('dynamic_attributes', 'sales_permit_time', attributes['sales_permit_time'].to_i)
+          definition.set_attribute('dynamic_attributes', 'sales_permit_time', attributes['sales_permit_time'].to_i)
         end
       end
-
+    
       model.commit_operation
     end
 
@@ -185,4 +228,3 @@ module Real_Estate_Optimizer
     end
   end
 end
-

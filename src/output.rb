@@ -84,30 +84,25 @@ module Real_Estate_Optimizer
             puts "CSV will be saved to: #{file_path}"
             
             CSV.open(file_path, "wb") do |csv|
-              puts "Opened CSV file for writing"
-              
-              # Add headers
-              csv << ['Month', 'Land Payment', 'Construction Payment', 'Sales Income', 'Monthly Cashflow', 'Accumulated Cashflow']
-            #   puts "Added headers to CSV"
-        
-              # Write data
-              48.times do |index|
-                # puts "Processing row for month #{index}"
-                row = [
-                  index,
-                  cashflow_data[:land_payments] ? cashflow_data[:land_payments][index] : 'N/A',
-                  cashflow_data[:construction_payments] ? cashflow_data[:construction_payments][index] : 'N/A',
-                  cashflow_data[:total_income] ? cashflow_data[:total_income][index] : 'N/A',
-                  cashflow_data[:monthly_cashflow] ? cashflow_data[:monthly_cashflow][index] : 'N/A',
-                  cashflow_data[:accumulated_cashflow] ? cashflow_data[:accumulated_cashflow][index] : 'N/A'
-                ]
-                # puts "Row data: #{row.inspect}"
-                csv << row.map { |item| item.nil? ? 'N/A' : item.to_s }
-                # puts "Wrote row to CSV"
-              end
-            end
+                csv << ['Month', 'Land Payment', 'Construction Payment', 'Sales Income', 'Basement Income', 'Basement Expenses', 'Parking Lot Stock', 'Monthly Cashflow', 'Accumulated Cashflow']
+                
+                48.times do |index|
+                    row = [
+                    index,
+                    cashflow_data[:land_payments] ? cashflow_data[:land_payments][index] : 'N/A',
+                    cashflow_data[:construction_payments] ? cashflow_data[:construction_payments][index] : 'N/A',
+                    cashflow_data[:total_income] ? cashflow_data[:total_income][index] : 'N/A',
+                    cashflow_data[:basement_income] ? cashflow_data[:basement_income][index] : 'N/A',
+                    cashflow_data[:basement_expenses] ? cashflow_data[:basement_expenses][index] : 'N/A',
+                    cashflow_data[:basement_parking_lot_stock] ? cashflow_data[:basement_parking_lot_stock][index] : 'N/A',
+                    cashflow_data[:monthly_cashflow] ? cashflow_data[:monthly_cashflow][index] : 'N/A',
+                    cashflow_data[:accumulated_cashflow] ? cashflow_data[:accumulated_cashflow][index] : 'N/A'
+                    ]
+                    csv << row.map { |item| item.nil? ? 'N/A' : item.to_s }
+                end
+                end
             puts "CSV generation completed successfully"
-            UI.messagebox("CSV report generated and saved to: #{file_path}")
+            # UI.messagebox("CSV report generated and saved to: #{file_path}")
           else
             raise NameError, "CashFlowCalculator is not defined"
           end

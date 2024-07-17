@@ -19,6 +19,8 @@ module Real_Estate_Optimizer
           corp_pretax_gross_profit_rate_threshould: 0.15,
           corp_tax_rate: 0.25,
           LVIT_provisional_rate: 0.02,
+          parking_lot_average_price: 120000,
+          parking_lot_sales_velocity: 10,
           supervision_fund_release_schedule: [
           0, 0, 0.3, 0, 0, 0, 0.4, 0, 0, 0, 0, 0,
           0, 0, 0, 0, 0, 0, 0.25, 0, 0, 0, 0, 0,
