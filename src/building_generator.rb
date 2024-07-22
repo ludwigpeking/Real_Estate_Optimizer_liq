@@ -9,7 +9,7 @@ module Real_Estate_Optimizer
       def self.show_dialog
         dialog = UI::HtmlDialog.new(
           {
-            :dialog_title => "Building Type Management",
+            :dialog_title => "楼型管理 Building Type Management",
             :preferences_key => "com.example.building_generator",
             :scrollable => true,
             :resizable => true,
@@ -28,21 +28,7 @@ module Real_Estate_Optimizer
         <html>
             <head>
                 <meta charset="UTF-8">
-                <style>
-                    body { font-family: Arial, sans-serif; padding: 20px; }
-                    .form-section { margin-bottom: 20px; }
-                    .form-section h3 { margin-top: 0; }
-                    input[type="number"], select { width: 120px; }
-                    #floorTypesContainer { margin-top: 20px; }
-                    .floor-type { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
-                    .apartment-type { margin-left: 20px; }
-                    .error { color: red; }
-                    table { width: 100%; border-collapse: collapse; }
-                    th, td { border: 1px solid #ddd; padding: 2px; text-align: center; }
-                    input[type="number"] { width: 40px; }
-                </style>
-            
-            
+                <link rel="stylesheet" type="text/css" href="file:///#{File.join(__dir__, 'style.css')}">
 
             <script>
                 function addFloorType() {
@@ -286,7 +272,7 @@ module Real_Estate_Optimizer
                   ].forEach(({ table, defaultSchedule, id }) => {
                     table.innerHTML = '';
                     
-                    for (let i = 0; i < 4; i++) {
+                    for (let i = 0; i < 6; i++) {
                       let row = table.insertRow();
                       for (let j = 0; j < 12; j++) {
                         let index = i * 12 + j;
@@ -360,31 +346,31 @@ module Real_Estate_Optimizer
           begin
             form_data = JSON.parse(URI.decode_www_form_component(form_data))
             model = Sketchup.active_model
-            building_type_names = model.get_attribute('project_data', BUILDING_TYPE_LIST_KEY, [])
             
-            if building_type_names.include?(form_data['name'])
-              result = UI.messagebox("Building type name already exists. Overwrite?", MB_YESNO)
-              return if result == IDNO
-            else
-              building_type_names << form_data['name']
-              model.set_attribute('project_data', BUILDING_TYPE_LIST_KEY, building_type_names)
-            end
+            # Update the building type list
+            building_type_names = model.get_attribute('project_data', BuildingGenerator::BUILDING_TYPE_LIST_KEY, [])
+            building_type_names |= [form_data['name']]  # Add name if not present
+            model.set_attribute('project_data', BuildingGenerator::BUILDING_TYPE_LIST_KEY, building_type_names)
             
-            project_data = model.get_attribute('project_data', 'data')
-            project_data = project_data ? JSON.parse(project_data) : {}
+            # Save data in component definition
+            definition = model.definitions[form_data['name']] || model.definitions.add(form_data['name'])
+            definition.set_attribute('building_data', 'details', form_data.to_json)
+            
+            # Save data in project_data (as a backup)
+            project_data_json = model.get_attribute('project_data', 'data', '{}')
+            project_data = JSON.parse(project_data_json)
             project_data['building_types'] ||= []
-            project_data['building_types'].delete_if { |bt| bt['name'] == form_data['name'] }
-        
-            form_data['supervisionFundReleaseSchedule'] = form_data['supervisionFundReleaseSchedule'].is_a?(String) ? JSON.parse(form_data['supervisionFundReleaseSchedule']) : form_data['supervisionFundReleaseSchedule']
-            form_data['constructionPaymentSchedule'] = form_data['constructionPaymentSchedule'].is_a?(String) ? JSON.parse(form_data['constructionPaymentSchedule']) : form_data['constructionPaymentSchedule']
-            
+            project_data['building_types'].reject! { |bt| bt['name'] == form_data['name'] }
             project_data['building_types'] << form_data
             model.set_attribute('project_data', 'data', project_data.to_json)
             
-            # Create or update the building type component
-            Real_Estate_Optimizer::BuildingTypeComponent.create_or_update_component(form_data)
+            puts "Saved building type: #{form_data['name']}"
+            puts "Updated building type list: #{building_type_names.inspect}"
             
-            UI.messagebox("Building type '#{form_data['name']}' saved and component created/updated.")
+            # Create or update the building type component
+            BuildingTypeComponent.create_or_update_component(form_data)
+            
+            UI.messagebox("Building type '#{form_data['name']}' saved successfully.")
             update_saved_building_types(dialog)
           rescue => e
             puts "Error in save_building_type: #{e.message}"
@@ -409,46 +395,51 @@ module Real_Estate_Optimizer
         end
   
         dialog.add_action_callback("load_building_type") do |action_context, name|
-          model = Sketchup.active_model
-          project_data_json = model.get_attribute('project_data', 'data')
-          
-          puts "Project data JSON: #{project_data_json}"
-          
-          if project_data_json.nil? || project_data_json.empty?
-            puts "Warning: No project data found"
-            UI.messagebox("No project data found.")
-            return
-          end
-          
           begin
-            project_data = JSON.parse(project_data_json)
-          rescue JSON::ParserError => e
-            puts "Error parsing project data JSON: #{e.message}"
-            UI.messagebox("Error parsing project data.")
-            return
-          end
-          
-          if project_data['building_types'].nil?
-            puts "Warning: No building types found in project data"
-            UI.messagebox("No building types found in project data.")
-            return
-          end
-          
-          building_type = nil
-          project_data['building_types'].each do |bt|
-            if bt['name'] == name
-              building_type = bt
-              break
+            model = Sketchup.active_model
+            
+            # Get the list of building type names
+            building_type_names = model.get_attribute('project_data', BuildingGenerator::BUILDING_TYPE_LIST_KEY, [])
+            
+            puts "Available building types: #{building_type_names.inspect}"
+            
+            if !building_type_names.include?(name)
+              puts "Warning: Building type '#{name}' not found in the list"
+              UI.messagebox("Building type '#{name}' not found.")
+              next  # Use 'next' instead of 'return' in a block
             end
+            
+            # Try to get the building type data from the component definition
+            definition = model.definitions[name]
+            if definition && definition.attribute_dictionaries && definition.attribute_dictionaries['building_data']
+              building_type_json = definition.get_attribute('building_data', 'details')
+              if building_type_json
+                building_type = JSON.parse(building_type_json)
+                load_building_data(dialog, building_type)
+                next  # Use 'next' instead of 'return' in a block
+              end
+            end
+            
+            # If not found in component definition, try to get from project_data
+            project_data_json = model.get_attribute('project_data', 'data')
+            if project_data_json
+              project_data = JSON.parse(project_data_json)
+              if project_data['building_types']
+                building_type = project_data['building_types'].find { |bt| bt['name'] == name }
+                if building_type
+                  load_building_data(dialog, building_type)
+                  next  # Use 'next' instead of 'return' in a block
+                end
+              end
+            end
+            
+            puts "Warning: Building type '#{name}' data not found"
+            UI.messagebox("Building type '#{name}' data not found.")
+          rescue => e
+            puts "Error in load_building_type: #{e.message}"
+            puts e.backtrace.join("\n")
+            UI.messagebox("An error occurred while loading the building type. Check the Ruby Console for details.")
           end
-          
-          if building_type.nil?
-            puts "Warning: Building type '#{name}' not found in project data"
-            UI.messagebox("Building type '#{name}' not found in project data.")
-            return
-          end
-          
-          load_building_data(dialog, building_type)
         end
   
         dialog.add_action_callback("delete_building_type") do |action_context, name|
@@ -477,7 +468,7 @@ module Real_Estate_Optimizer
         building_type_names = model.get_attribute('project_data', BUILDING_TYPE_LIST_KEY, [])
         puts "Available building types: #{building_type_names.inspect}"
         js_code = "var select = document.getElementById('savedBuildingTypes');"
-        js_code += "select.innerHTML = '<option value=\"\">Select a building type</option>';"
+        js_code += "select.innerHTML = '<option value=\"\">选择已有楼型 Select a building type</option>';"
         building_type_names.each do |name|
           js_code += "select.innerHTML += '<option value=\"#{name}\">#{name}</option>';"
         end

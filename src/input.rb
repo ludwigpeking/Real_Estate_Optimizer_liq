@@ -8,7 +8,7 @@ module Real_Estate_Optimizer
     def self.show_dialog
       dialog = UI::HtmlDialog.new(
         {
-          :dialog_title => "项目输入 Project Inputs",
+          :dialog_title => "项目基本信息输入 Project General Inputs",
           :preferences_key => "com.example.project_inputs",
           :scrollable => true,
           :resizable => true,
@@ -27,17 +27,7 @@ module Real_Estate_Optimizer
 <html>
 <head>
   <meta charset="UTF-8">
-  <style>
-    body { font-family: Arial, sans-serif; padding: 20px; }
-    p { font-size: 12px;}
-    .form-group { margin-bottom: 5px; }
-    label { display: inline-block; width: 400px; }
-    input[type="number"] { width: 120px; }
-    .error { color: red; }
-    table { border-collapse: collapse; }
-    th, td { border: 1px solid #ddd; padding: 2px; font-size: 12px; }
-    td input { width: 40px; font-size: 12px; }
-  </style>
+  <link rel="stylesheet" type="text/css" href="file:///#{File.join(__dir__, 'style.css')}">
   <script>
     let project = #{DefaultValues::PROJECT_DEFAULTS.to_json};
 
@@ -60,7 +50,7 @@ module Real_Estate_Optimizer
       const table = document.getElementById(tableId);
       table.innerHTML = '';
 
-      for (let year = 1; year <= 4; year++) {
+      for (let year = 1; year <= 6; year++) {
         let row = table.insertRow();
         for (let month = 1; month <= 12; month++) {
           let cell = row.insertCell();
@@ -109,7 +99,6 @@ module Real_Estate_Optimizer
   </script>
 </head>
 <body>
-  <h2>项目基本信息输入 Project General Inputs</h2>
   <h3>核心信息 Essential Information</h3>
   <div class="form-group">
     <label for="site_area">总用地面积 Site Area (平米):</label>
@@ -119,7 +108,11 @@ module Real_Estate_Optimizer
     <label for="FAR">容积率 FAR:</label>
     <input type="number" id="FAR" min="0" step="0.01">
   </div>
-  <h3>配套有关信息 Amenity Related Info</h3>
+  <div class="form-group">
+    <label for="discount_rate">测算用折现率 General Discount Rate:</label>
+    <input type="number" id="FAR" min="0" step="0.01">
+  </div>
+  <h3>配套、车位有关信息 Amenity, Parking Related Info</h3>
   <div class="form-group">
     <label for="amenity_GFA_in_FAR">计容配套面积 Amenity GFA in FAR (平米):</label>
     <input type="number" id="amenity_GFA_in_FAR" min="0" step="1">
@@ -132,6 +125,14 @@ module Real_Estate_Optimizer
     <label for="commercial_percentage_lower_limit">商业比例下限 Commercial Percentage Lower Limit:</label>
     <input type="number" id="commercial_percentage_lower_limit" min="0" max="1" step="0.01">
   </div>
+  <div class="form-group">
+  <label for="parking_lot_average_price">停车位平均价格 Parking Lot Average Price (元):</label>
+  <input type="number" id="parking_lot_average_price" min="0" step="0.01">
+</div>
+<div class="form-group">
+  <label for="parking_lot_sales_velocity">停车位销售速度 Parking Lot Sales Velocity (个/月):</label>
+  <input type="number" id="parking_lot_sales_velocity" min="0" step="1">
+</div>
   <h3>成本信息 Cost Information</h3>
   <div class="form-group">
     <label for="management_fee">管理费率 Management Fee Rate:</label>
@@ -175,22 +176,15 @@ module Real_Estate_Optimizer
     <input type="number" id="LVIT_provisional_rate" min="0" max="1" step="0.01">
   </div>
 
-  <div class="form-group">
-    <label for="parking_lot_average_price">停车位平均价格 Parking Lot Average Price (万元):</label>
-    <input type="number" id="parking_lot_average_price" min="0" step="0.01">
-  </div>
-  <div class="form-group">
-    <label for="parking_lot_sales_velocity">停车位销售速度 Parking Lot Sales Velocity (个/月):</label>
-    <input type="number" id="parking_lot_sales_velocity" min="0" step="1">
-  </div>
+ 
 
 
-  <h3>土地成本支付计划（48个月） Land Cost Payment (48 months)</h3>
+  <h3>土地成本支付计划（72个月） Land Cost Payment (72 months)</h3>
   <table id="land_cost_payment"></table>
   <div>总和 Sum: <span id="land_cost_payment_sum">0</span></div>
   <div id="land_cost_payment_error" class="error" style="display: none;">总和必须等于1 Sum must equal 1</div>
 
-  <h3>不可售配套成本支付计划（48个月） Unsaleable Amenity Cost Payment (48 months)</h3>
+  <h3>不可售配套成本支付计划（72个月） Unsaleable Amenity Cost Payment (72 months)</h3>
   <table id="unsaleable_amenity_cost_payment"></table>
   <div>总和 Sum: <span id="unsaleable_amenity_cost_payment_sum">0</span></div>
   <div id="unsaleable_amenity_cost_payment_error" class="error" style="display: none;">总和必须等于1 Sum must equal 1</div>
@@ -216,7 +210,7 @@ module Real_Estate_Optimizer
 
       dialog.show
     end
-  end
+  end   
 end
 
 # Call this method to show the dialog when necessary

@@ -1,6 +1,6 @@
-puts "Starting to load Real_Estate_Optimizer module..."
+require_relative 'default_values'
+
 module Real_Estate_Optimizer
-  puts "Starting to load CashFlowCalculator module..."
   module CashFlowCalculator
 
 
@@ -20,8 +20,8 @@ module Real_Estate_Optimizer
       land_cost = project_data['inputs'] && project_data['inputs']['land_cost'] || 0
       payment_schedule = project_data['inputs'] && project_data['inputs']['land_cost_payment'] || []
       
-      # Ensure the payment schedule has 48 elements
-      payment_schedule = payment_schedule.fill(0, payment_schedule.length...48)
+      # Ensure the payment schedule has 72 elements
+      payment_schedule = payment_schedule.fill(0, payment_schedule.length...72)
       
       # Calculate payments
       payments = payment_schedule.map { |percentage| land_cost * percentage }
@@ -75,7 +75,7 @@ module Real_Estate_Optimizer
         instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
       end
 
-      stocks_table = Hash.new { |h, k| h[k] = Array.new(48, 0) }
+      stocks_table = Hash.new { |h, k| h[k] = Array.new(72, 0) }
 
       building_instances.each do |instance|
         building_data = instance.definition.attribute_dictionary('building_data')
@@ -88,17 +88,17 @@ module Real_Estate_Optimizer
         sales_permit_time = dynamic_attrs['sales_permit_time'].to_i
 
         market_entry_month = construction_init_time + sales_permit_time
-        next if market_entry_month >= 48
+        next if market_entry_month >= 72
 
         apartment_stocks.each do |apt_type, count|
           stocks_table[apt_type][market_entry_month] += count
         end
       end
 
-      puts "Apartment Stocks Table (48 months):"
+      puts "Apartment Stocks Table (72 months):"
       puts "Month | " + stocks_table.keys.join(" | ")
       
-      (0...48).each do |month|
+      (0...72).each do |month|
         row = [month.to_s.rjust(5)]
         stocks_table.each_value do |stocks|
           row << stocks[month].to_s.rjust(5)
@@ -115,39 +115,39 @@ module Real_Estate_Optimizer
       building_instances = model.active_entities.grep(Sketchup::ComponentInstance).select do |instance|
         instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
       end
-
-      construction_payments = Array.new(48, 0)
-
+    
+      construction_payments = Array.new(72, 0)
+    
       building_instances.each do |instance|
         building_data = instance.definition.attribute_dictionary('building_data')
         dynamic_attrs = instance.attribute_dictionary('dynamic_attributes')
-
+    
         next unless building_data && dynamic_attrs
-
+    
         total_cost = building_data['total_cost'].to_f
         construction_init_time = dynamic_attrs['construction_init_time'].to_i
-
+    
         # Fetch the construction payment schedule
         project_data = JSON.parse(model.get_attribute('project_data', 'data') || '{}')
         payment_schedule = if project_data['inputs'] && project_data['inputs']['construction_payment_schedule']
                               project_data['inputs']['construction_payment_schedule']
                             else
-                              [0.1, 0, 0.2, 0, 0, 0, 0.2, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0.1]
+                              Real_Estate_Optimizer::DefaultValues::PROJECT_DEFAULTS[:inputs][:construction_payment_schedule]
                             end
-
+    
         payment_schedule.each_with_index do |percentage, month|
           payment_month = construction_init_time + month
-          break if payment_month >= 48
+          break if payment_month >= 72
           construction_payments[payment_month] += total_cost * percentage
         end
       end
-
-      puts "Construction Cost Payment Table (48 months):"
+    
+      puts "Construction Cost Payment Table (72 months):"
       puts "Month | Payment"
       construction_payments.each_with_index do |payment, month|
         puts "#{month.to_s.rjust(5)} | #{payment.round(2)}"
       end
-
+    
       construction_payments
     end
 
@@ -158,8 +158,8 @@ module Real_Estate_Optimizer
       end
 
       # Initialize sales and stock tables
-      sales_table = Hash.new { |h, k| h[k] = Array.new(48, 0) }
-      stock_table = Hash.new { |h, k| h[k] = Array.new(48, 0) }
+      sales_table = Hash.new { |h, k| h[k] = Array.new(72, 0) }
+      stock_table = Hash.new { |h, k| h[k] = Array.new(72, 0) }
 
       # Populate stock table
       building_instances.each do |instance|
@@ -173,7 +173,7 @@ module Real_Estate_Optimizer
         sales_permit_time = dynamic_attrs['sales_permit_time'].to_i
 
         market_entry_month = construction_init_time + sales_permit_time
-        next if market_entry_month >= 48
+        next if market_entry_month >= 72
 
         apartment_stocks.each do |apt_type, count|
           stock_table[apt_type][market_entry_month] += count
@@ -189,7 +189,7 @@ module Real_Estate_Optimizer
           monthly_sales_volume = sales_scene['volumn'].to_i
           current_stock = 0
 
-          (0...48).each do |month|
+          (0...72).each do |month|
             current_stock += stocks[month]
             actual_sales = [current_stock, monthly_sales_volume].min
             sales_table[apt_type][month] = actual_sales
@@ -199,10 +199,10 @@ module Real_Estate_Optimizer
       end
 
       # Print sales table
-      puts "Apartment Sales Table (48 months):"
+      puts "Apartment Sales Table (72 months):"
       puts "Month | " + sales_table.keys.join(" | ")
       
-      (0...48).each do |month|
+      (0...72).each do |month|
         row = [month.to_s.rjust(5)]
         sales_table.each_value do |sales|
           row << sales[month].to_s.rjust(5)
@@ -221,10 +221,10 @@ module Real_Estate_Optimizer
       end
 
       # Initialize sales, stock, and income tables
-      sales_table = Hash.new { |h, k| h[k] = Array.new(48, 0) }
-      stock_table = Hash.new { |h, k| h[k] = Array.new(48, 0) }
-      income_table = Hash.new { |h, k| h[k] = Array.new(48, 0) }
-      total_income = Array.new(48, 0)
+      sales_table = Hash.new { |h, k| h[k] = Array.new(72, 0) }
+      stock_table = Hash.new { |h, k| h[k] = Array.new(72, 0) }
+      income_table = Hash.new { |h, k| h[k] = Array.new(72, 0) }
+      total_income = Array.new(72, 0)
 
       # Populate stock table
       building_instances.each do |instance|
@@ -238,7 +238,7 @@ module Real_Estate_Optimizer
         sales_permit_time = dynamic_attrs['sales_permit_time'].to_i
 
         market_entry_month = construction_init_time + sales_permit_time
-        next if market_entry_month >= 48
+        next if market_entry_month >= 72
 
         apartment_stocks.each do |apt_type, count|
           stock_table[apt_type][market_entry_month] += count
@@ -256,7 +256,7 @@ module Real_Estate_Optimizer
           area = apt_data['area'].to_f
           current_stock = 0
 
-          (0...48).each do |month|
+          (0...72).each do |month|
             current_stock += stocks[month]
             actual_sales = [current_stock, monthly_sales_volume].min
             sales_table[apt_type][month] = actual_sales
@@ -268,10 +268,10 @@ module Real_Estate_Optimizer
       end
 
       # Print income table
-      puts "Monthly Income Table (48 months):"
+      puts "Monthly Income Table (72 months):"
       puts "Month | " + income_table.keys.join(" | ") + " | Total"
       
-      (0...48).each do |month|
+      (0...72).each do |month|
         row = [month.to_s.rjust(5)]
         income_table.each_value do |income|
           row << income[month].round(2).to_s.rjust(10)
@@ -288,49 +288,49 @@ module Real_Estate_Optimizer
     def self.calculate_and_print_full_cashflow_table
       model = Sketchup.active_model
       project_data = JSON.parse(model.get_attribute('project_data', 'data') || '{}')
-
+    
       # Get land cost and payment schedule
       inputs = project_data['inputs'] || {}
       land_cost = (inputs['land_cost'] || 0) * 10000 # Convert from wan to yuan
-      land_cost_payment_schedule = inputs['land_cost_payment'] || Array.new(48, 0)
-
+      land_cost_payment_schedule = inputs['land_cost_payment'] || Array.new(72, 0)
+    
       # Calculate construction payments
       construction_payments = calculate_construction_payments
-
+    
       # Calculate sales income
       income_data = calculate_sales_income
-      total_income = income_data[:total_income]
-
+      total_income = income_data[:total_income] || Array.new(72, 0)
+    
       # Calculate basement-related cashflows
       basement_cashflows = calculate_basement_cashflows
-
+    
       # Initialize cashflow arrays
-      monthly_cashflow = Array.new(48, 0)
-      accumulated_cashflow = Array.new(48, 0)
-
+      monthly_cashflow = Array.new(72, 0)
+      accumulated_cashflow = Array.new(72, 0)
+    
       # Calculate cashflow
-      (0...48).each do |month|
-        land_payment = land_cost * land_cost_payment_schedule[month]
-        construction_payment = construction_payments[month]
-        income = total_income[month]
-        basement_income = basement_cashflows[:income][month]
-        basement_expense = basement_cashflows[:expenses][month]
-
+      (0...72).each do |month|
+        land_payment = land_cost * (land_cost_payment_schedule[month] || 0)
+        construction_payment = construction_payments[month] || 0
+        income = total_income[month] || 0
+        basement_income = basement_cashflows[:income][month] || 0
+        basement_expense = basement_cashflows[:expenses][month] || 0
+    
         monthly_cashflow[month] = income + basement_income - land_payment - construction_payment - basement_expense
         accumulated_cashflow[month] = (month > 0 ? accumulated_cashflow[month-1] : 0) + monthly_cashflow[month]
       end
-
-      # Print cashflow table (you can keep or remove this part)
-      puts "Full Cashflow Table (48 months):"
+    
+      # Print cashflow table
+      puts "Full Cashflow Table (72 months):"
       puts "Month | Land Payment | Construction Payment | Sales Income | Basement Income | Basement Expense | Monthly Cashflow | Accumulated Cashflow"
       
-      (0...48).each do |month|
-        land_payment = land_cost * land_cost_payment_schedule[month]
-        construction_payment = construction_payments[month]
-        income = total_income[month]
-        basement_income = basement_cashflows[:income][month]
-        basement_expense = basement_cashflows[:expenses][month]
-
+      (0...72).each do |month|
+        land_payment = land_cost * (land_cost_payment_schedule[month] || 0)
+        construction_payment = construction_payments[month] || 0
+        income = total_income[month] || 0
+        basement_income = basement_cashflows[:income][month] || 0
+        basement_expense = basement_cashflows[:expenses][month] || 0
+    
         row = [
           month.to_s.rjust(5),
           land_payment.round(2).to_s.rjust(12),
@@ -343,35 +343,37 @@ module Real_Estate_Optimizer
         ]
         puts row.join(" | ")
       end
-
+    
       result = {
         :monthly_cashflow => monthly_cashflow,
         :accumulated_cashflow => accumulated_cashflow,
-        :land_payments => land_cost_payment_schedule.map { |percentage| land_cost * percentage },
+        :land_payments => land_cost_payment_schedule.map { |percentage| land_cost * (percentage || 0) },
         :construction_payments => construction_payments,
         :total_income => total_income,
         :basement_income => basement_cashflows[:income],
         :basement_expenses => basement_cashflows[:expenses],
         :basement_parking_lot_stock => basement_cashflows[:parking_lot_stock]
       }
-
+    
       # For debugging
       puts "Cashflow data structure:"
       puts result.inspect
-
+    
       result
     end
     
     def self.calculate_basement_cashflows
       model = Sketchup.active_model
       project_data = JSON.parse(model.get_attribute('project_data', 'data') || '{}')
-      parking_lot_price = project_data['inputs']['parking_lot_average_price']  
-      parking_lot_velocity = project_data['inputs']['parking_lot_sales_velocity']
-      basement_unit_cost = project_data['inputs']['basement_unit_cost_before_allocation'] # Make sure this input exists
+      inputs = project_data['inputs'] || {}
     
-      income = Array.new(48, 0)
-      expenses = Array.new(48, 0)
-      parking_lot_stock = Array.new(48, 0)
+      parking_lot_price = (inputs['parking_lot_average_price'] || 0) 
+      parking_lot_velocity = inputs['parking_lot_sales_velocity'] || 0
+      basement_unit_cost = inputs['basement_unit_cost_before_allocation'] || 0
+    
+      income = Array.new(72, 0)
+      expenses = Array.new(72, 0)
+      parking_lot_stock = Array.new(72, 0)
     
       model.active_entities.grep(Sketchup::ComponentInstance).each do |instance|
         next unless instance.definition.get_attribute('dynamic_attributes', 'basement_type')
@@ -385,14 +387,14 @@ module Real_Estate_Optimizer
         basement_cost = basement_area * basement_unit_cost
     
         # Add basement construction cost as a one-time expense at Construction Init Time
-        expenses[construction_init_time] += basement_cost
+        expenses[construction_init_time] += basement_cost if construction_init_time < 72
     
         # Add parking lots to stock when sales permit is obtained
         market_entry_month = construction_init_time + sales_permit_time
-        parking_lot_stock[market_entry_month] += parking_lots if market_entry_month < 48
+        parking_lot_stock[market_entry_month] += parking_lots if market_entry_month < 72
     
-        # Calculate sales
-        (market_entry_month...48).each do |month|
+        # Calculate parking lot sales
+        (market_entry_month...72).each do |month|
           available_stock = parking_lot_stock[month]
           sales = [available_stock, parking_lot_velocity].min
           income[month] += sales * parking_lot_price
@@ -410,7 +412,7 @@ module Real_Estate_Optimizer
         instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
       end
     
-      construction_payments = Array.new(48, 0)
+      construction_payments = Array.new(72, 0)
     
       building_instances.each do |instance|
         building_data = instance.definition.attribute_dictionary('building_data')
@@ -430,7 +432,7 @@ module Real_Estate_Optimizer
     
         payment_schedule.each_with_index do |percentage, month|
           payment_month = construction_init_time + month
-          break if payment_month >= 48
+          break if payment_month >= 72
           construction_payments[payment_month] += total_cost * percentage
         end
       end
@@ -444,10 +446,10 @@ module Real_Estate_Optimizer
         instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
       end
     
-      sales_table = Hash.new { |h, k| h[k] = Array.new(48, 0) }
-      stock_table = Hash.new { |h, k| h[k] = Array.new(48, 0) }
-      income_table = Hash.new { |h, k| h[k] = Array.new(48, 0) }
-      total_income = Array.new(48, 0)
+      sales_table = Hash.new { |h, k| h[k] = Array.new(72, 0) }
+      stock_table = Hash.new { |h, k| h[k] = Array.new(72, 0) }
+      income_table = Hash.new { |h, k| h[k] = Array.new(72, 0) }
+      total_income = Array.new(72, 0)
     
       building_instances.each do |instance|
         building_data = instance.definition.attribute_dictionary('building_data')
@@ -460,7 +462,7 @@ module Real_Estate_Optimizer
         sales_permit_time = dynamic_attrs['sales_permit_time'].to_i
     
         market_entry_month = construction_init_time + sales_permit_time
-        next if market_entry_month >= 48
+        next if market_entry_month >= 72
     
         apartment_stocks.each do |apt_type, count|
           stock_table[apt_type][market_entry_month] += count
@@ -477,7 +479,7 @@ module Real_Estate_Optimizer
           area = apt_data['area'].to_f
           current_stock = 0
     
-          (0...48).each do |month|
+          (0...72).each do |month|
             current_stock += stocks[month]
             actual_sales = [current_stock, monthly_sales_volume].min
             sales_table[apt_type][month] = actual_sales
@@ -511,11 +513,11 @@ module Real_Estate_Optimizer
     
     def self.initialize_cashflow
       {
-        expenses: Array.new(48, 0),
-        income: Array.new(48, 0),
+        expenses: Array.new(72, 0),
+        income: Array.new(72, 0),
         apartment_stock: {},
         apartment_sales: {},
-        net_cashflow: Array.new(48, 0)
+        net_cashflow: Array.new(72, 0)
       }
     end
 
@@ -587,17 +589,17 @@ module Real_Estate_Optimizer
       
       construction_payment_schedule.each_with_index do |percentage, month|
         actual_month = construction_init_time + month
-        next if actual_month >= 48
+        next if actual_month >= 72
         payment = total_cost * percentage
         cashflow[:expenses][actual_month] += payment
       end
     end
     
     def self.add_apartment_stock(cashflow, building_data, sales_permit_time)
-      return if sales_permit_time >= 48
+      return if sales_permit_time >= 72
       
       building_data[:apartments].each do |apt_type, count|
-        cashflow[:apartment_stock][apt_type] ||= Array.new(48, 0)
+        cashflow[:apartment_stock][apt_type] ||= Array.new(72, 0)
         cashflow[:apartment_stock][apt_type][sales_permit_time] += count
       end
     end
@@ -608,9 +610,9 @@ module Real_Estate_Optimizer
         sales_scene = apt_data['sales_scenes'].first
         area = apt_data['area']
         
-        cashflow[:apartment_sales][apt_type] = Array.new(48, 0)
+        cashflow[:apartment_sales][apt_type] = Array.new(72, 0)
         
-        (0...48).each do |month|
+        (0...72).each do |month|
           current_stock = stocks[month]
           potential_sales = [current_stock, sales_scene['volumn']].min
           actual_sales = potential_sales # You might want to add some randomness or other factors here
@@ -627,7 +629,7 @@ module Real_Estate_Optimizer
 
     def self.display_cashflow(cashflow)
       puts "Month | Expenses | Income | Net Cash Flow | Apartment Stock | Apartment Sales"
-      (0...48).each do |month|
+      (0...72).each do |month|
         net = cashflow[:income][month] - cashflow[:expenses][month]
         cashflow[:net_cashflow][month] = net
         stock_info = cashflow[:apartment_stock].map { |type, stocks| "#{type}: #{stocks[month]}" }.join(", ")
@@ -691,8 +693,8 @@ module Real_Estate_Optimizer
       puts "Test: Calculate Sales and Income"
       cashflow = initialize_cashflow
       cashflow[:apartment_stock] = {
-        "110小高层" => Array.new(48, 10),
-        "90洋房" => Array.new(48, 5)
+        "110小高层" => Array.new(72, 10),
+        "90洋房" => Array.new(72, 5)
       }
       calculate_sales_and_income(cashflow)
       puts "Income: #{cashflow[:income].sum}"

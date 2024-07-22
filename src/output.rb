@@ -29,8 +29,8 @@ module Real_Estate_Optimizer
           </style>
         </head>
         <body>
-          <h2>Project Output</h2>
-          <p>Total Construction Area: <span id="totalArea">Calculating...</span> m²</p>
+          <h2>模型经济技术指标汇总 Project Output</h2>
+          <p>地上可售部分总建筑面积 Total Construction Area: <span id="totalArea">Calculating...</span> m²</p>
           <button onclick="generateCSV()">Generate CSV Report</button>
           <script>
             function generateCSV() {

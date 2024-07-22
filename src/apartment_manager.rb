@@ -8,7 +8,7 @@ module Real_Estate_Optimizer
     def self.show_dialog
       dialog = UI::HtmlDialog.new(
         {
-          :dialog_title => "户型维护",
+          :dialog_title => "户型维护 Apartment Maintenance",
           :preferences_key => "com.example.apartment_maintenance",
           :scrollable => true,
           :resizable => true,
@@ -148,10 +148,8 @@ module Real_Estate_Optimizer
           </script>
         </head>
         <body>
-          <h2>户型维护</h2>
-
           <div class="form-section">
-            <label for="apartment_category">户型属于类型</label>
+            <label for="apartment_category">户型属于类型 Apartment in building type of: </label>
             <select id="apartment_category">
               <option value="联排">联排</option>
               <option value="叠拼">叠拼</option>
@@ -172,7 +170,7 @@ module Real_Estate_Optimizer
             <input type="text" id="tag" value=""><br>
 
 
-            <label for="apartment_type_name">户型名</label>
+            <label for="apartment_type_name">户型名</label><br>
             <div id="apartment_type_name">110小高层</div>
           </div>
 

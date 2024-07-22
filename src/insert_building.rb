@@ -7,14 +7,14 @@ module Real_Estate_Optimizer
       building_types = get_building_types(model)
 
       if building_types.empty?
-        UI.messagebox("No building types available. Please create a building type first.")
+        UI.messagebox("还没有创建过任何楼型， 请创建您的楼型。 No building types available. Please create a building type first.")
         return
       end
 
-      prompts = ["Select Building Type"]
+      prompts = ["请选择一个要插入模型的楼型 Select Building Type"]
       defaults = [building_types.first]
       list = [building_types.join("|")]
-      input = UI.inputbox(prompts, defaults, list, "Select Building Type")
+      input = UI.inputbox(prompts, defaults, list, "请选择一个要插入模型的楼型 Select Building Type")
 
       return if input == false
 

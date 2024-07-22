@@ -1,57 +1,31 @@
-body {
-  font-family: Arial, sans-serif;
-}
-.form-section {
-  margin-bottom: 20px;
-}
-.form-section h3 {
-  margin-top: 0;
-}
-.form-section table {
-  width: 80%;
-  table-layout: fixed;
-}
-.form-section th, .form-section td {
-  border: 1px solid #ddd;
-  border-collapse: collapse;
-  padding: 5px;
-  text-align: left;
-}
-.form-section th {
-  background-color: #f2f2f2;
-  font-weight: normal;
+body { 
+  font-family: Tahoma, sans-serif; 
   font-size: 12px;
+  padding: 20px; 
 }
-.form-section td {
-  width: 6.6%;
-  font-size: 12px;
-}
-.add-btn {
-  margin-top: 10px;
-}
-input[type="text"], input[type="number"] {
-  width: 50px;
-}
-.pricing-scene {
-  display: flex;
-  align-items: center;
-  margin-bottom: 10px;
-}
-.pricing-scene input {
-  margin-right: 10px;
-}
-.pricing-scene button {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
-  border: 1px solid black;
-  font-size: 15px;
-}
-.pricing-scene button.add {
-  background-color: #eee;
-  color: black;
-}
-.pricing-scene button.remove {
-  background-color: #eee;
-  color: black;
-}
+
+:lang(zh) {
+   font-family: 'Microsoft YaHei', sans-serif; 
+  }
+
+p {
+  
+  font-size: 12px;}
+.form-group { margin-bottom: 5px; }
+label { display: inline-block; width: 400px; }
+input[type="number"] { width: 120px; }
+.error { color: red; }
+table { border-collapse: collapse; }
+th, td { border: 0px solid #ddd; padding: 2px; font-size: 12px; }
+td input { width: 40px; font-size: 12px; }
+
+/* 
+below, from building type panel
+*/
+
+        .form-section { margin-bottom: 20px; }
+        .form-section h3 { margin-top: 0; }
+        #floorTypesContainer { margin-top: 20px; }
+        .floor-type { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
+        .apartment-type { margin-left: 20px; }
+        th, td { border: 1px solid #ddd; padding: 2px; text-align: center; }
