@@ -40,7 +40,7 @@ module Real_Estate_Optimizer
         definitions = model.definitions
         
         model.start_operation('Create/Update Building Type Component', true)
-
+      
         component_name = building_type['name']
         
         # Check if a component definition already exists
@@ -52,16 +52,17 @@ module Real_Estate_Optimizer
           # Create a new component definition if it doesn't exist
           building_def = definitions.add(component_name)
         end
-
+      
         # Create the geometry for the building type
         create_building_geometry(building_def, building_type)
-
-        # Pre-calculate apartment stocks and total cost
+      
+        # Pre-calculate apartment stocks, total cost, total area, and footprint area
         apartment_stocks = {}
         total_cost = 0
         total_area = 0
-
-        building_type['floorTypes'].each do |floor_type|
+        footprint_area = 0
+      
+        building_type['floorTypes'].each_with_index do |floor_type, floor_index|
           num_floors = floor_type['number'].to_i
           
           floor_type['apartmentTypes'].each do |apartment|
@@ -82,31 +83,37 @@ module Real_Estate_Optimizer
             
             total_cost += apt_total_cost
             total_area += apt_total_area
+      
+            # Calculate footprint area (only for the first floor type)
+            footprint_area += apt_area if floor_index == 0
           end
         end
-
+      
         # Save data to the component definition
         apartment_stocks_json = apartment_stocks.to_json
         building_def.set_attribute('building_data', 'apartment_stocks', apartment_stocks_json)
-        puts "Debug: apartment_stocks saved as: #{apartment_stocks_json}"
         building_def.set_attribute('building_data', 'total_cost', total_cost)
         building_def.set_attribute('building_data', 'total_area', total_area)
+        building_def.set_attribute('building_data', 'footprint_area', footprint_area)
+        building_def.set_attribute('building_data', 'supervisionFundPercentage', building_type['standardConstructionTime']['supervisionFundPercentage'].to_f)
+        building_def.set_attribute('building_data', 'supervisionFundReleaseSchedule', building_type['supervisionFundReleaseSchedule'])
 
-
+      
         # Log the calculated values for inspection
         puts "Building Type: #{component_name}"
         puts "Apartment Stocks: #{apartment_stocks}"
         puts "Total Cost: #{total_cost}"
         puts "Total Area: #{total_area}"
-
+        puts "Footprint Area: #{footprint_area}"
+      
         model.commit_operation
-
+      
         # Place the component in the model for inspection
         instance = place_component_in_model(building_def)
-
+      
         # Add dynamic component attributes
         add_dynamic_attributes(instance, building_type)
-
+      
         building_def
       end
   
@@ -167,6 +174,10 @@ module Real_Estate_Optimizer
         instance.set_attribute('dynamic_attributes', 'construction_init_time', 0)
         sales_permit_time = building_type['standardConstructionTime']['monthsFromConstructionInitToSale'].to_i
         instance.set_attribute('dynamic_attributes', 'sales_permit_time', sales_permit_time)
+        
+        # Add these lines
+        instance.set_attribute('dynamic_attributes', 'supervisionFundPercentage', building_type['standardConstructionTime']['supervisionFundPercentage'].to_f)
+        instance.set_attribute('dynamic_attributes', 'supervisionFundReleaseSchedule', building_type['supervisionFundReleaseSchedule'])
       end
       
       def self.place_component_in_model(building_def)

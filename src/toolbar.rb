@@ -1,11 +1,11 @@
-require_relative 'input'
-require_relative 'apartment_manager'
-require_relative 'building_generator'
-require_relative 'basement_pick'
-require_relative 'propertyline_pick'
-require_relative 'insert_building'
-require_relative 'output'
-require_relative 'building_attribute_editor'
+require_relative '1_input'
+require_relative '4_apartment_manager'
+require_relative '5_building_generator'
+require_relative '3_basement_pick'
+require_relative '2_propertyline_pick'
+require_relative '6_insert_building'
+require_relative '8_output'
+require_relative '7_building_attribute_editor'
 
 
 module Real_Estate_Optimizer

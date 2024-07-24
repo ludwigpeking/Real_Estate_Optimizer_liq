@@ -348,3 +348,43 @@ I have a few apartment types, show me a code to calculate the stock added and so
 ok, so now, using a similar logic, we can put the sales income and expenses for the basement. the parking lots are generic, having a price (requiring adding an entry in the input dialog"parking lot average price"), the basement object add parking lot stocks when it receives sales permit (construction init months + sales permit months), and they sell at a velocity (requiring adding an entry in the input dialog"parking lot sales velocity"). sales activity consumes parking lot stock until depletion. the basement also requires construction cost = basement area * Basement Unit Cost(input) . its payment happen as a lampsum at the construction init time. 
 
 you should modify the input dialog to accomodate the new input, add stock logic, income and expense logic of the basements in the cashflow code. and put them into the output along with the existing items.
+
+we need to add a logic, which is:
+
+when we need to allocate the total land cost to all apartment types. 
+
+each apartment types has a width and a category, which is one of the following,
+
+the land cost weight of an apartment type should be width/categoty_factor:
+
+type: categoty_factor;
+
+联排: 0.6
+
+叠拼: 0.8
+
+洋房: 1.4
+
+小高层: 2.0
+
+大高: 3.0
+
+超高: 6
+
+商铺: 1
+
+办公: 5
+
+公寓: 4
+
+you should can't the total area of each apartment type in the stock, find out its categoy, multiply its total area to the category factor, to get the total weight, then you get the total landcost the apartment type is allocated to. apartment_type_land_cost =  allocated_land_cost_on_type/apartment_type_total_number. 
+
+this apartment_type_land_cost is a changing attribute to the apartment type which has to do with the whole situation in the model. It should be updated when the output dialog is called.
+
+buy getting the nominal landcost of each apartment type. we can calculate the landcost on the sold unit in each peroid and be able to calculate the profit and taxation.
+
+### supervision
+
+I need to add a logic of fund supervision. each building instance in the model is required a fund in the government. which is the supervisionFundPercentage * the building's construction cost. this fund is release back to the developer based on its supervisionFundReleaseSchedule, which is the number of months after its construction init. so the supervised fund sum reduced over time. when buyers buy apartments (not parking lots), the money by default goes to the supervision fund, and a comparison is made to see if the total fund has reached its required amount. the fund collects the money from the buyers first until it reaches it required amount, then the money can go to the developer. it will also be released to the developer when the construction carries on.
+
+do you understand this logic. it has a lot to do with the de facto cashflow of the developer, and should be considered in the formula.

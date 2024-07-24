@@ -1,7 +1,7 @@
 require 'sketchup'
 require 'json'
-require_relative 'data_handler'
-require_relative 'default_values'
+require_relative '1_data_handler'
+require_relative '0_default_values'
 
 module Real_Estate_Optimizer
   module Input

@@ -1,4 +1,5 @@
-require_relative 'default_values'
+require_relative '8_land_cost_allocator'
+require_relative '0_default_values'
 
 module Real_Estate_Optimizer
   module CashFlowCalculator
@@ -283,7 +284,41 @@ module Real_Estate_Optimizer
       {income_table: income_table, total_income: total_income}
     end
 
-
+    def self.calculate_supervision_fund_requirement(building_instances)
+      fund_requirement = Array.new(72, 0)
+      
+      building_instances.each do |instance|
+        building_data = instance.definition.attribute_dictionary('building_data')
+        dynamic_attrs = instance.attribute_dictionary('dynamic_attributes')
+        next unless building_data && dynamic_attrs
+    
+        construction_cost = building_data['total_cost'].to_f
+        supervision_fund_percentage = building_data['supervisionFundPercentage'].to_f
+        construction_init_time = dynamic_attrs['construction_init_time'].to_i
+        release_schedule = building_data['supervisionFundReleaseSchedule'] || []
+    
+        total_instance_requirement = construction_cost * supervision_fund_percentage
+    
+        puts "Debug: Building #{instance.definition.name}"
+        puts "  Construction cost: #{construction_cost}"
+        puts "  Supervision fund percentage: #{supervision_fund_percentage}"
+        puts "  Construction init time: #{construction_init_time}"
+        puts "  Total requirement: #{total_instance_requirement}"
+        puts "  Release schedule: #{release_schedule.inspect}"
+    
+        # Add the initial requirement at the construction start time
+        fund_requirement[construction_init_time] += total_instance_requirement
+    
+        release_schedule.each_with_index do |percentage, month|
+          actual_month = construction_init_time + month
+          break if actual_month >= 72
+          release_amount = total_instance_requirement * percentage
+          fund_requirement[actual_month] -= release_amount
+        end
+      end
+    
+      fund_requirement
+    end
 
     def self.calculate_and_print_full_cashflow_table
       model = Sketchup.active_model
@@ -293,6 +328,50 @@ module Real_Estate_Optimizer
       inputs = project_data['inputs'] || {}
       land_cost = (inputs['land_cost'] || 0) * 10000 # Convert from wan to yuan
       land_cost_payment_schedule = inputs['land_cost_payment'] || Array.new(72, 0)
+
+
+      building_instances = model.active_entities.grep(Sketchup::ComponentInstance).select do |instance|
+        instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
+      end
+    
+      supervision_fund_requirements = Array.new(72, 0)
+      supervision_fund_releases = Array.new(72, 0)
+      supervision_fund_balance = 0
+      total_fund_contribution = 0
+      total_fund_release = 0
+    
+      # Calculate initial supervision fund requirements and releases
+      building_instances.each do |instance|
+        building_data = instance.definition.attribute_dictionary('building_data')
+        dynamic_attrs = instance.attribute_dictionary('dynamic_attributes')
+        next unless building_data && dynamic_attrs
+
+        construction_cost = building_data['total_cost'].to_f
+        supervision_fund_percentage = dynamic_attrs['supervisionFundPercentage'].to_f
+        construction_init_time = dynamic_attrs['construction_init_time'].to_i
+        release_schedule = dynamic_attrs['supervisionFundReleaseSchedule'] || []
+
+        total_requirement = construction_cost * supervision_fund_percentage
+        supervision_fund_requirements[construction_init_time] += total_requirement
+
+        puts "Debug: Building #{instance.definition.name}"
+        puts "  Construction cost: #{construction_cost}"
+        puts "  Supervision fund percentage: #{supervision_fund_percentage}"
+        puts "  Construction init time: #{construction_init_time}"
+        puts "  Total requirement: #{total_requirement}"
+        puts "  Release schedule: #{release_schedule.inspect}"
+
+        release_schedule.each_with_index do |percentage, month|
+          actual_month = construction_init_time + month
+          break if actual_month >= 72
+          release_amount = total_requirement * percentage
+          supervision_fund_releases[actual_month] += release_amount
+          puts "  Month #{actual_month}: Release amount: #{release_amount}"
+        end
+      end
+
+      puts "Debug: Final supervision fund requirements: #{supervision_fund_requirements.inspect}"
+      puts "Debug: Final supervision fund releases: #{supervision_fund_releases.inspect}"
     
       # Calculate construction payments
       construction_payments = calculate_construction_payments
@@ -304,6 +383,14 @@ module Real_Estate_Optimizer
       # Calculate basement-related cashflows
       basement_cashflows = calculate_basement_cashflows
     
+      # Get unsaleable amenity cost and payment schedule
+      unsaleable_amenity_cost = (inputs['unsaleable_amenity_cost'] || 0) * 10000 # Convert from wan to yuan
+      unsaleable_amenity_cost_payment_schedule = inputs['unsaleable_amenity_cost_payment'] || Array.new(72, 0)
+    
+      # Calculate land cost for sold units (for reporting purposes only)
+      unit_land_costs = LandCostAllocator.calculate_unit_land_costs
+      monthly_land_cost_for_sold_units = calculate_monthly_land_cost(income_data[:sales_table], unit_land_costs)
+    
       # Initialize cashflow arrays
       monthly_cashflow = Array.new(72, 0)
       accumulated_cashflow = Array.new(72, 0)
@@ -311,33 +398,60 @@ module Real_Estate_Optimizer
       # Calculate cashflow
       (0...72).each do |month|
         land_payment = land_cost * (land_cost_payment_schedule[month] || 0)
+        unsaleable_amenity_payment = unsaleable_amenity_cost * (unsaleable_amenity_cost_payment_schedule[month] || 0)
         construction_payment = construction_payments[month] || 0
         income = total_income[month] || 0
         basement_income = basement_cashflows[:income][month] || 0
         basement_expense = basement_cashflows[:expenses][month] || 0
     
-        monthly_cashflow[month] = income + basement_income - land_payment - construction_payment - basement_expense
+        # Calculate supervision fund contribution and release
+        required_contribution = [supervision_fund_requirements[month], income].min
+        actual_contribution = [required_contribution, supervision_fund_requirements[month] - supervision_fund_balance].min
+        supervision_fund_balance += actual_contribution
+        total_fund_contribution += actual_contribution
+        income -= actual_contribution
+    
+        fund_release = supervision_fund_releases[month]
+        supervision_fund_balance -= fund_release
+        total_fund_release += fund_release
+        income += fund_release
+    
+        monthly_cashflow[month] = income + basement_income - land_payment - unsaleable_amenity_payment - construction_payment - basement_expense
         accumulated_cashflow[month] = (month > 0 ? accumulated_cashflow[month-1] : 0) + monthly_cashflow[month]
+    
+        # Debug print for each month
+        puts "Month #{month}: Fund Balance: #{supervision_fund_balance.round(2)}, Contribution: #{actual_contribution.round(2)}, Release: #{fund_release.round(2)}, Requirement: #{supervision_fund_requirements[month].round(2)}"
       end
+    
+      # Final debug prints
+      puts "Total Fund Contribution: #{total_fund_contribution.round(2)}"
+      puts "Total Fund Release: #{total_fund_release.round(2)}"
+      puts "Final Fund Balance: #{supervision_fund_balance.round(2)}"
     
       # Print cashflow table
       puts "Full Cashflow Table (72 months):"
-      puts "Month | Land Payment | Construction Payment | Sales Income | Basement Income | Basement Expense | Monthly Cashflow | Accumulated Cashflow"
-      
+      puts "Month | Land Payment | Unsaleable Amenity Payment | Construction Payment | Sales Income | Basement Income | Basement Expense | Supervision Fund Balance | Supervision Fund Release | Monthly Cashflow | Accumulated Cashflow"
+
       (0...72).each do |month|
         land_payment = land_cost * (land_cost_payment_schedule[month] || 0)
+        unsaleable_amenity_payment = unsaleable_amenity_cost * (unsaleable_amenity_cost_payment_schedule[month] || 0)
         construction_payment = construction_payments[month] || 0
         income = total_income[month] || 0
         basement_income = basement_cashflows[:income][month] || 0
         basement_expense = basement_cashflows[:expenses][month] || 0
-    
+        land_cost_for_sold_units_info = monthly_land_cost_for_sold_units[month] || 0
+        fund_release = supervision_fund_releases[month] || 0  # Add this line
+
         row = [
           month.to_s.rjust(5),
           land_payment.round(2).to_s.rjust(12),
+          unsaleable_amenity_payment.round(2).to_s.rjust(26),
           construction_payment.round(2).to_s.rjust(21),
           income.round(2).to_s.rjust(12),
           basement_income.round(2).to_s.rjust(15),
           basement_expense.round(2).to_s.rjust(16),
+          supervision_fund_balance.round(2).to_s.rjust(26),
+          fund_release.round(2).to_s.rjust(27),
           monthly_cashflow[month].round(2).to_s.rjust(16),
           accumulated_cashflow[month].round(2).to_s.rjust(21)
         ]
@@ -348,16 +462,20 @@ module Real_Estate_Optimizer
         :monthly_cashflow => monthly_cashflow,
         :accumulated_cashflow => accumulated_cashflow,
         :land_payments => land_cost_payment_schedule.map { |percentage| land_cost * (percentage || 0) },
+        :unsaleable_amenity_payments => unsaleable_amenity_cost_payment_schedule.map { |percentage| unsaleable_amenity_cost * (percentage || 0) },
         :construction_payments => construction_payments,
         :total_income => total_income,
         :basement_income => basement_cashflows[:income],
         :basement_expenses => basement_cashflows[:expenses],
-        :basement_parking_lot_stock => basement_cashflows[:parking_lot_stock]
+        :basement_parking_lot_stock => basement_cashflows[:parking_lot_stock],
+        :land_cost_for_sold_units => monthly_land_cost_for_sold_units,
+        :supervision_fund_balance => supervision_fund_balance,
+        :supervision_fund_release => supervision_fund_releases
       }
     
       # For debugging
       puts "Cashflow data structure:"
-      puts result.inspect
+      # puts result.inspect
     
       result
     end
@@ -490,7 +608,22 @@ module Real_Estate_Optimizer
         end
       end
     
-      {income_table: income_table, total_income: total_income}
+      {income_table: income_table, total_income: total_income, sales_table: sales_table}
+    end
+
+    def self.calculate_monthly_land_cost(sales_table, unit_land_costs)
+      monthly_land_cost = Array.new(72, 0)
+    
+      sales_table.each do |apt_type, monthly_sales|
+        unit_land_cost = unit_land_costs[apt_type]
+        apartment_data = get_apartment_data(apt_type)
+        
+        monthly_sales.each_with_index do |sales, month|
+          monthly_land_cost[month] += unit_land_cost * apartment_data['area'] * sales
+        end
+      end
+    
+      monthly_land_cost
     end
     
     def self.calculate_cashflow
@@ -643,82 +776,26 @@ module Real_Estate_Optimizer
       JSON.parse(model.get_attribute('property_data', apt_type, '{}'))
     end
 
-    #  -- TESTS --
-
-    def self.run_tests
-      test_find_building_instances
-      test_process_building
-      test_add_apartment_stock
-      test_calculate_sales_and_income
-      test_add_land_cost_payment
-      test_full_cashflow
-    end
-
-    def self.test_find_building_instances
+    def self.get_unsaleable_amenity_cost_payments
       model = Sketchup.active_model
-      instances = find_building_instances(model)
-      puts "Test: Find Building Instances"
-      puts "Found #{instances.length} building instances"
-      instances.each { |instance| puts "  - #{instance.definition.name}" }
-      puts
+      project_data = JSON.parse(model.get_attribute('project_data', 'data') || '{}')
+      
+      unsaleable_amenity_cost = project_data['inputs'] && project_data['inputs']['unsaleable_amenity_cost'] || 0
+      payment_schedule = project_data['inputs'] && project_data['inputs']['unsaleable_amenity_cost_payment'] || []
+      
+      # Ensure the payment schedule has 72 elements
+      payment_schedule = payment_schedule.fill(0, payment_schedule.length...72)
+      
+      # Calculate payments
+      payments = payment_schedule.map { |percentage| unsaleable_amenity_cost * percentage }
+      
+      puts "Unsaleable Amenity Cost: #{unsaleable_amenity_cost}"
+      puts "Payment Schedule: #{payment_schedule.inspect}"
+      puts "Unsaleable Amenity Cost Payments: #{payments.inspect}"
+      
+      payments
     end
 
-    def self.test_process_building
-      model = Sketchup.active_model
-      instances = find_building_instances(model)
-      return if instances.empty?
-
-      puts "Test: Process Building"
-      cashflow = initialize_cashflow
-      process_building(instances.first, cashflow)
-      puts "Processed building: #{instances.first.definition.name}"
-      puts "Expenses: #{cashflow[:expenses].sum}"
-      puts "Apartment Stock: #{cashflow[:apartment_stock]}"
-      puts
-    end
-
-    def self.test_add_apartment_stock
-      puts "Test: Add Apartment Stock"
-      cashflow = initialize_cashflow
-      building_data = {apartments: {"110小高层" => 10, "90洋房" => 5}}
-      add_apartment_stock(cashflow, building_data, 3)
-      puts "Apartment Stock after adding:"
-      cashflow[:apartment_stock].each do |type, stock|
-        puts "  #{type}: #{stock.join(', ')}"
-      end
-      puts
-    end
-
-    def self.test_calculate_sales_and_income
-      puts "Test: Calculate Sales and Income"
-      cashflow = initialize_cashflow
-      cashflow[:apartment_stock] = {
-        "110小高层" => Array.new(72, 10),
-        "90洋房" => Array.new(72, 5)
-      }
-      calculate_sales_and_income(cashflow)
-      puts "Income: #{cashflow[:income].sum}"
-      puts "Apartment Sales:"
-      cashflow[:apartment_sales].each do |type, sales|
-        puts "  #{type}: #{sales.join(', ')}"
-      end
-      puts
-    end
-
-    def self.test_add_land_cost_payment
-      puts "Test: Add Land Cost Payment"
-      cashflow = initialize_cashflow
-      add_land_cost_payment(cashflow)
-      puts "Land Cost Expenses: #{cashflow[:expenses].sum}"
-      puts
-    end
-
-    def self.test_full_cashflow
-      puts "Test: Full Cashflow Calculation"
-      calculate_cashflow
-      puts "Full cashflow calculation completed"
-      puts
-    end
   end
   puts "Finished loading CashFlowCalculator module."
 end

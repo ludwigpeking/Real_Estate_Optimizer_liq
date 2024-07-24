@@ -1,6 +1,6 @@
 require 'sketchup.rb'
 require 'json'
-require_relative 'building_type_component'
+require_relative '5_building_type_component'
 
 # Ruby code starts here
 module Real_Estate_Optimizer
@@ -179,59 +179,60 @@ module Real_Estate_Optimizer
                 
 
                 function submitForm() {
-                    let formData = {
-                        name: document.getElementById('buildingTypeName') ? document.getElementById('buildingTypeName').textContent : '',
-                        floorTypes: [],
-                        standardConstructionTime: {},
-                        supervisionFundReleaseSchedule: [],
-                        constructionPaymentSchedule: []
+                  let formData = {
+                    name: document.getElementById('buildingTypeName') ? document.getElementById('buildingTypeName').textContent : '',
+                    floorTypes: [],
+                    standardConstructionTime: {},
+                    supervisionFundReleaseSchedule: [],
+                    constructionPaymentSchedule: [],
+                    total_area: parseFloat(document.getElementById('totalArea').textContent) || 0,
+                    footprint_area: parseFloat(document.getElementById('footprintArea').textContent) || 0
+                  };
+
+                  // Standard Construction Time
+                  ['monthsFromConstructionInitToZeroLevel', 'monthsFromZeroLevelToRoofLevel', 
+                  'monthsFromRoofLevelToDelivery', 'monthsFromConstructionInitToSale', 'supervisionFundPercentage'].forEach(function(id) {
+                    let element = document.getElementById(id);
+                    formData.standardConstructionTime[id] = element ? parseFloat(element.value) : 0;
+                  });
+
+                  // Floor Types
+                  document.querySelectorAll('.floor-type').forEach(function(floorType) {
+                    let numberFloorsElement = floorType.querySelector('input[id^="numberFloors"]');
+                    let levelHeightElement = floorType.querySelector('input[id^="levelHeight"]');
+                    let floorTypeData = {
+                      number: numberFloorsElement ? parseInt(numberFloorsElement.value) || 0 : 0,
+                      levelHeight: levelHeightElement ? parseFloat(levelHeightElement.value) || 0 : 0,
+                      apartmentTypes: []
                     };
 
-                    // Standard Construction Time
-                    ['monthsFromConstructionInitToZeroLevel', 'monthsFromZeroLevelToRoofLevel', 
-                    'monthsFromRoofLevelToDelivery', 'monthsFromConstructionInitToSale', 'supervisionFundPercentage'].forEach(function(id) {
-                        let element = document.getElementById(id);
-                        formData.standardConstructionTime[id] = element ? parseFloat(element.value) : 0;
+                    floorType.querySelectorAll('.apartment-type').forEach(function(apartmentType) {
+                      let nameElement = apartmentType.querySelector('select[id^="apartmentName"]');
+                      let xElement = apartmentType.querySelector('input[id^="apartmentX"]');
+                      let yElement = apartmentType.querySelector('input[id^="apartmentY"]');
+                      floorTypeData.apartmentTypes.push({
+                        name: nameElement ? nameElement.value : '',
+                        x: xElement ? parseFloat(xElement.value) || 0 : 0,
+                        y: yElement ? parseFloat(yElement.value) || 0 : 0
+                      });
                     });
 
-                    // Floor Types
-                    document.querySelectorAll('.floor-type').forEach(function(floorType) {
-                        let numberFloorsElement = floorType.querySelector('input[id^="numberFloors"]');
-                        let levelHeightElement = floorType.querySelector('input[id^="levelHeight"]');
-                        let floorTypeData = {
-                            number: numberFloorsElement ? parseInt(numberFloorsElement.value) || 0 : 0,
-                            levelHeight: levelHeightElement ? parseFloat(levelHeightElement.value) || 0 : 0,
-                            apartmentTypes: []
-                        };
+                    formData.floorTypes.push(floorTypeData);
+                  });
 
-                        floorType.querySelectorAll('.apartment-type').forEach(function(apartmentType) {
-                            let nameElement = apartmentType.querySelector('select[id^="apartmentName"]');
-                            let xElement = apartmentType.querySelector('input[id^="apartmentX"]');
-                            let yElement = apartmentType.querySelector('input[id^="apartmentY"]');
-                            floorTypeData.apartmentTypes.push({
-                                name: nameElement ? nameElement.value : '',
-                                x: xElement ? parseFloat(xElement.value) || 0 : 0,
-                                y: yElement ? parseFloat(yElement.value) || 0 : 0
-                            });
-                        });
+                  // Payment Schedules
+                  formData.supervisionFundReleaseSchedule = getPaymentData('supervisionFundReleaseSchedule');
+                  formData.constructionPaymentSchedule = getPaymentData('constructionPaymentSchedule');
 
-                        formData.floorTypes.push(floorTypeData);
-                    });
-
-                    // Payment Schedules
-                    document.querySelectorAll('#supervisionFundReleaseSchedule input').forEach(function(input) {
-                      formData.supervisionFundReleaseSchedule.push(parseFloat(input.value) || 0);
-                    });
-                    document.querySelectorAll('#constructionPaymentSchedule input').forEach(function(input) {
-                      formData.constructionPaymentSchedule.push(parseFloat(input.value) || 0);
-                    });
-              
                   console.log('Supervision Fund Release Schedule:', formData.supervisionFundReleaseSchedule);
                   console.log('Construction Payment Schedule:', formData.constructionPaymentSchedule);
-              
+                  console.log('Form Data:', formData); // For debugging
 
-                    console.log('Form Data:', formData); // For debugging
-                    window.location = 'skp:save_building_type@' + encodeURIComponent(JSON.stringify(formData));
+                  window.location = 'skp:save_building_type@' + encodeURIComponent(JSON.stringify(formData));
+                }
+
+                function getPaymentData(tableId) {
+                  return Array.from(document.querySelectorAll(`#${tableId} input`)).map(input => parseFloat(input.value) || 0);
                 }
 
                 function loadBuildingType() {
@@ -328,13 +329,15 @@ module Real_Estate_Optimizer
             </div>
         
             <div class="form-section">
-                <h3>保存与加载 Save and Load</h3>
-                <p>楼型名称 Building Type Name: <span id="buildingTypeName"></span></p>
-                <button type="button" onclick="submitForm()">保存楼型 Save Building Type</button>
-                <select id="savedBuildingTypes" onchange="loadBuildingType()">
-                    <option value="">选择楼型 Select a building type</option>
-                </select>
-                <button type="button" onclick="deleteBuildingType()">删除楼型 Delete Building Type</button>
+              <h3>保存与加载 Save and Load</h3>
+              <p>楼型名称 Building Type Name: <span id="buildingTypeName"></span></p>
+              <p>建筑面积 Total Area: <span id="totalArea">0</span> m²</p>
+              <p>占地面积 Footprint Area: <span id="footprintArea">0</span> m²</p>
+              <button type="button" onclick="submitForm()">保存楼型 Save Building Type</button>
+              <select id="savedBuildingTypes" onchange="loadBuildingType()">
+                <option value="">选择楼型 Select a building type</option>
+              </select>
+              <button type="button" onclick="deleteBuildingType()">删除楼型 Delete Building Type</button>
             </div>
             </body>
         </html>
@@ -352,9 +355,15 @@ module Real_Estate_Optimizer
             building_type_names |= [form_data['name']]  # Add name if not present
             model.set_attribute('project_data', BuildingGenerator::BUILDING_TYPE_LIST_KEY, building_type_names)
             
+            # Create or update the building type component
+            updated_building_def = BuildingTypeComponent.create_or_update_component(form_data)
+            
+            # Update form_data with the calculated values
+            form_data['total_area'] = updated_building_def.get_attribute('building_data', 'total_area')
+            form_data['footprint_area'] = updated_building_def.get_attribute('building_data', 'footprint_area')
+            
             # Save data in component definition
-            definition = model.definitions[form_data['name']] || model.definitions.add(form_data['name'])
-            definition.set_attribute('building_data', 'details', form_data.to_json)
+            updated_building_def.set_attribute('building_data', 'details', form_data.to_json)
             
             # Save data in project_data (as a backup)
             project_data_json = model.get_attribute('project_data', 'data', '{}')
@@ -367,8 +376,9 @@ module Real_Estate_Optimizer
             puts "Saved building type: #{form_data['name']}"
             puts "Updated building type list: #{building_type_names.inspect}"
             
-            # Create or update the building type component
-            BuildingTypeComponent.create_or_update_component(form_data)
+            # Update the dialog with new values
+            dialog.execute_script("document.getElementById('totalArea').textContent = '#{form_data['total_area']}'")
+            dialog.execute_script("document.getElementById('footprintArea').textContent = '#{form_data['footprint_area']}'")
             
             UI.messagebox("Building type '#{form_data['name']}' saved successfully.")
             update_saved_building_types(dialog)
@@ -493,6 +503,9 @@ module Real_Estate_Optimizer
             js_code_lines << "lastApartment.querySelector('input[id^=\"apartmentY\"]').value = #{apt['y']};"
           end
         end
+      
+        js_code_lines << "document.getElementById('totalArea').textContent = #{building_data['total_area'] || 0};"
+        js_code_lines << "document.getElementById('footprintArea').textContent = #{building_data['footprint_area'] || 0};"
       
         js_code_lines << "document.getElementById('monthsFromConstructionInitToZeroLevel').value = #{building_data['standardConstructionTime']['monthsFromConstructionInitToZeroLevel']};"
         js_code_lines << "document.getElementById('monthsFromZeroLevelToRoofLevel').value = #{building_data['standardConstructionTime']['monthsFromZeroLevelToRoofLevel']};"

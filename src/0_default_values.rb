@@ -46,7 +46,6 @@ module Real_Estate_Optimizer
   
       PROJECT_DEFAULTS[:inputs][:land_cost_payment][0] = 1
       PROJECT_DEFAULTS[:inputs][:unsaleable_amenity_cost_payment] = [0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0.1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    ]
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,]
     end
   end
