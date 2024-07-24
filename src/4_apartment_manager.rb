@@ -211,17 +211,17 @@ module Real_Estate_Optimizer
         model = Sketchup.active_model
 
         # Retrieve the current list of apartment type names
-        apartment_type_names = model.get_attribute('property_data', APARTMENT_TYPE_LIST_KEY, [])
+        apartment_type_names = model.get_attribute('aparment_type_data', APARTMENT_TYPE_LIST_KEY, [])
         
         if apartment_type_names.include?(apartment_type_name)
           result = UI.messagebox("户型名已存在。是否覆盖？ Apartment type name already exists. Overwrite?", MB_YESNO)
           return if result == IDNO
         else
           apartment_type_names << apartment_type_name
-          model.set_attribute('property_data', APARTMENT_TYPE_LIST_KEY, apartment_type_names)
+          model.set_attribute('aparment_type_data', APARTMENT_TYPE_LIST_KEY, apartment_type_names)
         end
 
-        model.set_attribute('property_data', apartment_type_name, apartment_data.to_json)
+        model.set_attribute('aparment_type_data', apartment_type_name, apartment_data.to_json)
         puts "Stored data for #{apartment_type_name}: #{apartment_data.inspect}"  # Debugging line
 
         # Create or update the apartment component
@@ -233,11 +233,11 @@ module Real_Estate_Optimizer
 
       dialog.add_action_callback("delete_apartment_type") do |action_context, apartment_type_name|
         model = Sketchup.active_model
-        model.delete_attribute('property_data', apartment_type_name)
+        model.delete_attribute('aparment_type_data', apartment_type_name)
         
-        apartment_type_names = model.get_attribute('property_data', APARTMENT_TYPE_LIST_KEY, [])
+        apartment_type_names = model.get_attribute('aparment_type_data', APARTMENT_TYPE_LIST_KEY, [])
         apartment_type_names.delete(apartment_type_name)
-        model.set_attribute('property_data', APARTMENT_TYPE_LIST_KEY, apartment_type_names)
+        model.set_attribute('aparment_type_data', APARTMENT_TYPE_LIST_KEY, apartment_type_names)
 
         puts "Deleted data for #{apartment_type_name}"  # Debugging line
         UI.messagebox("户型已删除 Apartment type deleted: " + apartment_type_name)
@@ -246,7 +246,7 @@ module Real_Estate_Optimizer
 
       dialog.add_action_callback("load_apartment_type") do |action_context, apartment_type_name|
         model = Sketchup.active_model
-        apartment_data_json = model.get_attribute('property_data', apartment_type_name)
+        apartment_data_json = model.get_attribute('aparment_type_data', apartment_type_name)
         if apartment_data_json
           dialog.execute_script("populateApartmentType('#{apartment_data_json}')")
         else
@@ -356,7 +356,7 @@ module Real_Estate_Optimizer
 
     def self.update_saved_apartment_types(dialog)
       model = Sketchup.active_model
-      apartment_type_names = model.get_attribute('property_data', APARTMENT_TYPE_LIST_KEY, [])
+      apartment_type_names = model.get_attribute('aparment_type_data', APARTMENT_TYPE_LIST_KEY, [])
       dialog.execute_script("updateSavedApartmentTypes(#{apartment_type_names.to_json})")
     end
   end

@@ -391,7 +391,7 @@ module Real_Estate_Optimizer
 
         dialog.add_action_callback("populate_all_apartment_types") do |action_context|
           model = Sketchup.active_model
-          apartment_type_names = model.get_attribute('property_data', 'apartment_type_names', [])
+          apartment_type_names = model.get_attribute('aparment_type_data', 'apartment_type_names', [])
           js_code = "var selects = document.querySelectorAll('select[id^=\"apartmentName\"]');"
           js_code += "selects.forEach(function(select) {"
           js_code += "  var currentValue = select.value;"

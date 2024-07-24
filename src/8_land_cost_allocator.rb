@@ -1,3 +1,5 @@
+
+
 module Real_Estate_Optimizer
   module LandCostAllocator
     CATEGORY_FACTORS = {
@@ -14,8 +16,9 @@ module Real_Estate_Optimizer
 
     def self.calculate_unit_land_costs
       model = Sketchup.active_model
-      project_data = JSON.parse(model.get_attribute('project_data', 'data', '{}'))
-      total_land_cost = project_data['inputs']['land_cost'].to_f * 10000  # Convert to yuan
+      project_data = CashFlowCalculator.get_project_data_with_defaults
+      inputs = project_data['inputs']
+      total_land_cost = inputs['land_cost'] * 10000
 
       apartment_stocks = calculate_apartment_stocks(model)
       total_weight = calculate_total_weight(apartment_stocks)
@@ -62,9 +65,9 @@ module Real_Estate_Optimizer
       model.start_operation('Update Apartment Unit Land Costs', true)
       
       unit_land_costs.each do |apt_name, unit_cost|
-        apartment_data = JSON.parse(model.get_attribute('property_data', apt_name, '{}'))
+        apartment_data = JSON.parse(model.get_attribute('aparment_type_data', apt_name, '{}'))
         apartment_data['unit_land_cost'] = unit_cost
-        model.set_attribute('property_data', apt_name, apartment_data.to_json)
+        model.set_attribute('aparment_type_data', apt_name, apartment_data.to_json)
       end
 
       model.commit_operation
@@ -72,7 +75,7 @@ module Real_Estate_Optimizer
 
     def self.get_apartment_data(apt_name)
       model = Sketchup.active_model
-      apartment_data = JSON.parse(model.get_attribute('property_data', apt_name, '{}'))
+      apartment_data = JSON.parse(model.get_attribute('aparment_type_data', apt_name, '{}'))
       unless apartment_data['width'] && apartment_data['apartment_category']
         puts "Warning: Apartment '#{apt_name}' is missing width or category data."
         apartment_data['width'] ||= 10.0  # Default width

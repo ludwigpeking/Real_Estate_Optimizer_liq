@@ -6,16 +6,16 @@ module Real_Estate_Optimizer
 
       # Prompt user to select a basement type
       choices = ["B1", "B2", "B3"]
-      prompts = ["Choose Basement Type:"]
+      prompts = ["选择地库层编号 Choose Basement Type:"]
       defaults = [choices[0]]
       list = [choices.join("|")]
-      input = UI.inputbox(prompts, defaults, list, "Select Basement Type")
+      input = UI.inputbox(prompts, defaults, list, "选择地库层编号 Select Basement Type")
       return unless input
 
       basement_type = input[0]
 
       if selection.empty?
-        UI.messagebox("No selection. Please select some edges or a component.")
+        UI.messagebox("未选择闭合边界或组件 No selection. Please select some edges or a component.")
         return
       end
 
@@ -28,7 +28,7 @@ module Real_Estate_Optimizer
           handle_basement_component(component, area, basement_type)
           UI.messagebox("Area: #{convert_to_square_meters(area).round(2)} square meters")
         else
-          UI.messagebox("The selected component does not contain a valid closed loop of edges.")
+          UI.messagebox("所选不含闭合边界或组件 The selected component does not contain a valid closed loop of edges.")
         end
       else
         edges = selection.grep(Sketchup::Edge)
