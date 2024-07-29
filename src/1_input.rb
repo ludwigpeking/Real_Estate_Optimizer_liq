@@ -110,7 +110,7 @@ module Real_Estate_Optimizer
         </div>
         <div class="form-group">
           <label for="discount_rate">测算用折现率 General Discount Rate:</label>
-          <input type="number" id="FAR" min="0" step="0.01">
+          <input type="number" id="discount_rate" min="0" step="0.01">
         </div>
         <h3>配套、车位有关信息 Amenity, Parking Related Info</h3>
         <div class="form-group">

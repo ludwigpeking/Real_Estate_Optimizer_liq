@@ -4,12 +4,12 @@ require_relative '0_default_values'
 module Real_Estate_Optimizer
   module CashFlowCalculator
 
-    def self.calculate_irr(cashflow, precision = 0.00001, max_iterations = 100)
+    def self.calculate_irr(cashflow, precision = 0.00001, max_iterations = 1000)
       # Check if IRR can be calculated
       return nil unless irr_calculable?(cashflow)
     
-      rate1 = 0.1
-      rate2 = 0.2
+      rate1 = 0.0
+      rate2 = 0.1
       npv1 = npv(cashflow, rate1)
       npv2 = npv(cashflow, rate2)
       max_iterations.times do |iteration|
@@ -610,8 +610,8 @@ module Real_Estate_Optimizer
       total_expense = monthly_cashflow.inject(0) { |sum, month| sum + month[:total_cash_outflow] }
       total_fees_and_taxes = monthly_cashflow.inject(0) { |sum, month| sum + month[:fees_and_taxes] }
       
-      irr = calculate_irr(monthly_cashflow.map { |month| month[:net_cashflow] })
-      yearly_irr = irr ? ((1 + irr)**12 - 1) * 100 : nil
+      monthly_irr = calculate_irr(monthly_cashflow.map { |month| month[:net_cashflow] })
+      yearly_irr = monthly_irr ? ((1 + monthly_irr)**12 - 1) * 100 : nil
       
       gross_profit_margin = ((total_income - total_expense + total_fees_and_taxes) / total_income * 100).round(2)
       net_profit_margin = ((total_income - total_expense) / total_income * 100).round(2)
@@ -635,7 +635,8 @@ module Real_Estate_Optimizer
       corporate_tax = monthly_cashflow.last[:corporate_tax]
     
       {
-        irr: yearly_irr,
+        monthly_irr: monthly_irr,
+        yearly_irr: yearly_irr,
         gross_profit_margin: gross_profit_margin,
         net_profit_margin: net_profit_margin,
         cash_flow_positive_month: cash_flow_positive_month,
@@ -683,14 +684,13 @@ module Real_Estate_Optimizer
       discount_rate = get_project_data_with_defaults['inputs']['discount_rate'] || 0.09
       monthly_discount_rate = (1 + discount_rate)**(1.0/12) - 1
       npv = npv(cashflow_data[:monthly_cashflow], monthly_discount_rate)
-      irr = calculate_irr(cashflow_data[:monthly_cashflow])
-      yearly_irr = irr ? ((1 + irr)**12 - 1) : nil
+    
 
       html = <<-HTML
         <h1>项目关键指标 Key Project Indicators</h1>
           <table>
             <tr><th>指标 Indicator</th><th>值 Value</th></tr>
-            <tr><td>内部收益率 IRR</td><td>#{key_indicators[:irr] ? "#{key_indicators[:irr].round(2)}%" : 'N/A'}</td></tr>
+            <tr><td>内部收益率 IRR</td><td>#{key_indicators[:yearly_irr] ? "#{key_indicators[:yearly_irr].round(2)}%" : 'N/A'}</td></tr>
             <tr><td>销售毛利率 Gross Profit Margin</td><td>#{key_indicators[:gross_profit_margin]}%</td></tr>
             <tr><td>销售净利率 Net Profit Margin</td><td>#{key_indicators[:net_profit_margin]}%</td></tr>
             <tr><td>现金流回正（月） Cash Flow Positive Month</td><td>#{key_indicators[:cash_flow_positive_month]}</td></tr>
@@ -750,7 +750,7 @@ module Real_Estate_Optimizer
         </table>
         <h2>财务指标 Financial Metrics</h2>
         <p>净现值 NPV: #{format_number(npv)}</p>
-        <p>年化内部收益率 Yearly IRR: #{yearly_irr ? "#{(yearly_irr * 100).round(2)}%" : 'N/A'}</p>
+        <p>年化内部收益率 Yearly IRR: #{key_indicators[:yearly_irr] ? "#{key_indicators[:yearly_irr].round(2)}%" : 'N/A'}</p>
         <p>折现率 Discount Rate: #{(discount_rate * 100).round(2)}%</p>
       HTML
 
