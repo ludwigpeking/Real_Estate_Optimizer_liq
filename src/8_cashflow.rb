@@ -749,9 +749,9 @@ module Real_Estate_Optimizer
       html += <<-HTML
         </table>
         <h2>财务指标 Financial Metrics</h2>
-        <p>净现值 NPV: #{format_number(npv)}</p>
+        <p>基于折现率 Discount Rate: #{(discount_rate * 100).round(2)}%净现值 NPV: #{format_number(npv)}</p>
         <p>年化内部收益率 Yearly IRR: #{key_indicators[:yearly_irr] ? "#{key_indicators[:yearly_irr].round(2)}%" : 'N/A'}</p>
-        <p>折现率 Discount Rate: #{(discount_rate * 100).round(2)}%</p>
+        
       HTML
 
       html

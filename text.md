@@ -33,3 +33,36 @@ for (i = 0; i < 72 ; i++){
   }
 
 }
+
+the columns include
+
+收入：计容产品销售收入 apartment sales，预售资金监管要求，资金监管存入，资金监管解活，车位销售收入，总销售收入，总现金流入小计：
+支出：土地规费，配套建设费用，计容产品建安费用 apartment construction payment，税费 Fees and Taxes，地下建安费用，总现金流出小计；
+月净现金流、累计净现金流
+
+the calculation of supervision fund and release is a bit tricky, but the old formula was correct, don't mess that part. calculate and display the absent columns.
+
+add the key indicator at the top of the report sheet
+
+1、内部收益率 IRR = calculated
+2、销售毛利率 = (total income - total expense + total fees and taxes)/total income %
+3、销售净利率 = (total income - total expense)/total income %
+
+4, 现金流回正（月）= the month acummulated cashflow reaches negative largest abs number
+6、项目总销售额（含税） = total income
+7, 项目总投资（含税）= total expenses
+10、项目资金峰值 = acummulated cashflow negative largest abs number over time
+11、项目净利润 = total income - total expense
+12 MOIC = 项目净利润/项目资金峰值
+
+VAT:增值税
+=IF(增值比例<20%,0,IF(增值比例<50%,增值额*0.3,IF(增值比例<100%,增值额*0.4-扣除项 *0.05,IF(增值比例<200%,增值额*0.5-扣除项*0.15,增值额*0.6-扣除项）*0.35))))
+扣除项 = 不含税费总支出*1.3
+增值额 = 销售收入 - 扣除项
+增值比例 = 增值额/扣除项
+
+and, we need to add more tax logic in the cash flow.
+
+in the last month, after we get the whole cashflow, we get the gross profit rate.
+
+if the gross profit rate is smaller than 15%, the corporate tax is 0; is its larger than 15%,   the corporate tax = (gross profit rate-15%) * 企业所得税率 Corp Tax Rate from inputs
