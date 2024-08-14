@@ -34,20 +34,23 @@ module Real_Estate_Optimizer
             table { border-collapse: collapse; width: 100%; font-size: 12px; }
             th, td { border: 1px solid black; padding: 3px; text-align: right; }
             th { background-color: #f2f2f2; }
+            .property-line-stats { margin-top: 20px; }
           </style>
         </head>
         <body>
           <div class="tab">
-            <button class="tablinks" onclick="openTab('Summary')" id="defaultOpen">Summary</button>
-            <button class="tablinks" onclick="openTab('CashflowReport')">Cashflow Report</button>
+            <button class="tablinks" onclick="openTab('Summary')" id="defaultOpen">面积和户型统计 Summary</button>
+            <button class="tablinks" onclick="openTab('CashflowReport')">现金流报表 Cashflow Report</button>
           </div>
 
           <div id="Summary" class="tabcontent">
-            <h2>模型经济技术指标汇总 Project Output</h2>
-            <p>地上可售部分总建筑面积 Total Construction Area: <span id="totalArea">Calculating...</span> m²</p>
+            <h3>模型经济技术指标汇总 Project Output</h3>
+            <p>地上可售部分总建筑面积 Total Construction Area: <span id="totalArea" style="font-weight: bold;">Calculating...</span> m²</p>
+            <div id="propertyLineStats" class="property-line-stats"></div>
             <button onclick="generateCSV()">Generate CSV Report</button>
           </div>
 
+          
           <div id="CashflowReport" class="tabcontent">
             <p>Loading cashflow report...</p>
           </div>
@@ -65,6 +68,10 @@ module Real_Estate_Optimizer
               }
               document.getElementById(tabName).style.display = "block";
               event.currentTarget.className += " active";
+            }
+            
+            function updatePropertyLineStats(statsHtml) {
+              document.getElementById('propertyLineStats').innerHTML = statsHtml;
             }
 
             function generateCSV() {
@@ -97,6 +104,9 @@ module Real_Estate_Optimizer
       dialog.add_action_callback("on_page_load") do
         total_area = calculate_total_construction_area
         dialog.execute_script("updateTotalArea('#{total_area.round(2)}')")
+        
+        property_line_stats = generate_property_line_stats
+        dialog.execute_script("updatePropertyLineStats('#{property_line_stats}')")
         
         # Generate and insert the cashflow report
         begin
@@ -271,5 +281,93 @@ module Real_Estate_Optimizer
         UI.messagebox("Basic file write test failed. Check file system permissions.")
       end
     end
+
+    def self.generate_property_line_stats
+      model = Sketchup.active_model
+      property_lines = CashFlowCalculator.find_property_line_components(model)
+      building_instances = CashFlowCalculator.find_building_instances(model)
+      
+      CashFlowCalculator.associate_buildings_with_property_lines
+      
+      all_apartment_types = Set.new
+      property_line_data = {}
+      
+      property_lines.each do |property_line|
+        keyword = property_line.definition.get_attribute('dynamic_attributes', 'keyword')
+        area = property_line.definition.get_attribute('dynamic_attributes', 'property_area').to_f
+        
+        apartment_stocks = Hash.new(0)
+        total_construction_area = 0
+        
+        building_instances.each do |instance|
+          if instance.get_attribute('dynamic_attributes', 'property_line_keyword') == keyword
+            stocks = JSON.parse(instance.definition.get_attribute('building_data', 'apartment_stocks'))
+            stocks.each { |apt_type, count| 
+              apartment_stocks[apt_type] += count
+              all_apartment_types.add(apt_type)
+            }
+            total_construction_area += instance.definition.get_attribute('building_data', 'total_area').to_f
+          end
+        end
+        
+        far = area > 0 ? total_construction_area / area : 0
+        total_apartments = apartment_stocks.values.sum
+        
+        property_line_data[keyword] = {
+          apartment_stocks: apartment_stocks,
+          total_apartments: total_apartments,
+          total_area: total_construction_area,
+          far: far
+        }
+      end
+      
+      stats = generate_property_line_table(property_line_data, all_apartment_types)
+      stats += generate_apartment_type_table(property_line_data, all_apartment_types)
+      
+      stats.gsub('"', '\"').gsub("\n", "\\n")
+    end
+    
+    def self.generate_property_line_table(property_line_data, all_apartment_types)
+      table = "<h3>分地块统计 Property Line Statistics</h3>"
+      table += "<table><tr><th>地块 Property Line</th>"
+      all_apartment_types.each { |type| table += "<th>#{type}</th>" }
+      table += "<th>户数小计 Total Apartments</th><th>Total Area (m²)</th><th>可售净容积率 FAR</th></tr>"
+      
+      property_line_data.each do |keyword, data|
+        table += "<tr><td>#{keyword}</td>"
+        all_apartment_types.each do |type|
+          count = data[:apartment_stocks][type] || 0
+          percentage = (count.to_f / data[:total_apartments] * 100).round(2)
+          table += "<td>#{count} (#{percentage}%)</td>"
+        end
+        table += "<td>#{data[:total_apartments]}</td>"
+        table += "<td>#{data[:total_area].round(2)}</td>"
+        table += "<td>#{data[:far].round(2)}</td></tr>"
+      end
+      
+      table += "</table>"
+    end
+    
+    def self.generate_apartment_type_table(property_line_data, all_apartment_types)
+      total_apartments = Hash.new(0)
+      property_line_data.each do |_, data|
+        data[:apartment_stocks].each do |type, count|
+          total_apartments[type] += count
+        end
+      end
+      grand_total = total_apartments.values.sum
+      
+      table = "<h3>户型统计 Apartment Type Statistics Across Parcels</h3>"
+      table += "<table><tr><th>户型 Apartment Type</th><th>小计 Total Count</th><th>户数比 Percentage</th></tr>"
+      
+      all_apartment_types.each do |type|
+        count = total_apartments[type]
+        percentage = (count.to_f / grand_total * 100).round(2)
+        table += "<tr><td>#{type}</td><td>#{count}</td><td>#{percentage}%</td></tr>"
+      end
+      
+      table += "</table>"
+    end
+
   end
 end

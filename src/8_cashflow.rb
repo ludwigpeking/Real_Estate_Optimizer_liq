@@ -95,24 +95,6 @@ module Real_Estate_Optimizer
       project_data
     end
 
-    def self.associate_buildings_with_property_lines
-      model = Sketchup.active_model
-      property_lines = find_property_line_components(model)
-      building_instances = find_building_instances(model)
-
-      building_instances.each do |instance|
-        position = instance.transformation.origin
-        associated_property_line = find_containing_property_line(position, property_lines)
-        
-        if associated_property_line
-          keyword = associated_property_line.definition.get_attribute('dynamic_attributes', 'keyword')
-          instance.definition.set_attribute('building_data', 'property_line_keyword', keyword)
-          puts "Associated building '#{instance.definition.name}' with property line '#{keyword}'"
-        else
-          puts "Warning: Building '#{instance.definition.name}' is not within any property line"
-        end
-      end
-    end
 
     def self.find_property_line_components(model)
       model.active_entities.grep(Sketchup::ComponentInstance).select do |instance|
@@ -147,6 +129,8 @@ module Real_Estate_Optimizer
       
       inside
     end
+
+
 
     def self.print_building_instances_properties
       model = Sketchup.active_model
@@ -1007,22 +991,41 @@ module Real_Estate_Optimizer
       instances = model.active_entities.grep(Sketchup::ComponentInstance)
       puts "Found #{instances.length} component instances in total."
       
-      instances.each do |instance|
-        puts "Instance name: #{instance.definition.name}"
-        puts "Has 'building_data' attribute dictionary: #{instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries.include?('building_data')}"
-        puts "Has 'apartment_stocks' attribute: #{!instance.definition.get_attribute('building_data', 'apartment_stocks').nil?}"
-        puts "---"
-      end
-    
       building_instances = instances.select do |instance|
-        instance.definition.attribute_dictionaries && 
-        instance.definition.attribute_dictionaries.include?('building_data') &&
-        !instance.definition.get_attribute('building_data', 'apartment_stocks').nil?
+        has_building_data = instance.definition.attribute_dictionary('building_data') != nil
+        puts "Instance name: #{instance.definition.name}"
+        puts "Has 'building_data' dictionary: #{has_building_data}"
+        puts "---"
+        has_building_data
       end
       
       puts "Found #{building_instances.length} building instances with required attributes."
       building_instances
     end
+
+    def self.associate_buildings_with_property_lines
+      model = Sketchup.active_model
+      property_lines = find_property_line_components(model)
+      building_instances = find_building_instances(model)
+    
+      puts "Associating buildings with property lines..."
+      puts "Found #{property_lines.size} property lines"
+      puts "Found #{building_instances.size} building instances"
+    
+      building_instances.each do |instance|
+        position = instance.transformation.origin
+        associated_property_line = find_containing_property_line(position, property_lines)
+        
+        if associated_property_line
+          keyword = associated_property_line.definition.get_attribute('dynamic_attributes', 'keyword')
+          instance.set_attribute('dynamic_attributes', 'property_line_keyword', keyword)
+          puts "Associated building '#{instance.definition.name}' (ID: #{instance.entityID}) with property line '#{keyword}'"
+        else
+          puts "Warning: Building '#{instance.definition.name}' (ID: #{instance.entityID}) is not within any property line"
+        end
+      end
+    end
+
     
     def self.process_building(instance, cashflow)
       puts "Processing building instance: #{instance.definition.name}"
@@ -1130,6 +1133,19 @@ module Real_Estate_Optimizer
       puts "Unsaleable Amenity Cost Payments: #{payments.inspect}"
       
       payments
+    end
+    
+    def self.test_property_line_associations
+      model = Sketchup.active_model
+      
+      puts "Testing property line associations..."
+      associate_buildings_with_property_lines
+      
+      building_instances = find_building_instances(model)
+      building_instances.each do |instance|
+        keyword = instance.get_attribute('dynamic_attributes', 'property_line_keyword')
+        puts "Building '#{instance.definition.name}' (ID: #{instance.entityID}) associated with property line '#{keyword || 'None'}'"
+      end
     end
 
   end
