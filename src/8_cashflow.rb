@@ -95,6 +95,59 @@ module Real_Estate_Optimizer
       project_data
     end
 
+    def self.associate_buildings_with_property_lines
+      model = Sketchup.active_model
+      property_lines = find_property_line_components(model)
+      building_instances = find_building_instances(model)
+
+      building_instances.each do |instance|
+        position = instance.transformation.origin
+        associated_property_line = find_containing_property_line(position, property_lines)
+        
+        if associated_property_line
+          keyword = associated_property_line.definition.get_attribute('dynamic_attributes', 'keyword')
+          instance.definition.set_attribute('building_data', 'property_line_keyword', keyword)
+          puts "Associated building '#{instance.definition.name}' with property line '#{keyword}'"
+        else
+          puts "Warning: Building '#{instance.definition.name}' is not within any property line"
+        end
+      end
+    end
+
+    def self.find_property_line_components(model)
+      model.active_entities.grep(Sketchup::ComponentInstance).select do |instance|
+        instance.definition.name.start_with?('property_line_')
+      end
+    end
+
+    def self.find_containing_property_line(position, property_lines)
+      property_lines.find do |property_line|
+        point_in_polygon?(position, property_line)
+      end
+    end
+
+    def self.point_in_polygon?(point, property_line)
+      edges = property_line.definition.entities.grep(Sketchup::Edge)
+      vertices = edges.map { |edge| edge.start.position }
+      
+      x, y = point.x, point.y
+      inside = false
+      
+      j = vertices.size - 1
+      (0...vertices.size).each do |i|
+        xi, yi = vertices[i].x, vertices[i].y
+        xj, yj = vertices[j].x, vertices[j].y
+        
+        if ((yi > y) != (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi)
+          inside = !inside
+        end
+        
+        j = i
+      end
+      
+      inside
+    end
+
     def self.print_building_instances_properties
       model = Sketchup.active_model
       entities = model.active_entities
@@ -124,6 +177,10 @@ module Real_Estate_Optimizer
           else
             puts "  No dynamic attributes found."
           end
+
+          # Print associated property line keyword
+          property_line_keyword = instance.definition.get_attribute('building_data', 'property_line_keyword')
+          puts "  Associated Property Line: #{property_line_keyword || 'Not associated'}"
         else
           puts "  This is not a building instance (no 'building_data' attribute dictionary)."
         end
