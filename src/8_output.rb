@@ -311,7 +311,7 @@ module Real_Estate_Optimizer
         end
         
         far = area > 0 ? total_construction_area / area : 0
-        total_apartments = apartment_stocks.values.sum
+        total_apartments = apartment_stocks.values.inject(0, :+)
         
         property_line_data[keyword] = {
           apartment_stocks: apartment_stocks,
@@ -355,7 +355,8 @@ module Real_Estate_Optimizer
           total_apartments[type] += count
         end
       end
-      grand_total = total_apartments.values.sum
+      grand_total = total_apartments.values.inject(0, :+)
+
       
       table = "<h3>户型统计 Apartment Type Statistics Across Parcels</h3>"
       table += "<table><tr><th>户型 Apartment Type</th><th>小计 Total Count</th><th>户数比 Percentage</th></tr>"
