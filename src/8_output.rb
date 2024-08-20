@@ -35,9 +35,20 @@ module Real_Estate_Optimizer
             th, td { border: 1px solid black; padding: 3px; text-align: right; }
             th { background-color: #f2f2f2; }
             .property-line-stats { margin-top: 20px; }
+            .refresh-button {
+              position: absolute;
+              top: 30px;
+              right: 30px;
+              padding: 5px 10px;
+              background-color: #f00;
+              color: white;
+              border: none;
+              cursor: pointer;
+            }
           </style>
         </head>
         <body>
+          <button class="refresh-button" onclick="refreshData()">刷新 Refresh</button>
           <div class="tab">
             <button class="tablinks" onclick="openTab('Summary')" id="defaultOpen">面积和户型统计 Summary</button>
             <button class="tablinks" onclick="openTab('CashflowReport')">现金流报表 Cashflow Report</button>
@@ -88,6 +99,10 @@ module Real_Estate_Optimizer
                 console.error("Error updating cashflow report:", error);
               }
             }
+            function refreshData() {
+              console.log("Refreshing data...");
+              window.location = 'skp:refresh_data';
+            }
             // Open the Summary tab by default
             document.getElementById("defaultOpen").click();
             // Signal that the page is loaded
@@ -102,25 +117,32 @@ module Real_Estate_Optimizer
       dialog.add_action_callback("generate_csv") { generate_csv_report }
       
       dialog.add_action_callback("on_page_load") do
-        total_area = calculate_total_construction_area
-        dialog.execute_script("updateTotalArea('#{total_area.round(2)}')")
-        
-        property_line_stats = generate_property_line_stats
-        dialog.execute_script("updatePropertyLineStats('#{property_line_stats}')")
-        
-        # Generate and insert the cashflow report
-        begin
-          cashflow_html = CashFlowCalculator.generate_html_report
-          escaped_html = cashflow_html.gsub('"', '\"').gsub("\n", "\\n")
-          dialog.execute_script("updateCashflowReport(\"#{escaped_html}\");")
-        rescue => e
-          puts "Error generating cashflow report: #{e.message}"
-          puts e.backtrace
-          dialog.execute_script("document.getElementById('CashflowReport').innerHTML = 'Error generating cashflow report. Check Ruby Console for details.';")
-        end
+        update_output_data(dialog)
+      end
+
+      dialog.add_action_callback("refresh_data") do
+        update_output_data(dialog)
       end
 
       dialog.show
+    end
+
+    def self.update_output_data(dialog)
+      total_area = calculate_total_construction_area
+      dialog.execute_script("updateTotalArea('#{total_area.round(2)}')")
+      
+      property_line_stats = generate_property_line_stats
+      dialog.execute_script("updatePropertyLineStats('#{property_line_stats}')")
+      
+      begin
+        cashflow_html = CashFlowCalculator.generate_html_report
+        escaped_html = cashflow_html.gsub('"', '\"').gsub("\n", "\\n")
+        dialog.execute_script("updateCashflowReport(\"#{escaped_html}\");")
+      rescue => e
+        puts "Error generating cashflow report: #{e.message}"
+        puts e.backtrace
+        dialog.execute_script("document.getElementById('CashflowReport').innerHTML = 'Error generating cashflow report. Check Ruby Console for details.';")
+      end
     end
 
     def self.calculate_total_construction_area
@@ -328,14 +350,16 @@ module Real_Estate_Optimizer
     end
     
     def self.generate_property_line_table(property_line_data, all_apartment_types)
+      sorted_apartment_types = sort_apartment_types(all_apartment_types)
+      
       table = "<h3>分地块统计 Property Line Statistics</h3>"
       table += "<table><tr><th>地块 Property Line</th>"
-      all_apartment_types.each { |type| table += "<th>#{type}</th>" }
+      sorted_apartment_types.each { |type| table += "<th>#{type}</th>" }
       table += "<th>户数小计 Total Apartments</th><th>Total Area (m²)</th><th>可售净容积率 FAR</th></tr>"
       
       property_line_data.each do |keyword, data|
         table += "<tr><td>#{keyword}</td>"
-        all_apartment_types.each do |type|
+        sorted_apartment_types.each do |type|
           count = data[:apartment_stocks][type] || 0
           percentage = (count.to_f / data[:total_apartments] * 100).round(2)
           table += "<td>#{count} (#{percentage}%)</td>"
@@ -356,18 +380,23 @@ module Real_Estate_Optimizer
         end
       end
       grand_total = total_apartments.values.inject(0, :+)
-
+    
+      sorted_apartment_types = sort_apartment_types(all_apartment_types)
       
       table = "<h3>户型统计 Apartment Type Statistics Across Parcels</h3>"
       table += "<table><tr><th>户型 Apartment Type</th><th>小计 Total Count</th><th>户数比 Percentage</th></tr>"
       
-      all_apartment_types.each do |type|
+      sorted_apartment_types.each do |type|
         count = total_apartments[type]
         percentage = (count.to_f / grand_total * 100).round(2)
         table += "<tr><td>#{type}</td><td>#{count}</td><td>#{percentage}%</td></tr>"
       end
       
       table += "</table>"
+    end
+
+    def self.sort_apartment_types(apartment_types)
+      apartment_types.sort_by { |type| type.scan(/\d+/).first.to_i }
     end
 
   end

@@ -311,7 +311,7 @@ module Real_Estate_Optimizer
       model.commit_operation
     
       # Place the component in the model for inspection
-      place_component_in_model(apartment_def)
+      # place_component_in_model(apartment_def)
     
       apartment_def
     end
