@@ -87,48 +87,38 @@ module Real_Estate_Optimizer
                
 
                 function updateBuildingTypeName() {
-                    let floorTypes = document.querySelectorAll('.floor-type');
-                    console.log('Floor Types:', floorTypes); // For debugging
-                    let apartmentAreas = {};
-                    let totalFloors = 0;
+                  let floorTypes = document.querySelectorAll('.floor-type');
+                  let apartmentAreas = {};
+                  let totalFloors = 0;
 
-                    floorTypes.forEach(function(floorType) {
-                        let numberFloorsElement = floorType.querySelector('input[id^="numberFloors"]'); // The list of the number of floors DOM
-                        let numberOfFloors = numberFloorsElement ? parseInt(numberFloorsElement.value) || 0 : 0;
-                        console.log('Number of Floors:', numberOfFloors); // For debugging
-                        totalFloors += numberOfFloors;
+                  floorTypes.forEach(function(floorType) {
+                    let numberFloorsElement = floorType.querySelector('input[id^="numberFloors"]');
+                    let numberOfFloors = numberFloorsElement ? parseInt(numberFloorsElement.value) || 0 : 0;
+                    totalFloors += numberOfFloors;
 
-                        let apartments = floorType.querySelectorAll('select[id^="apartmentName"]'); // The list of the apartment name DOMs
-                        apartments.forEach(function(apartment) {
-                            if (apartment && apartment.value) {
-                                console.log('Apartment Value:', apartment.value); // For debugging
-                                let area = extractFirstNumber(apartment.value);
-                                console.log('Extracted Area:', area); // For debugging
-                                if (area) {
-                                    apartmentAreas[area] = (apartmentAreas[area] || 0) + numberOfFloors;
-                                }
-                            }
-                        });
-                    });
-                    console.log('apartmentAreas', apartmentAreas); // For debugging
-
-                    let sortedAreas = [];
-                    for (var area in apartmentAreas) {
-                        if (apartmentAreas.hasOwnProperty(area)) {
-                            sortedAreas.push([area, apartmentAreas[area]]);
+                    let apartments = floorType.querySelectorAll('select[id^="apartmentName"]');
+                    apartments.forEach(function(apartment) {
+                      if (apartment && apartment.value) {
+                        let area = extractFirstNumber(apartment.value);
+                        if (area) {
+                          apartmentAreas[area] = (apartmentAreas[area] || 0) + numberOfFloors;
                         }
-                    }
-                    sortedAreas.sort(function(a, b) {
-                        return b[1] - a[1];
+                      }
                     });
-                    sortedAreas = sortedAreas.map(function(entry) {
-                        return entry[0];
-                    });
+                  });
 
-                    let buildingTypeName = sortedAreas.join('+') + ' ' + totalFloors + '层';
-                    console.log('sortedAreas', sortedAreas); // For debugging
-                    console.log('name', buildingTypeName); // For debugging
-                    document.getElementById('buildingTypeName').textContent = buildingTypeName;
+                  let sortedAreas = Object.entries(apartmentAreas)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(entry => entry[0]);
+
+                  let customSuffix = document.getElementById('customNameSuffix').value.trim();
+                  let buildingTypeName = sortedAreas.join('+') + ' ' + totalFloors + '层';
+                  
+                  if (customSuffix) {
+                    buildingTypeName += ' ' + customSuffix;
+                  }
+
+                  document.getElementById('buildingTypeName').textContent = buildingTypeName;
                 }
 
                 function extractFirstNumber(input) {
@@ -331,6 +321,8 @@ module Real_Estate_Optimizer
             <div class="form-section">
               <h3>保存与加载 Save and Load</h3>
               <p>楼型名称 Building Type Name: <span id="buildingTypeName"></span></p>
+              <label for="customNameSuffix">自定义名称后缀 Custom Name Suffix:</label>
+              <input type="text" id="customNameSuffix" onchange="updateBuildingTypeName()">
               <p>建筑面积 Total Area: <span id="totalArea">0</span> m²</p>
               <p>占地面积 Footprint Area: <span id="footprintArea">0</span> m²</p>
               <button type="button" onclick="submitForm()">保存楼型 Save Building Type</button>
@@ -426,6 +418,8 @@ module Real_Estate_Optimizer
               if building_type_json
                 building_type = JSON.parse(building_type_json)
                 load_building_data(dialog, building_type)
+                dialog.execute_script("document.getElementById('customNameSuffix').value = '#{building_type['custom_suffix'] || ''}'")
+
                 next  # Use 'next' instead of 'return' in a block
               end
             end

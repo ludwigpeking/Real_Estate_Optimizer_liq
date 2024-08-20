@@ -1,6 +1,7 @@
-
 module Real_Estate_Optimizer
   module PropertylinePick
+    TOLERANCE = 1.0e-4
+
     def self.pick
       model = Sketchup.active_model
       selection = model.selection
@@ -25,12 +26,16 @@ module Real_Estate_Optimizer
         end
       else
         edges = selection.grep(Sketchup::Edge)
-        if edges_form_closed_loop?(edges)
+        puts "Number of edges selected: #{edges.size}"
+        puts "Edges: #{edges.map { |e| [e.start.position.to_a, e.end.position.to_a] }}"
+        is_closed = edges_form_closed_loop?(edges)
+        puts "Is closed loop: #{is_closed}"
+        if is_closed
           area = calculate_area(edges)
           define_property_line_component(edges, area, keyword)
           UI.messagebox("Area: #{convert_to_square_meters(area).round(2)} square meters")
         else
-          UI.messagebox("请选择一个闭合曲线")
+          UI.messagebox("请选择一个闭合曲线 Please select a closed loop")
         end
       end
     end
@@ -38,11 +43,6 @@ module Real_Estate_Optimizer
     def self.component_contains_closed_loop?(component)
       edges = component.definition.entities.grep(Sketchup::Edge)
       edges_form_closed_loop?(edges)
-    end
-
-    def self.calculate_component_area(component)
-      edges = component.definition.entities.grep(Sketchup::Edge)
-      calculate_area(edges)
     end
 
     def self.handle_property_line_component(component, area, keyword)
@@ -109,57 +109,89 @@ module Real_Estate_Optimizer
 
     def self.edges_form_closed_loop?(edges)
       return false if edges.empty?
-      first_vertex = edges.first.start
-      connected = edges.first
-      visited = [connected]
-      loop_count = 1
+    
+      # Define a precision for rounding the coordinates
+      precision = 0.001
+    
+      # Create a hash to store connected edges for each vertex
+      connections = Hash.new { |h, k| h[k] = [] }
+    
+      edges.each do |edge|
+        start_point = [edge.start.position.x.round(precision), edge.start.position.y.round(precision), edge.start.position.z.round(precision)]
+        end_point = [edge.end.position.x.round(precision), edge.end.position.y.round(precision), edge.end.position.z.round(precision)]
+        connections[start_point] << edge
+        connections[end_point] << edge
+      end
+    
+      # Check if each vertex is connected to exactly two edges
+      return false unless connections.all? { |_, connected_edges| connected_edges.size == 2 }
+    
+      # Start from any edge and try to make a full loop
+      current_edge = edges.first
+      visited_edges = Set.new
+      start_point = [current_edge.start.position.x.round(precision), current_edge.start.position.y.round(precision), current_edge.start.position.z.round(precision)]
+    
+      edges.size.times do
+        visited_edges.add(current_edge)
+        current_position = [current_edge.end.position.x.round(precision), current_edge.end.position.y.round(precision), current_edge.end.position.z.round(precision)]
+        next_edge = (connections[current_position] - [current_edge]).first
+    
+        return false if next_edge.nil?
+    
+        current_edge = next_edge
+        start_point = current_position
+      end
+    
+      # Check if we've visited all edges and returned to the starting point
+      visited_edges.size == edges.size && start_point == [edges.first.start.position.x.round(precision), edges.first.start.position.y.round(precision), edges.first.start.position.z.round(precision)]
+    end
+    
 
-      begin
-        next_edge = edges.find { |e| !visited.include?(e) && (e.start == connected.end || e.end == connected.end) }
-        return false unless next_edge
-        visited << next_edge
-        connected = next_edge
-        loop_count += 1
-      end until connected.end == first_vertex
-
-      loop_count == edges.size
+    def self.point_to_key(point)
+      [point.x.round(3), point.y.round(3), point.z.round(3)]
     end
 
     def self.sort_edges_into_loop(edges)
-      sorted_edges = [edges.shift]
-      until edges.empty?
-        last_edge = sorted_edges.last
-        next_edge = edges.find { |e| e.start == last_edge.end || e.end == last_edge.end }
-        if next_edge
-          edges.delete(next_edge)
-          sorted_edges << next_edge
-        else
-          break
+      return [] if edges.empty?
+    
+      sorted_edges = [edges.first]
+      current_edge = edges.first
+    
+      while sorted_edges.size < edges.size
+        next_edge = edges.find do |e|
+          e != current_edge && (e.start.position == current_edge.end.position || e.end.position == current_edge.end.position)
         end
+    
+        break unless next_edge  # Exit if no next edge is found, which indicates a broken loop
+    
+        sorted_edges << next_edge
+        current_edge = next_edge
       end
-
-      # Ensure the loop is closed by checking if the last edge connects back to the first
-      if sorted_edges.first.start == sorted_edges.last.end || sorted_edges.first.end == sorted_edges.last.end
-        sorted_edges
-      else
-        []
-      end
+    
+      sorted_edges
     end
+    
 
     def self.calculate_area(edges)
-      vertices = edges.map { |e| [e.start.position, e.end.position] }.flatten.uniq
-
-      n = vertices.length
+      sorted_edges = sort_edges_into_loop(edges)
+      return 0 if sorted_edges.empty?
+    
+      # Get the start position of each edge as a Point3d object
+      vertices = sorted_edges.map { |e| e.start.position }
+    
       area = 0.0
-      (0...n).each do |i|
-        j = (i + 1) % n
-        xi, yi = vertices[i].x, vertices[i].y
-        xj, yj = vertices[j].x, vertices[j].y
-        area += xi * yj - xj * yi
+      vertices.each_with_index do |v, i|
+        next_v = vertices[(i + 1) % vertices.size]
+        area += v.x * next_v.y - next_v.x * v.y
       end
-      area = (area.abs / 2.0)
+    
+      area.abs / 2.0
+    end
+    
 
-      area
+    def self.calculate_component_area(component)
+      edges = component.definition.entities.grep(Sketchup::Edge)
+      calculate_area(edges)
     end
 
     def self.convert_to_square_meters(area)
@@ -168,4 +200,3 @@ module Real_Estate_Optimizer
     end
   end
 end
-
