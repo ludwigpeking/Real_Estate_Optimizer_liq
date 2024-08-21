@@ -136,37 +136,37 @@ module Real_Estate_Optimizer
       model = Sketchup.active_model
       entities = model.active_entities
     
-      puts "Traversing building instances in the model:"
+      # puts "Traversing building instances in the model:"
       
       entities.grep(Sketchup::ComponentInstance).each do |instance|
-        puts "\nBuilding Instance: #{instance.definition.name}"
+        # puts "\nBuilding Instance: #{instance.definition.name}"
         
         # Check if it's a building instance
         if instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
-          puts "  This is a confirmed building instance."
+          # puts "  This is a confirmed building instance."
           
           # Print building data
           building_data = instance.definition.attribute_dictionary('building_data')
           building_data.each do |key, value|
-            puts "  #{key}: #{value}"
+            # puts "  #{key}: #{value}"
           end
           
           # Print dynamic attributes
           dynamic_attrs = instance.attribute_dictionary('dynamic_attributes')
           if dynamic_attrs
-            puts "  Dynamic Attributes:"
+            # puts "  Dynamic Attributes:"
             dynamic_attrs.each do |key, value|
-              puts "    #{key}: #{value}"
+              # puts "    #{key}: #{value}"
             end
           else
-            puts "  No dynamic attributes found."
+            # puts "  No dynamic attributes found."
           end
 
           # Print associated property line keyword
           property_line_keyword = instance.definition.get_attribute('building_data', 'property_line_keyword')
-          puts "  Associated Property Line: #{property_line_keyword || 'Not associated'}"
+          # puts "  Associated Property Line: #{property_line_keyword || 'Not associated'}"
         else
-          puts "  This is not a building instance (no 'building_data' attribute dictionary)."
+          # puts "  This is not a building instance (no 'building_data' attribute dictionary)."
         end
       end
     end
@@ -404,12 +404,12 @@ module Real_Estate_Optimizer
         total_instance_requirement = construction_cost * supervision_fund_percentage
         instance_requirement = Array.new(72, 0)
 
-        puts "\nDebug: Building #{instance.definition.name}"
-        puts "  Construction cost: #{construction_cost}"
-        puts "  Supervision fund percentage: #{supervision_fund_percentage}"
-        puts "  Construction init time: #{construction_init_time}"
-        puts "  Total requirement: #{total_instance_requirement}"
-        puts "  Release schedule: #{release_schedule.inspect}"
+        # puts "\nDebug: Building #{instance.definition.name}"
+        # puts "  Construction cost: #{construction_cost}"
+        # puts "  Supervision fund percentage: #{supervision_fund_percentage}"
+        # puts "  Construction init time: #{construction_init_time}"
+        # puts "  Total requirement: #{total_instance_requirement}"
+        # puts "  Release schedule: #{release_schedule.inspect}"
 
         # Set initial requirement
         (construction_init_time...72).each do |month|
@@ -565,7 +565,7 @@ module Real_Estate_Optimizer
         width = [3, 15, 16, 12, 18, 12, 12, 8, 13, 12, 21][index]
         format_number(arg).rjust(width)
       end
-      puts formatted_args.join(" | ")
+      # puts formatted_args.join(" | ")
     end
 
     def self.calculate_monthly_cashflow(cashflow_data)
@@ -599,7 +599,7 @@ module Real_Estate_Optimizer
         if month == cashflow_data[:monthly_cashflow].length - 1
           vat_redeclaration = calculate_vat_redeclaration(total_sales, total_expenses_without_tax)
           fees_and_taxes += vat_redeclaration
-          puts "VAT Re-declaration: #{vat_redeclaration}"
+          # puts "VAT Re-declaration: #{vat_redeclaration}"
         end
     
         total_cash_outflow = land_fees + amenity_cost + apartment_construction + fees_and_taxes + underground_construction
@@ -951,8 +951,8 @@ module Real_Estate_Optimizer
       cashflow = initialize_cashflow
       building_instances = find_building_instances(model)
       
-      puts "Starting calculation of cashflow"
-      puts "Total building instances found: #{building_instances.length}"
+      # puts "Starting calculation of cashflow"
+      # puts "Total building instances found: #{building_instances.length}"
 
       building_instances.each do |instance|
         process_building(instance, cashflow)
@@ -987,19 +987,19 @@ module Real_Estate_Optimizer
     end
     
     def self.find_building_instances(model)
-      puts "Searching for building instances..."
+      # puts "Searching for building instances..."
       instances = model.active_entities.grep(Sketchup::ComponentInstance)
-      puts "Found #{instances.length} component instances in total."
+      # puts "Found #{instances.length} component instances in total."
       
       building_instances = instances.select do |instance|
         has_building_data = instance.definition.attribute_dictionary('building_data') != nil
-        puts "Instance name: #{instance.definition.name}"
-        puts "Has 'building_data' dictionary: #{has_building_data}"
-        puts "---"
+        # puts "Instance name: #{instance.definition.name}"
+        # puts "Has 'building_data' dictionary: #{has_building_data}"
+        # puts "---"
         has_building_data
       end
       
-      puts "Found #{building_instances.length} building instances with required attributes."
+      # puts "Found #{building_instances.length} building instances with required attributes."
       building_instances
     end
 
@@ -1008,9 +1008,9 @@ module Real_Estate_Optimizer
       property_lines = find_property_line_components(model)
       building_instances = find_building_instances(model)
     
-      puts "Associating buildings with property lines..."
-      puts "Found #{property_lines.size} property lines"
-      puts "Found #{building_instances.size} building instances"
+      # puts "Associating buildings with property lines..."
+      # puts "Found #{property_lines.size} property lines"
+      # puts "Found #{building_instances.size} building instances"
     
       building_instances.each do |instance|
         position = instance.transformation.origin
@@ -1019,7 +1019,7 @@ module Real_Estate_Optimizer
         if associated_property_line
           keyword = associated_property_line.definition.get_attribute('dynamic_attributes', 'keyword')
           instance.set_attribute('dynamic_attributes', 'property_line_keyword', keyword)
-          puts "Associated building '#{instance.definition.name}' (ID: #{instance.entityID}) with property line '#{keyword}'"
+          # puts "Associated building '#{instance.definition.name}' (ID: #{instance.entityID}) with property line '#{keyword}'"
         else
           puts "Warning: Building '#{instance.definition.name}' (ID: #{instance.entityID}) is not within any property line"
         end
@@ -1028,7 +1028,7 @@ module Real_Estate_Optimizer
 
     
     def self.process_building(instance, cashflow)
-      puts "Processing building instance: #{instance.definition.name}"
+      # puts "Processing building instance: #{instance.definition.name}"
       
       building_data = get_building_data(instance)
       construction_init_time = instance.get_attribute('dynamic_attributes', 'construction_init_time').to_i
@@ -1100,13 +1100,13 @@ module Real_Estate_Optimizer
     end
 
     def self.display_cashflow(cashflow)
-      puts "Month | Expenses | Income | Net Cash Flow | Apartment Stock | Apartment Sales"
+      # puts "Month | Expenses | Income | Net Cash Flow | Apartment Stock | Apartment Sales"
       (0...72).each do |month|
         net = cashflow[:income][month] - cashflow[:expenses][month]
         cashflow[:net_cashflow][month] = net
         stock_info = cashflow[:apartment_stock].map { |type, stocks| "#{type}: #{stocks[month]}" }.join(", ")
         sales_info = cashflow[:apartment_sales].map { |type, sales| "#{type}: #{sales[month]}" }.join(", ")
-        puts "#{month} | #{cashflow[:expenses][month]} | #{cashflow[:income][month]} | #{net} | #{stock_info} | #{sales_info}"
+        # puts "#{month} | #{cashflow[:expenses][month]} | #{cashflow[:income][month]} | #{net} | #{stock_info} | #{sales_info}"
       end
     end
     
@@ -1128,9 +1128,9 @@ module Real_Estate_Optimizer
       # Calculate payments
       payments = payment_schedule.map { |percentage| unsaleable_amenity_cost * percentage }
       
-      puts "Unsaleable Amenity Cost: #{unsaleable_amenity_cost}"
-      puts "Payment Schedule: #{payment_schedule.inspect}"
-      puts "Unsaleable Amenity Cost Payments: #{payments.inspect}"
+      # puts "Unsaleable Amenity Cost: #{unsaleable_amenity_cost}"
+      # puts "Payment Schedule: #{payment_schedule.inspect}"
+      # puts "Unsaleable Amenity Cost Payments: #{payments.inspect}"
       
       payments
     end
@@ -1138,13 +1138,13 @@ module Real_Estate_Optimizer
     def self.test_property_line_associations
       model = Sketchup.active_model
       
-      puts "Testing property line associations..."
+      # puts "Testing property line associations..."
       associate_buildings_with_property_lines
       
       building_instances = find_building_instances(model)
       building_instances.each do |instance|
         keyword = instance.get_attribute('dynamic_attributes', 'property_line_keyword')
-        puts "Building '#{instance.definition.name}' (ID: #{instance.entityID}) associated with property line '#{keyword || 'None'}'"
+        # puts "Building '#{instance.definition.name}' (ID: #{instance.entityID}) associated with property line '#{keyword || 'None'}'"
       end
     end
 

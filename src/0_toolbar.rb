@@ -110,14 +110,14 @@ module Real_Estate_Optimizer
         toolbar.add_item(cmd_layer)
       end
 
-      cmd_reload = UI::Command.new("Reload Plugin") {
-        Real_Estate_Optimizer.reload
-      }
-      cmd_reload.small_icon = "../icons/reload.png"
-      cmd_reload.large_icon = "../icons/reload.png"
-      cmd_reload.tooltip = "Reload Real Estate Optimizer Plugin"
-      cmd_reload.status_bar_text = "Reload the entire Real Estate Optimizer plugin"
-      toolbar.add_item(cmd_reload)
+      # cmd_reload = UI::Command.new("Reload Plugin") {
+      #   Real_Estate_Optimizer.reload
+      # }
+      # cmd_reload.small_icon = "../icons/reload.png"
+      # cmd_reload.large_icon = "../icons/reload.png"
+      # cmd_reload.tooltip = "Reload Real Estate Optimizer Plugin"
+      # cmd_reload.status_bar_text = "Reload the entire Real Estate Optimizer plugin"
+      # toolbar.add_item(cmd_reload)
 
       # Ensure the toolbar is visible
       toolbar.show if toolbar.get_last_state == TB_VISIBLE
