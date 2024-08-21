@@ -261,47 +261,97 @@ module Real_Estate_Optimizer
       dialog.show
     end
 
+    def self.ensure_layers_exist
+      model = Sketchup.active_model
+      ['liq_0', 'liq_color_mass', 'liq_architecture', 'liq_sunlight', 'liq_phasing', 'liq_price'].each do |layer_name|
+        model.layers.add(layer_name) unless model.layers[layer_name]
+      end
+      model.layers['liq_0'].visible = true
+    end
+
+
     def self.create_apartment_component(apartment_data)
       model = Sketchup.active_model
       definitions = model.definitions
       
       component_name = apartment_data['apartment_type_name']
+      puts "Creating/Updating component: #{component_name}"  # Debug line
       
       model.start_operation('Create/Update Apartment Component', true)
     
-      # Check if a component definition already exists
-      apartment_def = definitions[component_name]
-      if apartment_def
-        # Clear existing geometry if component exists
-        apartment_def.entities.clear!
-      else
-        # Create new component definition if it doesn't exist
-        apartment_def = definitions.add(component_name)
+      # Create or get the component definition
+      apartment_def = definitions[component_name] || definitions.add(component_name)
+      
+      # Clear existing entities
+      apartment_def.entities.clear!
+      puts "Cleared existing entities. Entity count: #{apartment_def.entities.size}"  # Debug line
+    
+      # Create layers if they don't exist
+      layers = ['liq_color_mass', 'liq_architecture', 'liq_sunlight', 'liq_phasing', 'liq_price']
+      layers.each do |layer_name|
+        puts "Setting up layer: #{layer_name}"  # Debug line
+        layer = model.layers[layer_name] || model.layers.add(layer_name)
+        puts "Layer #{layer_name} is defined as: #{layer}"  # Debug line
+        layer.visible = true
+        puts "Layer #{layer_name} visibility set to: #{layer.visible?}"  # Debug line
       end
     
-      # Create the geometry for the apartment
-      width = apartment_data['width'].to_f.m
-      depth = apartment_data['depth'].to_f.m
-      height = 3.m  # Assuming a standard floor height of 3 meters
+      # Get or create a default white material
+      default_material = model.materials["Default White"] || model.materials.add("Default White")
+      default_material.color = Sketchup::Color.new(255, 255, 255)
     
-      face = apartment_def.entities.add_face([0, 0, 0], [0, depth, 0],[width, depth, 0],[width, 0, 0] )
-      face.pushpull(-height)
+      # Store the current active layer
+      original_active_layer = model.active_layer
+      puts "Original active layer: #{original_active_layer.name}"  # Debug line
     
-      # Add a material to the apartment with the new color logic
-      material = model.materials.add(component_name)
-      
-      # Set color based on category
-      category = apartment_data['apartment_category']
-      if ['商铺', '办公', '公寓'].include?(category)
-        material.color = Sketchup::Color.new(255, 0, 0)  # Red for commercial, office, and apartment
-      else
-        # Original area-based color logic for other categories
-        hue = (apartment_data['area'].to_f - 50) * 2 % 360
-        rgb = hsl_to_rgb(hue, 100, 50)
-        material.color = Sketchup::Color.new(*rgb)
+      # Create geometry for each layer
+      puts "Layers to process: #{layers.join(', ')}"  # Debug line
+      layers.each do |layer_name|
+        puts "\nProcessing layer: #{layer_name}"  # Debug line
+    
+        # Temporarily set the current layer as active
+        model.active_layer = model.layers[layer_name]
+        puts "Current active layer set to: #{model.active_layer.name}"  # Debug line
+    
+        group = apartment_def.entities.add_group
+        puts "Created group for layer #{layer_name}. Group ID: #{group.entityID}"  # Debug line
+        
+        # Create the geometry for the apartment within the group
+        width = apartment_data['width'].to_f.m
+        depth = apartment_data['depth'].to_f.m
+        height = 3.m  # Assuming a standard floor height of 3 meters
+    
+        begin
+          face = group.entities.add_face([0, 0, 0], [0, depth, 0], [width, depth, 0], [width, 0, 0])
+          face.pushpull(-height)
+          puts "Created face for layer: #{layer_name}. Face ID: #{face.entityID}"  # Debug line
+        rescue => e
+          puts "Error creating face for layer #{layer_name}: #{e.message}"  # Debug line
+        end
+    
+        if layer_name == 'liq_color_mass'
+          # Create a new material only for liq_color_mass
+          material = model.materials.add("#{component_name}_color_mass")
+          category = apartment_data['apartment_category']
+          if ['商铺', '办公', '公寓'].include?(category)
+            material.color = Sketchup::Color.new(255, 0, 0)  # Red for commercial, office, and apartment
+          else
+            hue = (apartment_data['area'].to_f - 50) * 2 % 360
+            rgb = hsl_to_rgb(hue, 100, 50)
+            material.color = Sketchup::Color.new(*rgb)
+          end
+        else
+          # Use the default white material for other layers
+          material = default_material
+        end
+        
+        group.entities.grep(Sketchup::Face).each { |entity| entity.material = material }
+        puts "Applied material to faces in group. Face count: #{group.entities.grep(Sketchup::Face).size}"  # Debug line
       end
-      
-      apartment_def.entities.grep(Sketchup::Face).each { |entity| entity.material = material }
+    
+      # Restore the original active layer
+      model.active_layer = original_active_layer
+      puts "Restored original active layer: #{model.active_layer.name}"  # Debug line
     
       # Add attributes to the component
       apartment_def.set_attribute('apartment_data', 'area', apartment_data['area'])
@@ -310,9 +360,7 @@ module Real_Estate_Optimizer
     
       model.commit_operation
     
-      # Place the component in the model for inspection
-      # place_component_in_model(apartment_def)
-    
+      puts "Component creation completed. Total entities in component: #{apartment_def.entities.size}"  # Debug line
       apartment_def
     end
     
@@ -336,6 +384,19 @@ module Real_Estate_Optimizer
     
       [(r + m) * 255, (g + m) * 255, (b + m) * 255].map(&:round)
     end
+
+    def self.switch_layer(layer_name)
+      model = Sketchup.active_model
+      layers = ['liq_color_mass', 'liq_architecture', 'liq_sunlight', 'liq_phasing', 'liq_price']
+      
+      layers.each do |name|
+        layer = model.layers[name]
+        layer.visible = (name == layer_name)
+      end
+      model.layers['liq_0'].visible = true  # Always keep 'liq_0' visible
+      model.active_layer = model.layers[layer_name]
+    end
+    
 
     def self.place_component_in_model(component_def)
       model = Sketchup.active_model

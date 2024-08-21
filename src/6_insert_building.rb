@@ -57,27 +57,30 @@ module Real_Estate_Optimizer
         
         # Start an operation
         model.start_operation('Place Building', true)
-
+  
         # Get the building definition
         building_def = model.definitions[@building_type]
-
+  
         if building_def.nil?
           UI.messagebox("Building type '#{@building_type}' not found.")
           model.abort_operation
           return
         end
-
+  
         # Create an instance of the building at the clicked point
         transformation = Geom::Transformation.new(@ip.position)
         instance = model.active_entities.add_instance(building_def, transformation)
-
+  
+        # Ensure the instance is on the 'liq_0' layer
+        instance.layer = model.layers['liq_0']
+  
         # Set default values for Construction Init Time and Sales Permit Time
         instance.set_attribute('dynamic_attributes', 'construction_init_time', 0)
         instance.set_attribute('dynamic_attributes', 'sales_permit_time', 2)
-
+  
         # Commit the operation
         model.commit_operation
-
+  
         # Reset the tool
         Sketchup.active_model.select_tool(nil)
       end

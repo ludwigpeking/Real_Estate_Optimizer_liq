@@ -1,16 +1,24 @@
-require_relative '0_toolbar'
+# main.rb
 
+require_relative '0_toolbar'
+require_relative '4_apartment_manager'
 
 module Real_Estate_Optimizer
-  def self.activate
-    # UI.messagebox("Activating Real_Estate_Optimizer Plugin")
+  module_function
+
+  def activate
+    puts "Activating Real Estate Optimizer plugin..."
+    # Remove existing toolbar if it exists
+    toolbar = UI::Toolbar.new "Real_Estate_Optimizer"
+    toolbar.remove if toolbar.respond_to?(:remove)
+
+    ApartmentManager.ensure_layers_exist
     Toolbar.create_toolbar
+    puts "Activation complete."
   end
 
-  # Run the activation method to initialize everything
   unless file_loaded?(__FILE__)
     activate
     file_loaded(__FILE__)
   end
 end
-

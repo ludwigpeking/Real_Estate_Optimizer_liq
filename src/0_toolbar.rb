@@ -96,6 +96,29 @@ module Real_Estate_Optimizer
       cmd_output.status_bar_text = "KPI/cashflow Output"
       toolbar.add_item(cmd_output)
 
+      layers = ['liq_color_mass', 'liq_architecture', 'liq_sunlight', 'liq_phasing', 'liq_price']
+      layer_names = ['Color Mass', 'Architecture', 'Sunlight', 'Phasing', 'Price']
+
+      layers.each_with_index do |layer, index|
+        cmd_layer = UI::Command.new("Switch to #{layer_names[index]}") {
+          ApartmentManager.switch_layer(layer)
+        }
+        cmd_layer.small_icon = "../icons/layer_#{layer}.png"
+        cmd_layer.large_icon = "../icons/layer_#{layer}.png"
+        cmd_layer.tooltip = "Switch to #{layer_names[index]} Layer"
+        cmd_layer.status_bar_text = "Switch visibility to #{layer_names[index]} layer"
+        toolbar.add_item(cmd_layer)
+      end
+
+      cmd_reload = UI::Command.new("Reload Plugin") {
+        Real_Estate_Optimizer.reload
+      }
+      cmd_reload.small_icon = "../icons/reload.png"
+      cmd_reload.large_icon = "../icons/reload.png"
+      cmd_reload.tooltip = "Reload Real Estate Optimizer Plugin"
+      cmd_reload.status_bar_text = "Reload the entire Real Estate Optimizer plugin"
+      toolbar.add_item(cmd_reload)
+
       # Ensure the toolbar is visible
       toolbar.show if toolbar.get_last_state == TB_VISIBLE
     end
