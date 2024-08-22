@@ -1,6 +1,6 @@
 require_relative '8_cashflow'  
 require 'csv'
-
+require 'json'
 
 module Real_Estate_Optimizer
   module Output
@@ -82,7 +82,10 @@ module Real_Estate_Optimizer
             }
             
             function updatePropertyLineStats(statsHtml) {
+              console.log("Updating property line stats");
+              console.log("Received HTML length:", statsHtml.length);
               document.getElementById('propertyLineStats').innerHTML = statsHtml;
+              console.log("Property line stats updated");
             }
 
             function generateCSV() {
@@ -132,12 +135,24 @@ module Real_Estate_Optimizer
       dialog.execute_script("updateTotalArea('#{total_area.round(2)}')")
       
       property_line_stats = generate_property_line_stats
-      dialog.execute_script("updatePropertyLineStats('#{property_line_stats}')")
-      
+      puts "Generated property line stats (first 500 characters):"
+      puts property_line_stats[0..499]
+    
+      # Use JSON encoding to properly escape the HTML string
+      json_encoded_stats = property_line_stats.to_json
+      puts "JSON encoded stats (first 500 characters):"
+      puts json_encoded_stats[0..499]
+    
+      update_script = "console.log('Updating property line stats...'); updatePropertyLineStats(#{json_encoded_stats}); console.log('Update complete');"
+      puts "Executing script:"
+      puts update_script
+    
+      dialog.execute_script(update_script)
+    
       begin
         cashflow_html = CashFlowCalculator.generate_html_report
-        escaped_html = cashflow_html.gsub('"', '\"').gsub("\n", "\\n")
-        dialog.execute_script("updateCashflowReport(\"#{escaped_html}\");")
+        json_encoded_cashflow = cashflow_html.to_json
+        dialog.execute_script("updateCashflowReport(#{json_encoded_cashflow});")
       rescue => e
         puts "Error generating cashflow report: #{e.message}"
         puts e.backtrace
@@ -305,9 +320,12 @@ module Real_Estate_Optimizer
     end
 
     def self.generate_property_line_stats
+      puts "Starting generate_property_line_stats"
       model = Sketchup.active_model
       property_lines = CashFlowCalculator.find_property_line_components(model)
       building_instances = CashFlowCalculator.find_building_instances(model)
+      
+      puts "Found #{property_lines.size} property lines and #{building_instances.size} building instances"
       
       CashFlowCalculator.associate_buildings_with_property_lines
       
@@ -320,6 +338,7 @@ module Real_Estate_Optimizer
         
         apartment_stocks = Hash.new(0)
         total_construction_area = 0
+        total_footprint_area = 0
         
         building_instances.each do |instance|
           if instance.get_attribute('dynamic_attributes', 'property_line_keyword') == keyword
@@ -329,24 +348,32 @@ module Real_Estate_Optimizer
               all_apartment_types.add(apt_type)
             }
             total_construction_area += instance.definition.get_attribute('building_data', 'total_area').to_f
+            total_footprint_area += instance.definition.get_attribute('building_data', 'footprint_area').to_f
           end
         end
         
         far = area > 0 ? total_construction_area / area : 0
+        footprint_coverage_rate = area > 0 ? (total_footprint_area / area * 100).round(2) : 0
         total_apartments = apartment_stocks.values.inject(0, :+)
         
         property_line_data[keyword] = {
           apartment_stocks: apartment_stocks,
           total_apartments: total_apartments,
           total_area: total_construction_area,
-          far: far
+          far: far,
+          footprint_coverage_rate: footprint_coverage_rate,
+          property_area: area
         }
       end
       
       stats = generate_property_line_table(property_line_data, all_apartment_types)
       stats += generate_apartment_type_table(property_line_data, all_apartment_types)
       
-      stats.gsub('"', '\"').gsub("\n", "\\n")
+      puts "Generated stats length: #{stats.length}"
+      puts "Generated stats (first 500 characters):"
+      puts stats[0..499]
+      
+      stats
     end
     
     def self.generate_property_line_table(property_line_data, all_apartment_types)
@@ -354,9 +381,20 @@ module Real_Estate_Optimizer
       
       table = "<h3>分地块统计 Property Line Statistics</h3>"
       table += "<table><tr><th>地块 Property Line</th>"
-      sorted_apartment_types.each { |type| table += "<th>#{type}</th>" }
-      table += "<th>户数小计 Total Apartments</th><th>Total Area (m²)</th><th>可售净容积率 FAR</th></tr>"
-      
+      sorted_apartment_types.each_with_index do |type, index|
+        area = type.scan(/\d+/).first.to_f
+        hue = ((area - 50) * 2) % 360
+        colored_header = "<th style='background-color: hsl(#{hue}, 100%, 50%); color: white; text-shadow: 1px 1px 0px black;'>#{type}</th>"
+        table += colored_header
+        puts "Added colored header for #{type}: #{colored_header}"
+      end
+
+      table += "<th>户数小计 Total Apartments</th>"
+      table += "<th>用地面积 Parcel Ground Area (m²)</th>"
+      table += "<th>总建面 Total Construction Area (m²)</th>"
+      table += "<th>可售净容积率 FAR</th>"
+      table += "<th>建筑密度 Footprint Coverage Rate (%)</th></tr>"
+
       property_line_data.each do |keyword, data|
         table += "<tr><td>#{keyword}</td>"
         sorted_apartment_types.each do |type|
@@ -365,8 +403,10 @@ module Real_Estate_Optimizer
           table += "<td>#{count} (#{percentage}%)</td>"
         end
         table += "<td>#{data[:total_apartments]}</td>"
+        table += "<td>#{data[:property_area].round(2)}</td>"
         table += "<td>#{data[:total_area].round(2)}</td>"
-        table += "<td>#{data[:far].round(2)}</td></tr>"
+        table += "<td>#{data[:far].round(2)}</td>"
+        table += "<td>#{data[:footprint_coverage_rate]}%</td></tr>"
       end
       
       table += "</table>"
