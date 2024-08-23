@@ -101,20 +101,22 @@ module Real_Estate_Optimizer
       <body>
         <h3>核心信息 Essential Information</h3>
         <div class="form-group">
-          <label for="site_area">总用地面积 Site Area (平米):</label>
+          <label for="site_area" style="text-decoration: underline;">总用地面积 Site Area (平米):</label>
           <input type="number" id="site_area" min="0" step="1">
         </div>
         <div class="form-group">
-          <label for="FAR">容积率 FAR:</label>
+          <label for="FAR" style="text-decoration: underline;">容积率 FAR:</label>
           <input type="number" id="FAR" min="0" step="0.01">
         </div>
         <div class="form-group">
           <label for="discount_rate">测算用折现率 General Discount Rate:</label>
           <input type="number" id="discount_rate" min="0" step="0.01">
         </div>
+
+
         <h3>配套、车位有关信息 Amenity, Parking Related Info</h3>
         <div class="form-group">
-          <label for="amenity_GFA_in_FAR">计容配套面积 Amenity GFA in FAR (平米):</label>
+          <label for="amenity_GFA_in_FAR" style="text-decoration: underline;">计容配套面积 Amenity GFA in FAR (平米):</label>
           <input type="number" id="amenity_GFA_in_FAR" min="0" step="1">
         </div>
         <div class="form-group">
@@ -143,11 +145,11 @@ module Real_Estate_Optimizer
           <input type="number" id="sales_fee" min="0" max="1" step="0.001">
         </div>
         <div class="form-group">
-          <label for="land_cost">土地成本 Land Cost (万元):</label>
+          <label for="land_cost" style="text-decoration: underline;">土地成本 Land Cost (万元):</label>
           <input type="number" id="land_cost" min="0" step="1">
         </div>
         <div class="form-group">
-          <label for="unsaleable_amenity_cost">不可售配套成本 Unsaleable Amenity Cost (万元):</label>
+          <label for="unsaleable_amenity_cost" style="text-decoration: underline;">不可售配套成本 Unsaleable Amenity Cost (万元):</label>
           <input type="number" id="unsaleable_amenity_cost" min="0" step="1">
         </div>
         <div class="form-group">

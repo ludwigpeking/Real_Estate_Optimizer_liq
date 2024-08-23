@@ -746,45 +746,43 @@ module Real_Estate_Optimizer
         <table>
           <tr>
             <th>月份<br>Month</th>
-            <th>计容产品销售收入<br>Apartment Sales</th>
-            <th>预售资金监管要求<br>Supervision Fund Requirement</th>
-            <th>资金监管存入<br>Fund Contribution</th>
-            <th>资金监管解活<br>Fund Release</th>
-            <th>车位销售收入<br>Parking Lot Sales</th>
-            <th>总销售收入<br>Total Sales Income</th>
-            <th>总现金流入小计<br>Total Cash Inflow</th>
-            <th>土地规费<br>Land Fees</th>
-            <th>配套建设费用<br>Amenity Construction Cost</th>
-            <th>计容产品建安费用<br>Apartment Construction Payment</th>
-            <th>税费<br>Fees and Taxes</th>
-            <th>地下建安费用<br>Underground Construction Cost</th>
-            <th>总现金流出小计<br>Total Cash Outflow</th>
-            <th>月净现金流<br>Monthly Net Cashflow</th>
-            <th>累计净现金流<br>Accumulated Net Cashflow</th>
+            <th>计容产品销售收入(万)<br>Apartment Sales</th>
+            <th>预售资金监管要求(万)<br>Supervision Fund Requirement</th>
+            <th>资金监管存入(万)<br>Fund Contribution</th>
+            <th>资金监管解活(万)<br>Fund Release</th>
+            <th>车位销售收入(万)<br>Parking Lot Sales</th>
+            <th>总销售收入(万)<br>Total Sales Income</th>
+            <th>总现金流入小计(万)<br>Total Cash Inflow</th>
+            <th>土地规费(万)<br>Land Fees</th>
+            <th>配套建设费用(万)<br>Amenity Construction Cost</th>
+            <th>计容产品建安费用(万)<br>Apartment Construction Payment</th>
+            <th>税费(万)<br>Fees and Taxes</th>
+            <th>地下建安费用(万)<br>Underground Construction Cost</th>
+            <th>总现金流出小计(万)<br>Total Cash Outflow</th>
+            <th>月净现金流(万)<br>Monthly Net Cashflow</th>
+            <th>累计净现金流(万)<br>Accumulated Net Cashflow</th>
           </tr>
       HTML
 
       monthly_cashflow.each do |month_data|
-        html += <<-HTML
-          <tr>
-            <td>#{month_data[:month]}</td>
-            <td>#{format_number(month_data[:apartment_sales])}</td>
-            <td>#{format_number(month_data[:fund_requirement])}</td>
-            <td>#{format_number(month_data[:fund_contribution])}</td>
-            <td>#{format_number(month_data[:fund_release])}</td>
-            <td>#{format_number(month_data[:parking_lot_sales])}</td>
-            <td>#{format_number(month_data[:total_sales_income])}</td>
-            <td>#{format_number(month_data[:total_cash_inflow])}</td>
-            <td>#{format_number(month_data[:land_fees])}</td>
-            <td>#{format_number(month_data[:amenity_cost])}</td>
-            <td>#{format_number(month_data[:apartment_construction])}</td>
-            <td>#{format_number(month_data[:fees_and_taxes])}</td>
-            <td>#{format_number(month_data[:underground_construction])}</td>
-            <td>#{format_number(month_data[:total_cash_outflow])}</td>
-            <td>#{format_number(month_data[:net_cashflow])}</td>
-            <td>#{format_number(month_data[:accumulated_cashflow])}</td>
-          </tr>
-        HTML
+        html += "<tr>"
+        html += "<td>#{month_data[:month]}</td>"
+        html += "<td>#{format_number(month_data[:apartment_sales] / 10000)}</td>"
+        html += "<td>#{format_number(month_data[:fund_requirement] / 10000)}</td>"
+        html += "<td>#{format_number(month_data[:fund_contribution] / 10000)}</td>"
+        html += "<td>#{format_number(month_data[:fund_release] / 10000)}</td>"
+        html += "<td>#{format_number(month_data[:parking_lot_sales] / 10000)}</td>"
+        html += "<td>#{format_number(month_data[:total_sales_income] / 10000)}</td>"
+        html += "<td>#{format_number(month_data[:total_cash_inflow] / 10000)}</td>"
+        html += "<td>#{format_number(month_data[:land_fees] / 10000)}</td>"
+        html += "<td>#{format_number(month_data[:amenity_cost] / 10000)}</td>"
+        html += "<td>#{format_number(month_data[:apartment_construction] / 10000)}</td>"
+        html += "<td>#{format_number(month_data[:fees_and_taxes] / 10000)}</td>"
+        html += "<td>#{format_number(month_data[:underground_construction] / 10000)}</td>"
+        html += "<td>#{format_number(month_data[:total_cash_outflow] / 10000)}</td>"
+        html += "<td>#{format_number(month_data[:net_cashflow] / 10000)}</td>"
+        html += "<td>#{format_number(month_data[:accumulated_cashflow] / 10000)}</td>"
+        html += "</tr>"
       end
 
       html += <<-HTML

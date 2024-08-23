@@ -57,6 +57,9 @@ module Real_Estate_Optimizer
           <div id="Summary" class="tabcontent">
             <h3>模型经济技术指标汇总 Project Output</h3>
             <p>地上可售部分总建筑面积 Total Construction Area: <span id="totalArea" style="font-weight: bold;">Calculating...</span> m²</p>
+            <p>地上可售部分总货值 Total Sellable Value: <span id="totalSellableValue" style="font-weight: bold;">Calculating...</span> 万元</p>
+
+            
             <div id="propertyLineStats" class="property-line-stats"></div>
             <button onclick="generateCSV()">Generate CSV Report</button>
           </div>
@@ -106,6 +109,9 @@ module Real_Estate_Optimizer
               console.log("Refreshing data...");
               window.location = 'skp:refresh_data';
             }
+            function updateTotalSellableValue(value) {
+              document.getElementById('totalSellableValue').textContent = value;
+            }
             // Open the Summary tab by default
             document.getElementById("defaultOpen").click();
             // Signal that the page is loaded
@@ -132,7 +138,11 @@ module Real_Estate_Optimizer
 
     def self.update_output_data(dialog)
       total_area = calculate_total_construction_area
-      dialog.execute_script("updateTotalArea('#{total_area.round(2)}')")
+      dialog.execute_script("updateTotalArea('#{total_area.round}')")
+
+      total_sellable_value = calculate_total_sellable_value
+      dialog.execute_script("updateTotalSellableValue('#{total_sellable_value.round}')")
+
       
       property_line_stats = generate_property_line_stats
       puts "Generated property line stats (first 500 characters):"
@@ -384,7 +394,7 @@ module Real_Estate_Optimizer
       sorted_apartment_types.each_with_index do |type, index|
         area = type.scan(/\d+/).first.to_f
         hue = ((area - 50) * 2) % 360
-        colored_header = "<th style='background-color: hsl(#{hue}, 100%, 50%); color: white; text-shadow: 1px 1px 0px black;'>#{type}</th>"
+        colored_header = "<th style='background-color: hsl(#{hue}, 100%, 50%); color: black; text-shadow: 0px 0px 4px white;'>#{type}</th>"
         table += colored_header
         puts "Added colored header for #{type}: #{colored_header}"
       end
@@ -396,15 +406,15 @@ module Real_Estate_Optimizer
       table += "<th>建筑密度 Footprint Coverage Rate (%)</th></tr>"
 
       property_line_data.each do |keyword, data|
-        table += "<tr><td>#{keyword}</td>"
+        table += "<tr><td style='font-weight: bold; font-size: 120%;'>#{keyword}</td>"
         sorted_apartment_types.each do |type|
           count = data[:apartment_stocks][type] || 0
           percentage = (count.to_f / data[:total_apartments] * 100).round(2)
           table += "<td>#{count} (#{percentage}%)</td>"
         end
         table += "<td>#{data[:total_apartments]}</td>"
-        table += "<td>#{data[:property_area].round(2)}</td>"
-        table += "<td>#{data[:total_area].round(2)}</td>"
+        table += "<td>#{data[:property_area].round}</td>"
+        table += "<td>#{data[:total_area].round}</td>"
         table += "<td>#{data[:far].round(2)}</td>"
         table += "<td>#{data[:footprint_coverage_rate]}%</td></tr>"
       end
@@ -414,30 +424,94 @@ module Real_Estate_Optimizer
     
     def self.generate_apartment_type_table(property_line_data, all_apartment_types)
       total_apartments = Hash.new(0)
+      apartment_data = {}
+      
       property_line_data.each do |_, data|
         data[:apartment_stocks].each do |type, count|
           total_apartments[type] += count
+          
+          # Fetch apartment data if not already fetched
+          unless apartment_data[type]
+            apt_data = get_apartment_data(type)
+            apartment_data[type] = {
+              area: apt_data['area'].to_f,
+              width: apt_data['width'].to_f,
+              sales_scenes: apt_data['sales_scenes'] || []
+            }
+          end
         end
       end
+      
       grand_total = total_apartments.values.inject(0, :+)
-    
       sorted_apartment_types = sort_apartment_types(all_apartment_types)
       
       table = "<h3>户型统计 Apartment Type Statistics Across Parcels</h3>"
-      table += "<table><tr><th>户型 Apartment Type</th><th>小计 Total Count</th><th>户数比 Percentage</th></tr>"
+      table += "<table><tr><th>户型 Apartment Type</th><th>小计 Total Count</th><th>户数比 Percentage</th>"
+      table += "<th>面宽 Width (m)</th>"  # New column
+      table += "<th>单价1</th><th>总价1</th><th>月流速1</th>"
+      table += "<th>单价2</th><th>总价2</th><th>月流速2</th>"
+      table += "<th>单价3</th><th>总价3</th><th>月流速3</th></tr>"
       
       sorted_apartment_types.each do |type|
         count = total_apartments[type]
         percentage = (count.to_f / grand_total * 100).round(2)
-        table += "<tr><td>#{type}</td><td>#{count}</td><td>#{percentage}%</td></tr>"
+        width = apartment_data[type][:width]
+        puts "Debug: Apartment type: #{type}, Width: #{width}"
+
+        area = type.scan(/\d+/).first.to_f
+        hue = ((area - 50) * 2) % 360
+
+        table += "<tr><td style='background-color: hsl(#{hue}, 100%, 50%); color: black; text-shadow: 0px 0px 3px white;'>#{type}</td><td>#{count}</td><td>#{percentage}%</td>"
+        table += "<td>#{width}</td>"
+        
+        apt_area = apartment_data[type][:area]
+        sales_scenes = apartment_data[type][:sales_scenes]
+        
+        3.times do |i|
+          if i < sales_scenes.length
+            scene = sales_scenes[i]
+            unit_price = scene['price'].to_f
+            total_price = (unit_price * apt_area)/10000.round
+            volume = scene['volumn'].to_i
+            
+            table += "<td>#{unit_price.round}</td><td>#{total_price.round}</td><td>#{volume}</td>"
+          else
+            table += "<td>-</td><td>-</td><td>-</td>"
+          end
+        end
+        
+        table += "</tr>"
       end
       
       table += "</table>"
+    end
+    
+    def self.get_apartment_data(apt_type)
+      model = Sketchup.active_model
+      JSON.parse(model.get_attribute('aparment_type_data', apt_type, '{}'))
     end
 
     def self.sort_apartment_types(apartment_types)
       apartment_types.sort_by { |type| type.scan(/\d+/).first.to_i }
     end
 
+    def self.calculate_total_sellable_value
+      model = Sketchup.active_model
+      total_value = 0
+    
+      model.active_entities.grep(Sketchup::ComponentInstance).each do |instance|
+        if instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
+          apartment_stocks = JSON.parse(instance.definition.get_attribute('building_data', 'apartment_stocks') || '{}')
+          apartment_stocks.each do |apt_type, count|
+            apt_data = get_apartment_data(apt_type)
+            area = apt_data['area'].to_f
+            unit_price = apt_data['sales_scenes'].first['price'].to_f if apt_data['sales_scenes'] && apt_data['sales_scenes'].first
+            total_value += count * unit_price * area if unit_price && area
+          end
+        end
+      end
+    
+      total_value / 10000 # Convert to 万元
+    end
   end
 end
