@@ -108,6 +108,17 @@ module Real_Estate_Optimizer
       end
     end
 
+    def self.get_property_line_data(model)
+      property_lines = find_property_line_components(model)
+      property_lines.map do |pl|
+        {
+          name: pl.definition.get_attribute('dynamic_attributes', 'keyword'),
+          area: pl.definition.get_attribute('dynamic_attributes', 'property_area').to_f,
+          amenity_GFA_in_FAR: pl.definition.get_attribute('dynamic_attributes', 'amenity_GFA_in_FAR').to_f
+        }
+      end
+    end
+
     def self.point_in_polygon?(point, property_line)
       edges = property_line.definition.entities.grep(Sketchup::Edge)
       vertices = edges.map { |edge| edge.start.position }

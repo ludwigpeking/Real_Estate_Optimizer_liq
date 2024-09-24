@@ -56,9 +56,9 @@ module Real_Estate_Optimizer
 
           <div id="Summary" class="tabcontent">
             <h3>模型经济技术指标汇总 Project Output</h3>
-            <p>地上可售部分总建筑面积 Total Construction Area: <span id="totalArea" style="font-weight: bold;">Calculating...</span> m²</p>
+            <p>地上部分总建筑面积 Total Construction Area: <span id="totalArea" style="font-weight: bold;">Calculating...</span> m²</p>
+            <p>地上可售部分总建筑面积 Total Sellable Construction Area: <span id="totalSellableArea" style="font-weight: bold;">Calculating...</span> m²</p>
             <p>地上可售部分总货值 Total Sellable Value: <span id="totalSellableValue" style="font-weight: bold;">Calculating...</span> 万元</p>
-
             
             <div id="propertyLineStats" class="property-line-stats"></div>
             <button onclick="generateCSV()">Generate CSV Report</button>
@@ -94,8 +94,9 @@ module Real_Estate_Optimizer
             function generateCSV() {
               window.location = 'skp:generate_csv';
             }
-            function updateTotalArea(area) {
-              document.getElementById('totalArea').textContent = area;
+            function updateTotalArea(totalArea, totalSellableArea) {
+              document.getElementById('totalArea').textContent = totalArea;
+              document.getElementById('totalSellableArea').textContent = totalSellableArea;
             }
             function updateCashflowReport(html) {
               try {
@@ -138,10 +139,12 @@ module Real_Estate_Optimizer
 
     def self.update_output_data(dialog)
       total_area = calculate_total_construction_area
-      dialog.execute_script("updateTotalArea('#{total_area.round}')")
-
+      total_sellable_area = calculate_total_sellable_construction_area
+      dialog.execute_script("updateTotalArea('#{total_area.round}', '#{total_sellable_area.round}')")
+    
       total_sellable_value = calculate_total_sellable_value
       dialog.execute_script("updateTotalSellableValue('#{total_sellable_value.round}')")
+    
 
       
       property_line_stats = generate_property_line_stats
@@ -173,16 +176,36 @@ module Real_Estate_Optimizer
     def self.calculate_total_construction_area
       model = Sketchup.active_model
       total_area = 0
+      total_amenity_gfa = 0
+      
+      # Load project data to get the amenity GFA values
+      project_data = JSON.parse(model.get_attribute('project_data', 'data', '{}'))
+      amenity_gfa_data = project_data['propertyLines'] || []
+      
       model.active_entities.grep(Sketchup::ComponentInstance).each do |instance|
         if instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
           area = instance.definition.get_attribute('building_data', 'total_area')
           total_area += area.to_f if area
         end
       end
-      puts "Calculated total construction area: #{total_area} m²"
-      total_area
+      
+      # Add amenity GFA from input data
+      total_amenity_gfa = amenity_gfa_data.sum { |pl| pl['amenity_GFA_in_FAR'].to_f }
+      
+      total_area + total_amenity_gfa
     end
-
+    
+    def self.calculate_total_sellable_construction_area
+      model = Sketchup.active_model
+      total_sellable_area = 0
+      model.active_entities.grep(Sketchup::ComponentInstance).each do |instance|
+        if instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
+          area = instance.definition.get_attribute('building_data', 'total_area')
+          total_sellable_area += area.to_f if area
+        end
+      end
+      total_sellable_area
+    end
 
     def self.generate_csv_report
       begin
@@ -334,6 +357,10 @@ module Real_Estate_Optimizer
       property_lines = CashFlowCalculator.find_property_line_components(model)
       building_instances = CashFlowCalculator.find_building_instances(model)
       
+      # Load project data to get the amenity GFA values
+      project_data = JSON.parse(model.get_attribute('project_data', 'data', '{}'))
+      amenity_gfa_data = project_data['propertyLines'] || []
+    
       all_apartment_types = Set.new
       property_line_data = {}
       
@@ -341,13 +368,16 @@ module Real_Estate_Optimizer
         keyword = property_line.definition.get_attribute('dynamic_attributes', 'keyword')
         area = property_line.definition.get_attribute('dynamic_attributes', 'property_area').to_f
         
+        # Find the corresponding amenity GFA from input data
+        amenity_gfa = amenity_gfa_data.find { |pl| pl['name'] == keyword }
+        amenity_GFA = amenity_gfa ? amenity_gfa['amenity_GFA_in_FAR'].to_f : 0
+        
         apartment_stocks = Hash.new(0)
-        total_construction_area = 0
+        total_sellable_area = 0
         total_footprint_area = 0
         
         building_instances.each do |instance, world_transformation|
           begin
-            # Check if the transformation is valid (not identity)
             if !world_transformation.identity?
               world_point = world_transformation.origin
               if CashFlowCalculator.point_in_polygon?(world_point, property_line)
@@ -356,7 +386,9 @@ module Real_Estate_Optimizer
                   apartment_stocks[apt_type] += count
                   all_apartment_types.add(apt_type)
                 }
-                total_construction_area += instance.definition.get_attribute('building_data', 'total_area').to_f
+                
+                instance_area = instance.definition.get_attribute('building_data', 'total_area').to_f
+                total_sellable_area += instance_area
                 total_footprint_area += instance.definition.get_attribute('building_data', 'footprint_area').to_f
                 
                 instance.set_attribute('dynamic_attributes', 'property_line_keyword', keyword)
@@ -373,6 +405,7 @@ module Real_Estate_Optimizer
           end
         end
         
+        total_construction_area = total_sellable_area + amenity_GFA
         far = area > 0 ? total_construction_area / area : 0
         footprint_coverage_rate = area > 0 ? (total_footprint_area / area * 100).round(2) : 0
         total_apartments = apartment_stocks.values.inject(0, :+)
@@ -381,6 +414,8 @@ module Real_Estate_Optimizer
           apartment_stocks: apartment_stocks,
           total_apartments: total_apartments,
           total_area: total_construction_area,
+          total_sellable_area: total_sellable_area,
+          amenity_GFA: amenity_GFA,
           far: far,
           footprint_coverage_rate: footprint_coverage_rate,
           property_area: area
@@ -390,10 +425,6 @@ module Real_Estate_Optimizer
       stats = generate_property_line_table(property_line_data, all_apartment_types)
       stats += generate_apartment_type_table(property_line_data, all_apartment_types)
       
-      puts "Generated stats length: #{stats.length}"
-      puts "Generated stats (first 500 characters):"
-      puts stats[0..499]
-      
       stats
     end
     
@@ -402,20 +433,20 @@ module Real_Estate_Optimizer
       
       table = "<h3>分地块统计 Property Line Statistics</h3>"
       table += "<table><tr><th>地块 Property Line</th>"
-      sorted_apartment_types.each_with_index do |type, index|
+      sorted_apartment_types.each do |type|
         area = type.scan(/\d+/).first.to_f
         hue = ((area - 50) * 2) % 360
-        colored_header = "<th style='background-color: hsl(#{hue}, 100%, 50%); color: black; text-shadow: 0px 0px 4px white;'>#{type}</th>"
-        table += colored_header
-        puts "Added colored header for #{type}: #{colored_header}"
+        table += "<th style='background-color: hsl(#{hue}, 100%, 50%); color: black; text-shadow: 0px 0px 4px white;'>#{type}</th>"
       end
-
+    
       table += "<th>户数小计 Total Apartments</th>"
       table += "<th>用地面积 Parcel Ground Area (m²)</th>"
       table += "<th>总建面 Total Construction Area (m²)</th>"
+      table += "<th>总可售建面 Total Sellable Construction Area (m²)</th>"
+      table += "<th>计容配套面积 Amenity GFA in FAR (m²)</th>"
       table += "<th>可售净容积率 FAR</th>"
       table += "<th>建筑密度 Footprint Coverage Rate (%)</th></tr>"
-
+    
       property_line_data.each do |keyword, data|
         table += "<tr><td style='font-weight: bold; font-size: 120%;'>#{keyword}</td>"
         sorted_apartment_types.each do |type|
@@ -426,6 +457,8 @@ module Real_Estate_Optimizer
         table += "<td>#{data[:total_apartments]}</td>"
         table += "<td>#{data[:property_area].round}</td>"
         table += "<td>#{data[:total_area].round}</td>"
+        table += "<td>#{data[:total_sellable_area].round}</td>"
+        table += "<td>#{data[:amenity_GFA].round}</td>"
         table += "<td>#{data[:far].round(2)}</td>"
         table += "<td>#{data[:footprint_coverage_rate]}%</td></tr>"
       end

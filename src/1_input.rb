@@ -35,15 +35,31 @@ module Real_Estate_Optimizer
             if (data) {
               project = JSON.parse(data);
             }
-
+  
             for (let key in project.inputs) {
               if (document.getElementById(key)) {
                 document.getElementById(key).value = project.inputs[key];
               }
             }
-
+  
             populatePaymentTable('land_cost_payment', project.inputs.land_cost_payment);
             populatePaymentTable('unsaleable_amenity_cost_payment', project.inputs.unsaleable_amenity_cost_payment);
+            populatePropertyLines(project.propertyLines);
+          }
+
+          function populatePropertyLines(lines) {
+            propertyLines = lines;
+            const container = document.getElementById('propertyLinesContainer');
+            container.innerHTML = '';
+            lines.forEach((line, index) => {
+              container.innerHTML += `
+                <div>
+                  <h4>${line.name} (${line.area} m²)</h4>
+                  <label for="amenity_GFA_in_FAR_${index}">计容配套面积 Amenity GFA in FAR (平米):</label>
+                  <input type="number" id="amenity_GFA_in_FAR_${index}" value="${line.amenity_GFA_in_FAR || 0}" min="0" step="1">
+                </div>
+              `;
+            });
           }
 
           function populatePaymentTable(tableId, data) {
@@ -81,6 +97,11 @@ module Real_Estate_Optimizer
                 project.inputs[key] = parseFloat(document.getElementById(key).value);
               }
             }
+
+            project.propertyLines = propertyLines.map((line, index) => ({
+              ...line,
+              amenity_GFA_in_FAR: parseFloat(document.getElementById(`amenity_GFA_in_FAR_${index}`).value) || 0
+            }));
 
             project.inputs.land_cost_payment = getPaymentData('land_cost_payment');
             project.inputs.unsaleable_amenity_cost_payment = getPaymentData('unsaleable_amenity_cost_payment');
@@ -121,6 +142,8 @@ module Real_Estate_Optimizer
           <input type="number" id="unsaleable_amenity_cost" min="0" step="1">
         </div>
 
+        <h3>Property Lines</h3>
+        <div id="propertyLinesContainer"></div>
 
         <h3>配套、车位有关信息 Amenity, Parking Related Info</h3>
         <div class="form-group">
