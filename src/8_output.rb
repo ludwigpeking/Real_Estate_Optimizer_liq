@@ -330,14 +330,9 @@ module Real_Estate_Optimizer
     end
 
     def self.generate_property_line_stats
-      puts "Starting generate_property_line_stats"
       model = Sketchup.active_model
       property_lines = CashFlowCalculator.find_property_line_components(model)
       building_instances = CashFlowCalculator.find_building_instances(model)
-      
-      puts "Found #{property_lines.size} property lines and #{building_instances.size} building instances"
-      
-      CashFlowCalculator.associate_buildings_with_property_lines
       
       all_apartment_types = Set.new
       property_line_data = {}
@@ -350,15 +345,31 @@ module Real_Estate_Optimizer
         total_construction_area = 0
         total_footprint_area = 0
         
-        building_instances.each do |instance|
-          if instance.get_attribute('dynamic_attributes', 'property_line_keyword') == keyword
-            stocks = JSON.parse(instance.definition.get_attribute('building_data', 'apartment_stocks'))
-            stocks.each { |apt_type, count| 
-              apartment_stocks[apt_type] += count
-              all_apartment_types.add(apt_type)
-            }
-            total_construction_area += instance.definition.get_attribute('building_data', 'total_area').to_f
-            total_footprint_area += instance.definition.get_attribute('building_data', 'footprint_area').to_f
+        building_instances.each do |instance, world_transformation|
+          begin
+            # Check if the transformation is valid (not identity)
+            if !world_transformation.identity?
+              world_point = world_transformation.origin
+              if CashFlowCalculator.point_in_polygon?(world_point, property_line)
+                stocks = JSON.parse(instance.definition.get_attribute('building_data', 'apartment_stocks'))
+                stocks.each { |apt_type, count| 
+                  apartment_stocks[apt_type] += count
+                  all_apartment_types.add(apt_type)
+                }
+                total_construction_area += instance.definition.get_attribute('building_data', 'total_area').to_f
+                total_footprint_area += instance.definition.get_attribute('building_data', 'footprint_area').to_f
+                
+                instance.set_attribute('dynamic_attributes', 'property_line_keyword', keyword)
+              elsif instance.get_attribute('dynamic_attributes', 'property_line_keyword') == keyword
+                instance.delete_attribute('dynamic_attributes', 'property_line_keyword')
+              end
+            else
+              puts "Warning: Identity transformation found for instance #{instance.entityID}"
+            end
+          rescue => e
+            puts "Error processing building instance: #{e.message}"
+            puts "Instance: #{instance.inspect}"
+            puts "World transformation: #{world_transformation.inspect}"
           end
         end
         

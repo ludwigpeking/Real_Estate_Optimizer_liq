@@ -984,20 +984,35 @@ module Real_Estate_Optimizer
       end
     end
     
-    def self.find_building_instances(model)
-      # puts "Searching for building instances..."
-      instances = model.active_entities.grep(Sketchup::ComponentInstance)
-      # puts "Found #{instances.length} component instances in total."
+    def self.find_building_instances(model, max_depth = 3)
+      building_instances = []
       
-      building_instances = instances.select do |instance|
-        has_building_data = instance.definition.attribute_dictionary('building_data') != nil
-        # puts "Instance name: #{instance.definition.name}"
-        # puts "Has 'building_data' dictionary: #{has_building_data}"
-        # puts "---"
-        has_building_data
+      def self.recursive_search(entities, transformation, current_depth, max_depth, building_instances)
+        return if current_depth > max_depth
+    
+        entities.each do |entity|
+          if entity.is_a?(Sketchup::ComponentInstance)
+            # Check if this component is a building instance
+            if entity.definition.attribute_dictionary('building_data')
+              # Calculate the world coordinates for this instance
+              world_transformation = transformation * entity.transformation
+              building_instances << [entity, world_transformation]
+            end
+            
+            # Continue searching within this component
+            recursive_search(entity.definition.entities, transformation * entity.transformation, current_depth + 1, max_depth, building_instances)
+          elsif entity.is_a?(Sketchup::Group)
+            # Continue searching within this group
+            recursive_search(entity.entities, transformation * entity.transformation, current_depth + 1, max_depth, building_instances)
+          end
+        end
       end
+    
+      # Start the recursive search from the model's active entities
+      identity_transformation = Geom::Transformation.new  # This creates an identity transformation
+      recursive_search(model.active_entities, identity_transformation, 1, max_depth, building_instances)
       
-      # puts "Found #{building_instances.length} building instances with required attributes."
+      puts "Found #{building_instances.length} building instances with required attributes (up to depth #{max_depth})."
       building_instances
     end
 
@@ -1006,20 +1021,16 @@ module Real_Estate_Optimizer
       property_lines = find_property_line_components(model)
       building_instances = find_building_instances(model)
     
-      # puts "Associating buildings with property lines..."
-      # puts "Found #{property_lines.size} property lines"
-      # puts "Found #{building_instances.size} building instances"
-    
-      building_instances.each do |instance|
-        position = instance.transformation.origin
+      building_instances.each do |instance, world_transformation|
+        position = world_transformation.origin
         associated_property_line = find_containing_property_line(position, property_lines)
         
         if associated_property_line
           keyword = associated_property_line.definition.get_attribute('dynamic_attributes', 'keyword')
           instance.set_attribute('dynamic_attributes', 'property_line_keyword', keyword)
-          # puts "Associated building '#{instance.definition.name}' (ID: #{instance.entityID}) with property line '#{keyword}'"
         else
-          puts "Warning: Building '#{instance.definition.name}' (ID: #{instance.entityID}) is not within any property line"
+          instance.delete_attribute('dynamic_attributes', 'property_line_keyword')
+          puts "Building '#{instance.definition.name}' (ID: #{instance.entityID}) is not within any property line"
         end
       end
     end
