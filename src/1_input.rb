@@ -112,6 +112,14 @@ module Real_Estate_Optimizer
           <label for="discount_rate">测算用折现率 General Discount Rate:</label>
           <input type="number" id="discount_rate" min="0" step="0.01">
         </div>
+        <div class="form-group">
+          <label for="land_cost" style="text-decoration: underline;">土地成本 Land Cost (万元):</label>
+          <input type="number" id="land_cost" min="0" step="1">
+        </div>
+        <div class="form-group">
+          <label for="unsaleable_amenity_cost" style="text-decoration: underline;">不可售配套成本 Unsaleable Amenity Cost (万元):</label>
+          <input type="number" id="unsaleable_amenity_cost" min="0" step="1">
+        </div>
 
 
         <h3>配套、车位有关信息 Amenity, Parking Related Info</h3>
@@ -144,14 +152,8 @@ module Real_Estate_Optimizer
           <label for="sales_fee">销售费率 Sales Fee Rate:</label>
           <input type="number" id="sales_fee" min="0" max="1" step="0.001">
         </div>
-        <div class="form-group">
-          <label for="land_cost" style="text-decoration: underline;">土地成本 Land Cost (万元):</label>
-          <input type="number" id="land_cost" min="0" step="1">
-        </div>
-        <div class="form-group">
-          <label for="unsaleable_amenity_cost" style="text-decoration: underline;">不可售配套成本 Unsaleable Amenity Cost (万元):</label>
-          <input type="number" id="unsaleable_amenity_cost" min="0" step="1">
-        </div>
+        
+        
         <div class="form-group">
           <label for="product_baseline_unit_cost_before_allocation">产品基准单位成本 Product Baseline Unit Cost (元/平米):</label>
           <input type="number" id="product_baseline_unit_cost_before_allocation" min="0" step="1">
