@@ -700,6 +700,16 @@ module Real_Estate_Optimizer
         corporate_tax: corporate_tax
       }
     end
+
+    def self.calculate_moic(schedule)
+      monthly_cashflow = calculate_monthly_cashflow(schedule)
+      total_income = monthly_cashflow.sum { |month| month[:total_sales_income] }
+      total_expense = monthly_cashflow.sum { |month| month[:total_cash_outflow] }
+      peak_negative_cash_flow = monthly_cashflow.map { |month| month[:accumulated_cashflow] }.min
+      net_profit = total_income - total_expense
+      
+      peak_negative_cash_flow < 0 ? (net_profit / peak_negative_cash_flow.abs).round(2) + 1 : nil
+    end
     
     def self.calculate_vat_redeclaration(total_sales, total_expenses_without_tax)
       deductible_items = total_expenses_without_tax * 1.3

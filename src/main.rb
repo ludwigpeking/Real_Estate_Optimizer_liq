@@ -2,6 +2,7 @@
 
 require_relative '0_toolbar'
 require_relative '4_apartment_manager'
+require_relative '11_optimization_algorithm'
 
 module Real_Estate_Optimizer
   module_function

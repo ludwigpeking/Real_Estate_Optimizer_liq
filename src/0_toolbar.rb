@@ -6,6 +6,7 @@ require_relative '5_building_generator'
 require_relative '6_insert_building'
 require_relative '7_building_attribute_editor'
 require_relative '8_output'
+require_relative '11_optimization_panel'
 
 
 
@@ -95,6 +96,15 @@ module Real_Estate_Optimizer
       cmd_output.tooltip = "输出财务指标和信息"
       cmd_output.status_bar_text = "KPI/cashflow Output"
       toolbar.add_item(cmd_output)
+
+      cmd_optimization = UI::Command.new("Optimization") {
+        OptimizationPanel.show_dialog
+      }
+      cmd_optimization.small_icon = "../icons/optimization.png"
+      cmd_optimization.large_icon = "../icons/optimization.png"
+      cmd_optimization.tooltip = "优化分期"
+      cmd_optimization.status_bar_text = "Optimization"
+      toolbar.add_item(cmd_optimization)
 
       layers = ['liq_color_mass', 'liq_architecture', 'liq_sunlight', 'liq_phasing', 'liq_price']
       layer_names = ['Color Mass', 'Architecture', 'Sunlight', 'Phasing', 'Price']
