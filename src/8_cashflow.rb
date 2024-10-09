@@ -1,55 +1,22 @@
 require_relative '8_land_cost_allocator'
 require_relative '0_default_values'
+require_relative  '8_traversal_utils'
+require_relative '8_financial_calculations'
+
+
 
 module Real_Estate_Optimizer
   module CashFlowCalculator
-
-    def self.calculate_irr(cashflow, precision = 0.00001, max_iterations = 1000)
-      # Check if IRR can be calculated
-      return nil unless irr_calculable?(cashflow)
-    
-      rate1 = 0.0
-      rate2 = 0.1
-      npv1 = npv(cashflow, rate1)
-      npv2 = npv(cashflow, rate2)
-      max_iterations.times do |iteration|
-        if (npv2 - npv1).abs < precision
-          return rate2
-        end
-        rate_new = rate2 - npv2 * (rate2 - rate1) / (npv2 - npv1)
-        if (rate_new - rate2).abs < precision
-          return rate_new
-        end
-        rate1, rate2 = rate2, rate_new
-        npv1, npv2 = npv2, npv(cashflow, rate2)
-      end
-      puts "IRR calculation did not converge"
-      nil
-    end
     
     def self.npv(cashflow, rate)
-      npv = 0
-      cashflow.each_with_index do |cf, t|
-        npv += cf / ((1 + rate) ** t)
+      cashflow.each_with_index.sum do |cf, t|
+        cf / ((1 + rate) ** t)
       end
-      npv
     end
     
-    def self.irr_calculable?(cashflow)
-      # Check if there's at least one positive and one negative cash flow
-      pos = neg = false
-      cashflow.each do |cf|
-        pos = true if cf > 0
-        neg = true if cf < 0
-        break if pos && neg
-      end
-      
-      if pos && neg
-        puts "Cashflow has both positive and negative values. IRR can be calculated."
-        return true
-      else
-        puts "Cashflow does not have both positive and negative values. IRR cannot be calculated."
-        return false
+    def self.npv_derivative(cashflow, rate)
+      cashflow.each_with_index.sum do |cf, t|
+        -t * cf / ((1 + rate) ** (t + 1))
       end
     end
     
@@ -63,7 +30,7 @@ module Real_Estate_Optimizer
       project_data = JSON.parse(model.get_attribute('project_data', 'data') || '{}')
       land_cost_payment_schedule = project_data['inputs'] && project_data['inputs']['land_cost_payment'] || []
       
-      puts "Land Cost Payment Schedule: #{land_cost_payment_schedule.inspect}"
+      # puts "Land Cost Payment Schedule: #{land_cost_payment_schedule.inspect}"
       land_cost_payment_schedule
     end
 
@@ -77,9 +44,9 @@ module Real_Estate_Optimizer
       # Calculate payments
       payments = payment_schedule.map { |percentage| land_cost * percentage }
       
-      puts "Land Cost: #{land_cost}"
-      puts "Payment Schedule: #{payment_schedule.inspect}"
-      puts "Land Cost Payments: #{payments.inspect}"
+      # puts "Land Cost: #{land_cost}"
+      # puts "Payment Schedule: #{payment_schedule.inspect}"
+      # puts "Land Cost Payments: #{payments.inspect}"
       
       payments
     end
@@ -145,195 +112,47 @@ module Real_Estate_Optimizer
 
     def self.print_building_instances_properties
       model = Sketchup.active_model
-      entities = model.active_entities
+      building_instances = TraversalUtils.traverse_building_instances(model)
     
-      # puts "Traversing building instances in the model:"
+      puts "Traversing building instances in the model:"
       
-      entities.grep(Sketchup::ComponentInstance).each do |instance|
-        # puts "\nBuilding Instance: #{instance.definition.name}"
+      building_instances.each do |instance, transformation|
+        puts "\nBuilding Instance: #{instance.definition.name}"
+        puts "  World Position: #{transformation.origin}"
         
-        # Check if it's a building instance
         if instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
-          # puts "  This is a confirmed building instance."
+          puts "  This is a confirmed building instance."
           
           # Print building data
           building_data = instance.definition.attribute_dictionary('building_data')
           building_data.each do |key, value|
-            # puts "  #{key}: #{value}"
+            puts "  #{key}: #{value}"
           end
           
           # Print dynamic attributes
           dynamic_attrs = instance.attribute_dictionary('dynamic_attributes')
           if dynamic_attrs
-            # puts "  Dynamic Attributes:"
+            puts "  Dynamic Attributes:"
             dynamic_attrs.each do |key, value|
-              # puts "    #{key}: #{value}"
+              puts "    #{key}: #{value}"
             end
           else
-            # puts "  No dynamic attributes found."
+            puts "  No dynamic attributes found."
           end
-
+    
           # Print associated property line keyword
           property_line_keyword = instance.definition.get_attribute('building_data', 'property_line_keyword')
-          # puts "  Associated Property Line: #{property_line_keyword || 'Not associated'}"
+          puts "  Associated Property Line: #{property_line_keyword || 'Not associated'}"
         else
-          # puts "  This is not a building instance (no 'building_data' attribute dictionary)."
+          puts "  This is not a building instance (no 'building_data' attribute dictionary)."
         end
       end
     end
-
-    def self.calculate_and_print_stocks_table
-      model = Sketchup.active_model
-      project_data = JSON.parse(model.get_attribute('project_data', 'data') || '{}')
-      building_instances = model.active_entities.grep(Sketchup::ComponentInstance).select do |instance|
-        instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
-      end
-
-      stocks_table = Hash.new { |h, k| h[k] = Array.new(72, 0) }
-
-      building_instances.each do |instance|
-        building_data = instance.definition.attribute_dictionary('building_data')
-        dynamic_attrs = instance.attribute_dictionary('dynamic_attributes')
-
-        next unless building_data && dynamic_attrs
-
-        apartment_stocks = JSON.parse(building_data['apartment_stocks'])
-        construction_init_time = dynamic_attrs['construction_init_time'].to_i
-        sales_permit_time = dynamic_attrs['sales_permit_time'].to_i
-
-        market_entry_month = construction_init_time + sales_permit_time
-        next if market_entry_month >= 72
-
-        apartment_stocks.each do |apt_type, count|
-          stocks_table[apt_type][market_entry_month] += count
-        end
-      end
-
-      # puts "Apartment Stocks Table (72 months):"
-      # puts "Month | " + stocks_table.keys.join(" | ")
       
-      (0...72).each do |month|
-        row = [month.to_s.rjust(5)]
-        stocks_table.each_value do |stocks|
-          row << stocks[month].to_s.rjust(5)
-        end
-        # puts row.join(" | ")
-      end
-
-      stocks_table
-    end
-    
-
- 
-    def self.calculate_and_print_construction_cost_table
-      model = Sketchup.active_model
-      building_instances = model.active_entities.grep(Sketchup::ComponentInstance).select do |instance|
-        instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
-      end
-    
-      construction_payments = Array.new(72, 0)
-    
-      building_instances.each do |instance|
-        building_data = instance.definition.attribute_dictionary('building_data')
-        dynamic_attrs = instance.attribute_dictionary('dynamic_attributes')
-    
-        next unless building_data && dynamic_attrs
-    
-        total_cost = building_data['total_cost'].to_f
-        construction_init_time = dynamic_attrs['construction_init_time'].to_i
-    
-        # Fetch the construction payment schedule
-        project_data = JSON.parse(model.get_attribute('project_data', 'data') || '{}')
-        payment_schedule = if project_data['inputs'] && project_data['inputs']['construction_payment_schedule']
-                              project_data['inputs']['construction_payment_schedule']
-                            else
-                              Real_Estate_Optimizer::DefaultValues::PROJECT_DEFAULTS[:inputs][:construction_payment_schedule]
-                            end
-    
-        payment_schedule.each_with_index do |percentage, month|
-          payment_month = construction_init_time + month
-          break if payment_month >= 72
-          construction_payments[payment_month] += total_cost * percentage
-        end
-      end
-    
-      # puts "Construction Cost Payment Table (72 months):"
-      # puts "Month | Payment"
-      construction_payments.each_with_index do |payment, month|
-        # puts "#{month.to_s.rjust(5)} | #{payment.round(2)}"
-      end
-    
-      construction_payments
-    end
-
-    def self.calculate_and_print_sales_table
-      model = Sketchup.active_model
-      building_instances = model.active_entities.grep(Sketchup::ComponentInstance).select do |instance|
-        instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
-      end
-
-      # Initialize sales and stock tables
-      sales_table = Hash.new { |h, k| h[k] = Array.new(72, 0) }
-      stock_table = Hash.new { |h, k| h[k] = Array.new(72, 0) }
-
-      # Populate stock table
-      building_instances.each do |instance|
-        building_data = instance.definition.attribute_dictionary('building_data')
-        dynamic_attrs = instance.attribute_dictionary('dynamic_attributes')
-
-        next unless building_data && dynamic_attrs
-
-        apartment_stocks = JSON.parse(building_data['apartment_stocks'])
-        construction_init_time = dynamic_attrs['construction_init_time'].to_i
-        sales_permit_time = dynamic_attrs['sales_permit_time'].to_i
-
-        market_entry_month = construction_init_time + sales_permit_time
-        next if market_entry_month >= 72
-
-        apartment_stocks.each do |apt_type, count|
-          stock_table[apt_type][market_entry_month] += count
-        end
-      end
-
-      # Calculate sales based on stock and sales scenes
-      stock_table.each do |apt_type, stocks|
-        apt_data = JSON.parse(model.get_attribute('aparment_type_data', apt_type) || '{}')
-        sales_scene = apt_data['sales_scenes'] && apt_data['sales_scenes'].first
-
-        if sales_scene
-          monthly_sales_volume = sales_scene['volumn'].to_i
-          current_stock = 0
-
-          (0...72).each do |month|
-            current_stock += stocks[month]
-            actual_sales = [current_stock, monthly_sales_volume].min
-            sales_table[apt_type][month] = actual_sales
-            current_stock -= actual_sales
-          end
-        end
-      end
-
-      # Print sales table
-      # puts "Apartment Sales Table (72 months):"
-      # puts "Month | " + sales_table.keys.join(" | ")
-      
-      (0...72).each do |month|
-        row = [month.to_s.rjust(5)]
-        sales_table.each_value do |sales|
-          row << sales[month].to_s.rjust(5)
-        end
-        # puts row.join(" | ")
-      end
-
-      sales_table
-    end
-
 
     def self.calculate_and_print_income_table
       model = Sketchup.active_model
-      building_instances = model.active_entities.grep(Sketchup::ComponentInstance).select do |instance|
-        instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
-      end
+      building_instances = TraversalUtils.traverse_building_instances(model)
 
       # Initialize sales, stock, and income tables
       sales_table = Hash.new { |h, k| h[k] = Array.new(72, 0) }
@@ -400,33 +219,26 @@ module Real_Estate_Optimizer
 
     def self.calculate_supervision_fund_requirement(building_instances)
       total_fund_requirement = Array.new(72, 0)
-
-      building_instances.each do |instance|
+    
+      building_instances.each do |instance, transformation|
         building_data = instance.definition.attribute_dictionary('building_data')
         dynamic_attrs = instance.attribute_dictionary('dynamic_attributes')
         next unless building_data && dynamic_attrs
         next if dynamic_attrs['basement_type'] # Skip basement instances
-
+    
         construction_cost = building_data['total_cost'].to_f
         supervision_fund_percentage = building_data['supervisionFundPercentage'].to_f
         construction_init_time = dynamic_attrs['construction_init_time'].to_i
         release_schedule = building_data['supervisionFundReleaseSchedule'] || []
-
+    
         total_instance_requirement = construction_cost * supervision_fund_percentage
         instance_requirement = Array.new(72, 0)
-
-        # puts "\nDebug: Building #{instance.definition.name}"
-        # puts "  Construction cost: #{construction_cost}"
-        # puts "  Supervision fund percentage: #{supervision_fund_percentage}"
-        # puts "  Construction init time: #{construction_init_time}"
-        # puts "  Total requirement: #{total_instance_requirement}"
-        # puts "  Release schedule: #{release_schedule.inspect}"
-
+    
         # Set initial requirement
         (construction_init_time...72).each do |month|
           instance_requirement[month] = total_instance_requirement
         end
-
+    
         # Apply releases
         release_schedule.each_with_index do |percentage, month|
           actual_month = construction_init_time + month
@@ -436,12 +248,16 @@ module Real_Estate_Optimizer
             instance_requirement[m] -= release_amount
           end
         end
-
+    
         # Add this instance's requirement to the total
         total_fund_requirement = total_fund_requirement.zip(instance_requirement).map { |a, b| a + b }
       end
-
+    
       total_fund_requirement
+    end
+
+    def self.generate_standardized_cashflow(monthly_cashflow)
+      monthly_cashflow.map { |month| month[:net_cashflow] }
     end
 
     def self.calculate_and_print_full_cashflow_table
@@ -454,9 +270,7 @@ module Real_Estate_Optimizer
       unsaleable_amenity_cost = (inputs['unsaleable_amenity_cost'] || 0) * 10000
       unsaleable_amenity_cost_payment_schedule = inputs['unsaleable_amenity_cost_payment'] || Array.new(72, 0)
 
-      building_instances = model.active_entities.grep(Sketchup::ComponentInstance).select do |instance|
-        instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
-      end
+      building_instances = TraversalUtils.traverse_building_instances(model)
 
       supervision_fund_requirements = calculate_supervision_fund_requirement(building_instances)
       supervision_fund_balance = 0
@@ -476,7 +290,7 @@ module Real_Estate_Optimizer
       fund_contributions = Array.new(72, 0)
       fund_releases = Array.new(72, 0)
     
-      puts "Month | Apartment Sales | Fund Requirement | Fund Balance | Fund Contribution | Fund Release | Other Income | Expenses | Fees and Taxes | Net Cashflow | Accumulated Cashflow"
+      # puts "Month | Apartment Sales | Fund Requirement | Fund Balance | Fund Contribution | Fund Release | Other Income | Expenses | Fees and Taxes | Net Cashflow | Accumulated Cashflow"
 
       (0...72).each do |month|
         current_requirement = supervision_fund_requirements[month]
@@ -534,27 +348,32 @@ module Real_Estate_Optimizer
         )
       end
       
-
-      # puts "Monthly cashflow: #{monthly_cashflow.inspect}"
-      monthly_irr = calculate_irr(monthly_cashflow)
+      total_income = apartment_income.sum + basement_cashflows[:income].sum
+      total_expenses = land_cost_payment_schedule.sum { |percentage| land_cost * percentage } +
+                   unsaleable_amenity_cost_payment_schedule.sum { |percentage| unsaleable_amenity_cost * percentage } +
+                   construction_payments.sum +
+                   basement_cashflows[:expenses].sum +
+                   fees_and_taxes.sum
+      
+      net_profit_before_corporate_tax = total_income - total_expenses
+      corporate_tax = [net_profit_before_corporate_tax * 0.25, 0].max
+      
+      # Apply corporate tax to the last month
+      monthly_cashflow[71] -= corporate_tax
+      accumulated_cashflow[71] -= corporate_tax
+      
+      puts "Monthly cashflow: #{monthly_cashflow.inspect}"
+      monthly_irr = FinancialCalculations.calculate_irr(monthly_cashflow)
+      puts "Monthly IRR: #{monthly_irr}"
       if monthly_irr
         yearly_irr = (1 + monthly_irr)**12 - 1
-        puts "Monthly IRR: #{monthly_irr}"
         puts "Yearly IRR: #{(yearly_irr * 100).round(2)}%"
       else
         puts "IRR could not be calculated"
       end
-
-      discount_rate = inputs['discount_rate'] || 0.09
-      monthly_discount_rate = (1 + discount_rate)**(1.0/12) - 1
-      puts "Discount rate: #{discount_rate}, Monthly discount rate: #{monthly_discount_rate}"
-      npv = npv(monthly_cashflow, monthly_discount_rate)
-
-      puts "Project Financial Analysis:"
-      puts "NPV: #{format_number(npv)}"
-      puts "Yearly IRR: #{monthly_irr ? "#{(yearly_irr * 100).round(2)}%" : 'N/A'}"
-    
-    {
+      
+      # Return the data including corporate tax
+      {
         monthly_cashflow: monthly_cashflow,
         accumulated_cashflow: accumulated_cashflow,
         supervision_fund_requirements: supervision_fund_requirements,
@@ -566,7 +385,8 @@ module Real_Estate_Optimizer
         unsaleable_amenity_payments: unsaleable_amenity_cost_payment_schedule.map { |percentage| unsaleable_amenity_cost * percentage },
         construction_payments: construction_payments,
         fees_and_taxes: fees_and_taxes,
-        basement_expenses: basement_cashflows[:expenses]
+        basement_expenses: basement_cashflows[:expenses],
+        corporate_tax: corporate_tax
       }
       
     end
@@ -583,6 +403,7 @@ module Real_Estate_Optimizer
       total_sales = 0
       total_expenses_without_tax = 0
       total_fees_and_taxes = 0
+      corporate_tax = 0
     
       monthly_cashflow = cashflow_data[:monthly_cashflow].map.with_index do |cashflow, month|
         apartment_sales = cashflow_data[:income_table].values.inject(0) { |sum, v| sum + v[month] }
@@ -610,7 +431,11 @@ module Real_Estate_Optimizer
         if month == cashflow_data[:monthly_cashflow].length - 1
           vat_redeclaration = calculate_vat_redeclaration(total_sales, total_expenses_without_tax)
           fees_and_taxes += vat_redeclaration
-          # puts "VAT Re-declaration: #{vat_redeclaration}"
+          
+          # Calculate corporate tax only once, in the last month
+          net_profit_before_corporate_tax = total_sales - total_expenses_without_tax - total_fees_and_taxes
+          corporate_tax = [net_profit_before_corporate_tax * 0.25, 0].max
+          fees_and_taxes += corporate_tax
         end
     
         total_cash_outflow = land_fees + amenity_cost + apartment_construction + fees_and_taxes + underground_construction
@@ -635,56 +460,41 @@ module Real_Estate_Optimizer
           total_cash_outflow: total_cash_outflow,
           net_cashflow: net_cashflow,
           accumulated_cashflow: accumulated_cashflow,
-          vat_redeclaration: vat_redeclaration
+          vat_redeclaration: vat_redeclaration,
+          corporate_tax: month == cashflow_data[:monthly_cashflow].length - 1 ? corporate_tax : 0
         }
       end
     
-      # Calculate corporate tax after VAT re-declaration
-      net_profit_before_corporate_tax = total_sales - total_expenses_without_tax - total_fees_and_taxes
-      puts "Net Profit Before Corporate Tax: #{net_profit_before_corporate_tax}"
-
-      corporate_tax = [net_profit_before_corporate_tax * 0.25, 0].max  # Ensure non-negative tax
-      puts "Corporate Tax: #{corporate_tax}"
-    
-      # Add corporate tax to the last month
-      last_month = monthly_cashflow.last
-      last_month[:corporate_tax] = corporate_tax
-      last_month[:fees_and_taxes] += corporate_tax
-      last_month[:total_cash_outflow] += corporate_tax
-      last_month[:net_cashflow] -= corporate_tax
-      last_month[:accumulated_cashflow] -= corporate_tax
-    
+      puts "Corporate tax calculated in monthly cashflow: #{corporate_tax}"
       monthly_cashflow
     end
 
     def self.calculate_key_indicators(monthly_cashflow)
       total_income = monthly_cashflow.inject(0) { |sum, month| sum + month[:total_sales_income] }
-      total_expense = monthly_cashflow.inject(0) { |sum, month| sum + month[:total_cash_outflow] }
-      total_fees_and_taxes = monthly_cashflow.inject(0) { |sum, month| sum + month[:fees_and_taxes] }
+      total_expense_without_corporate_tax = monthly_cashflow.inject(0) do |sum, month| 
+        sum + month[:total_cash_outflow] - month[:corporate_tax]
+      end
+      total_fees_and_taxes = monthly_cashflow.inject(0) { |sum, month| sum + month[:fees_and_taxes] - month[:corporate_tax] }
       
-      monthly_irr = calculate_irr(monthly_cashflow.map { |month| month[:net_cashflow] })
+      corporate_tax = monthly_cashflow.last[:corporate_tax]
+      
+      net_profit = total_income - total_expense_without_corporate_tax - corporate_tax
+      
+      monthly_irr = FinancialCalculations.calculate_irr(monthly_cashflow.map { |month| month[:net_cashflow] })
       yearly_irr = monthly_irr ? ((1 + monthly_irr)**12 - 1) * 100 : nil
       
-      gross_profit_margin = ((total_income - total_expense + total_fees_and_taxes) / total_income * 100).round(2)
-      net_profit_margin = ((total_income - total_expense) / total_income * 100).round(2)
+      gross_profit_margin = ((total_income - total_expense_without_corporate_tax - corporate_tax + total_fees_and_taxes) / total_income * 100).round(2)
+      net_profit_margin = (net_profit / total_income * 100).round(2)
       
-      cash_flow_positive_month = nil
-      monthly_cashflow.each_with_index do |month, index|
-        if month[:accumulated_cashflow] >= 0
-          cash_flow_positive_month = index + 1
-          break
-        end
-      end
-      cash_flow_positive_month ||= 'N/A'
+      cash_flow_positive_month = monthly_cashflow.index { |month| month[:accumulated_cashflow] >= 0 }
+      cash_flow_positive_month = cash_flow_positive_month ? cash_flow_positive_month + 1 : 'N/A'
       
       peak_negative_cash_flow = monthly_cashflow.map { |month| month[:accumulated_cashflow] }.min
       
-      net_profit = total_income - total_expense
+      total_investment = total_expense_without_corporate_tax + corporate_tax
       
       # Modified MOIC calculation
       moic = peak_negative_cash_flow < 0 ? (net_profit / peak_negative_cash_flow.abs).round(2) + 1 : nil
-      
-      corporate_tax = monthly_cashflow.last[:corporate_tax]
     
       {
         monthly_irr: monthly_irr,
@@ -693,7 +503,7 @@ module Real_Estate_Optimizer
         net_profit_margin: net_profit_margin,
         cash_flow_positive_month: cash_flow_positive_month,
         total_sales: total_income,
-        total_investment: total_expense,
+        total_investment: total_investment,
         peak_negative_cash_flow: peak_negative_cash_flow,
         net_profit: net_profit,
         moic: moic,
@@ -716,11 +526,11 @@ module Real_Estate_Optimizer
       added_value = total_sales - deductible_items
       added_value_ratio = added_value / deductible_items
     
-      puts "Total Sales: #{total_sales}"
-      puts "Total Expenses Without Tax: #{total_expenses_without_tax}"
-      puts "Deductible Items: #{deductible_items}"
-      puts "Added Value: #{added_value}"
-      puts "Added Value Ratio: #{added_value_ratio}"
+      # puts "Total Sales: #{total_sales}"
+      # puts "Total Expenses Without Tax: #{total_expenses_without_tax}"
+      # puts "Deductible Items: #{deductible_items}"
+      # puts "Added Value: #{added_value}"
+      # puts "Added Value Ratio: #{added_value_ratio}"
     
       vat = if added_value_ratio < 0.2
               0
@@ -734,14 +544,17 @@ module Real_Estate_Optimizer
               added_value * 0.6 - deductible_items * 0.35
             end
     
-      puts "Calculated VAT: #{vat}"
+      # puts "Calculated VAT: #{vat}"
       vat
     end
 
     def self.generate_html_report
       cashflow_data = calculate_and_print_full_cashflow_table
+      # puts "Cashflow Data: #{cashflow_data.inspect}"
       monthly_cashflow = calculate_monthly_cashflow(cashflow_data)
+      # puts "Monthly Cashflow: #{monthly_cashflow.inspect}"
       key_indicators = calculate_key_indicators(monthly_cashflow)
+      # puts "Key Indicators: #{key_indicators.inspect}"
 
       discount_rate = get_project_data_with_defaults['inputs']['discount_rate'] || 0.09
       monthly_discount_rate = (1 + discount_rate)**(1.0/12) - 1
@@ -785,6 +598,7 @@ module Real_Estate_Optimizer
           </tr>
       HTML
 
+      puts "Monthly Cashflow Month 72: #{monthly_cashflow[71].inspect}"
       monthly_cashflow.each do |month_data|
         html += "<tr>"
         html += "<td>#{month_data[:month]}</td>"
@@ -865,13 +679,11 @@ module Real_Estate_Optimizer
 
     def self.calculate_construction_payments
       model = Sketchup.active_model
-      building_instances = model.active_entities.grep(Sketchup::ComponentInstance).select do |instance|
-        instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
-      end
+      building_instances = TraversalUtils.traverse_building_instances(model)
     
       construction_payments = Array.new(72, 0)
     
-      building_instances.each do |instance|
+      building_instances.each do |instance, transformation|
         building_data = instance.definition.attribute_dictionary('building_data')
         dynamic_attrs = instance.attribute_dictionary('dynamic_attributes')
     
@@ -881,11 +693,8 @@ module Real_Estate_Optimizer
         construction_init_time = dynamic_attrs['construction_init_time'].to_i
     
         project_data = JSON.parse(model.get_attribute('project_data', 'data') || '{}')
-        payment_schedule = if project_data['inputs'] && project_data['inputs']['construction_payment_schedule']
-                             project_data['inputs']['construction_payment_schedule']
-                           else
-                             [0.1, 0, 0.2, 0, 0, 0, 0.2, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0.1]
-                           end
+        payment_schedule = project_data['inputs']&.fetch('construction_payment_schedule', nil) ||
+                           [0.1, 0, 0.2, 0, 0, 0, 0.2, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0.1, 0, 0, 0, 0, 0, 0.1]
     
         payment_schedule.each_with_index do |percentage, month|
           payment_month = construction_init_time + month
@@ -899,16 +708,14 @@ module Real_Estate_Optimizer
     
     def self.calculate_sales_income
       model = Sketchup.active_model
-      building_instances = model.active_entities.grep(Sketchup::ComponentInstance).select do |instance|
-        instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
-      end
+      building_instances = TraversalUtils.traverse_building_instances(model)
     
       sales_table = Hash.new { |h, k| h[k] = Array.new(72, 0) }
       stock_table = Hash.new { |h, k| h[k] = Array.new(72, 0) }
       income_table = Hash.new { |h, k| h[k] = Array.new(72, 0) }
       total_income = Array.new(72, 0)
     
-      building_instances.each do |instance|
+      building_instances.each do |instance, transformation|
         building_data = instance.definition.attribute_dictionary('building_data')
         dynamic_attrs = instance.attribute_dictionary('dynamic_attributes')
     
@@ -1005,36 +812,8 @@ module Real_Estate_Optimizer
       end
     end
     
-    def self.find_building_instances(model, max_depth = 3)
-      building_instances = []
-      
-      def self.recursive_search(entities, transformation, current_depth, max_depth, building_instances)
-        return if current_depth > max_depth
-    
-        entities.each do |entity|
-          if entity.is_a?(Sketchup::ComponentInstance)
-            # Check if this component is a building instance
-            if entity.definition.attribute_dictionary('building_data')
-              # Calculate the world coordinates for this instance
-              world_transformation = transformation * entity.transformation
-              building_instances << [entity, world_transformation]
-            end
-            
-            # Continue searching within this component
-            recursive_search(entity.definition.entities, transformation * entity.transformation, current_depth + 1, max_depth, building_instances)
-          elsif entity.is_a?(Sketchup::Group)
-            # Continue searching within this group
-            recursive_search(entity.entities, transformation * entity.transformation, current_depth + 1, max_depth, building_instances)
-          end
-        end
-      end
-    
-      # Start the recursive search from the model's active entities
-      identity_transformation = Geom::Transformation.new  # This creates an identity transformation
-      recursive_search(model.active_entities, identity_transformation, 1, max_depth, building_instances)
-      
-      puts "Found #{building_instances.length} building instances with required attributes (up to depth #{max_depth})."
-      building_instances
+    def self.find_building_instances(model)
+      TraversalUtils.traverse_building_instances(model)
     end
 
     def self.associate_buildings_with_property_lines
@@ -1051,7 +830,7 @@ module Real_Estate_Optimizer
           instance.set_attribute('dynamic_attributes', 'property_line_keyword', keyword)
         else
           instance.delete_attribute('dynamic_attributes', 'property_line_keyword')
-          puts "Building '#{instance.definition.name}' (ID: #{instance.entityID}) is not within any property line"
+          # puts "Building '#{instance.definition.name}' (ID: #{instance.entityID}) is not within any property line"
         end
       end
     end
@@ -1179,6 +958,6 @@ module Real_Estate_Optimizer
     end
 
   end
-  puts "Finished loading CashFlowCalculator module."
+  # puts "Finished loading CashFlowCalculator module."
 end
-puts "Finished loading Real_Estate_Optimizer module."
+# puts "Finished loading Real_Estate_Optimizer module."

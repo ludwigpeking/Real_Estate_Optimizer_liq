@@ -1,6 +1,9 @@
 require_relative '8_cashflow'  
 require 'csv'
 require 'json'
+require_relative  '8_traversal_utils'
+require_relative '8_financial_calculations'
+
 
 module Real_Estate_Optimizer
   module Output
@@ -148,17 +151,17 @@ module Real_Estate_Optimizer
 
       
       property_line_stats = generate_property_line_stats
-      puts "Generated property line stats (first 500 characters):"
+      # puts "Generated property line stats (first 500 characters):"
       puts property_line_stats[0..499]
     
       # Use JSON encoding to properly escape the HTML string
       json_encoded_stats = property_line_stats.to_json
-      puts "JSON encoded stats (first 500 characters):"
-      puts json_encoded_stats[0..499]
+      # puts "JSON encoded stats (first 500 characters):"
+      # puts json_encoded_stats[0..499]
     
       update_script = "console.log('Updating property line stats...'); updatePropertyLineStats(#{json_encoded_stats}); console.log('Update complete');"
-      puts "Executing script:"
-      puts update_script
+      # puts "Executing script:"
+      # puts update_script
     
       dialog.execute_script(update_script)
     
@@ -182,11 +185,9 @@ module Real_Estate_Optimizer
       project_data = JSON.parse(model.get_attribute('project_data', 'data', '{}'))
       amenity_gfa_data = project_data['propertyLines'] || []
       
-      model.active_entities.grep(Sketchup::ComponentInstance).each do |instance|
-        if instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
-          area = instance.definition.get_attribute('building_data', 'total_area')
-          total_area += area.to_f if area
-        end
+      TraversalUtils.traverse_building_instances(model).each do |instance, transformation|
+        area = instance.definition.get_attribute('building_data', 'total_area')
+        total_area += area.to_f if area
       end
       
       # Add amenity GFA from input data
@@ -198,7 +199,9 @@ module Real_Estate_Optimizer
     def self.calculate_total_sellable_construction_area
       model = Sketchup.active_model
       total_sellable_area = 0
-      model.active_entities.grep(Sketchup::ComponentInstance).each do |instance|
+      building_instances = Real_Estate_Optimizer::CashFlowCalculator.find_building_instances(model)
+      
+      building_instances.each do |instance, world_transformation|
         if instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
           area = instance.definition.get_attribute('building_data', 'total_area')
           total_sellable_area += area.to_f if area
@@ -207,150 +210,95 @@ module Real_Estate_Optimizer
       total_sellable_area
     end
 
-    def self.generate_csv_report
-      begin
-        puts "Attempting to access CashFlowCalculator..."
-        if defined?(Real_Estate_Optimizer::CashFlowCalculator)
-          puts "CashFlowCalculator is defined."
-          cashflow_data = Real_Estate_Optimizer::CashFlowCalculator.calculate_and_print_full_cashflow_table
-          monthly_cashflow = Real_Estate_Optimizer::CashFlowCalculator.calculate_monthly_cashflow(cashflow_data)
-          key_indicators = Real_Estate_Optimizer::CashFlowCalculator.calculate_key_indicators(monthly_cashflow)
-          puts "Received cashflow data, proceeding to generate CSV"
+    # def self.generate_csv_report
+    #   begin
+    #     puts "Attempting to access CashFlowCalculator..."
+    #     if defined?(Real_Estate_Optimizer::CashFlowCalculator)
+    #       # puts "CashFlowCalculator is defined."
+    #       cashflow_data = Real_Estate_Optimizer::CashFlowCalculator.calculate_and_print_full_cashflow_table
+    #       monthly_cashflow = Real_Estate_Optimizer::CashFlowCalculator.calculate_monthly_cashflow(cashflow_data)
+    #       key_indicators = Real_Estate_Optimizer::CashFlowCalculator.calculate_key_indicators(monthly_cashflow)
+    #       # puts "Received cashflow data, proceeding to generate CSV"
           
-          # Default file name
-          default_file_name = "real_estate_cashflow_report.csv"
+    #       # Default file name
+    #       default_file_name = "real_estate_cashflow_report.csv"
           
-          # Open file dialog for user to choose save location and file name
-          file_path = UI.savepanel("Save Cashflow Report", "", default_file_name)
+    #       # Open file dialog for user to choose save location and file name
+    #       file_path = UI.savepanel("Save Cashflow Report", "", default_file_name)
           
-          if file_path
-            puts "CSV will be saved to: #{file_path}"
+    #       if file_path
+    #         puts "CSV will be saved to: #{file_path}"
             
-            # Open file in binary write mode
-            File.open(file_path, "wb") do |file|
-              # Write UTF-8 BOM
-              file.write("\xEF\xBB\xBF")
+    #         # Open file in binary write mode
+    #         File.open(file_path, "wb") do |file|
+    #           # Write UTF-8 BOM
+    #           file.write("\xEF\xBB\xBF")
     
-              # Create CSV object
-              csv = CSV.new(file)
+    #           # Create CSV object
+    #           csv = CSV.new(file)
 
               
-              # Write key indicators
-              csv << ['项目关键指标 Key Project Indicators']
-              csv << ['指标 Indicator', '值 Value']
-              csv << ['内部收益率 IRR', "#{key_indicators[:irr] ? "#{key_indicators[:irr].round(2)}%" : 'N/A'}"]
-              csv << ['销售毛利率 Gross Profit Margin', "#{key_indicators[:gross_profit_margin]}%"]
-              csv << ['销售净利率 Net Profit Margin', "#{key_indicators[:net_profit_margin]}%"]
-              csv << ['现金流回正（月） Cash Flow Positive Month', key_indicators[:cash_flow_positive_month]]
-              csv << ['项目总销售额（含税） Total Sales (incl. tax)', key_indicators[:total_sales]]
-              csv << ['项目总投资（含税） Total Investment (incl. tax)', key_indicators[:total_investment]]
-              csv << ['项目资金峰值 Peak Negative Cash Flow', key_indicators[:peak_negative_cash_flow]]
-              csv << ['项目净利润 Net Profit', key_indicators[:net_profit]]
-              csv << ['企业所得税 Corporate Tax', key_indicators[:corporate_tax]]
-              csv << ['税后净利润 Net Profit After Tax', key_indicators[:net_profit] - key_indicators[:corporate_tax]]
-              csv << ['MOIC', key_indicators[:moic] || 'N/A']
+    #           # Write key indicators
+    #           csv << ['项目关键指标 Key Project Indicators']
+    #           csv << ['指标 Indicator', '值 Value']
+    #           csv << ['内部收益率 IRR', "#{key_indicators[:irr] ? "#{key_indicators[:irr].round(2)}%" : 'N/A'}"]
+    #           csv << ['销售毛利率 Gross Profit Margin', "#{key_indicators[:gross_profit_margin]}%"]
+    #           csv << ['销售净利率 Net Profit Margin', "#{key_indicators[:net_profit_margin]}%"]
+    #           csv << ['现金流回正（月） Cash Flow Positive Month', key_indicators[:cash_flow_positive_month]]
+    #           csv << ['项目总销售额（含税） Total Sales (incl. tax)', key_indicators[:total_sales]]
+    #           csv << ['项目总投资（含税） Total Investment (incl. tax)', key_indicators[:total_investment]]
+    #           csv << ['项目资金峰值 Peak Negative Cash Flow', key_indicators[:peak_negative_cash_flow]]
+    #           csv << ['项目净利润 Net Profit', key_indicators[:net_profit]]
+    #           csv << ['企业所得税 Corporate Tax', key_indicators[:corporate_tax]]
+    #           csv << ['税后净利润 Net Profit After Tax', key_indicators[:net_profit] - key_indicators[:corporate_tax]]
+    #           csv << ['MOIC', key_indicators[:moic] || 'N/A']
               
-              # Add a blank row for separation
-              csv << []
+    #           # Add a blank row for separation
+    #           csv << []
               
-              # Write headers
-              csv << [
-                '月份 Month',
-                '计容产品销售收入 Apartment Sales',
-                '预售资金监管要求 Supervision Fund Requirement',
-                '资金监管存入 Fund Contribution',
-                '资金监管解活 Fund Release',
-                '车位销售收入 Parking Lot Sales',
-                '总销售收入 Total Sales Income',
-                '总现金流入小计 Total Cash Inflow',
-                '土地规费 Land Fees',
-                '配套建设费用 Amenity Construction Cost',
-                '计容产品建安费用 Apartment Construction Payment',
-                '税费 Fees and Taxes',
-                '地下建安费用 Underground Construction Cost',
-                '总现金流出小计 Total Cash Outflow',
-                '月净现金流 Monthly Net Cashflow',
-                '累计净现金流 Accumulated Net Cashflow',
-                '增值税重新申报 VAT Re-declaration',
-              ]
+    #           # Write headers
+    #           csv << [
+    #             '月份 Month',
+    #             '计容产品销售收入 Apartment Sales',
+    #             '预售资金监管要求 Supervision Fund Requirement',
+    #             '资金监管存入 Fund Contribution',
+    #             '资金监管解活 Fund Release',
+    #             '车位销售收入 Parking Lot Sales',
+    #             '总销售收入 Total Sales Income',
+    #             '总现金流入小计 Total Cash Inflow',
+    #             '土地规费 Land Fees',
+    #             '配套建设费用 Amenity Construction Cost',
+    #             '计容产品建安费用 Apartment Construction Payment',
+    #             '税费 Fees and Taxes',
+    #             '地下建安费用 Underground Construction Cost',
+    #             '总现金流出小计 Total Cash Outflow',
+    #             '月净现金流 Monthly Net Cashflow',
+    #             '累计净现金流 Accumulated Net Cashflow',
+    #             '增值税重新申报 VAT Re-declaration',
+    #           ]
               
-              # Write data
-              monthly_cashflow.each do |month_data|
-                csv << month_data.values
-              end
-            end
-            puts "CSV generation completed successfully"
-            UI.messagebox("CSV report generated and saved to: #{file_path}")
-          else
-            puts "CSV generation cancelled by user"
-            UI.messagebox("CSV generation cancelled.")
-          end
-        else
-          raise NameError, "CashFlowCalculator is not defined"
-        end
-      rescue StandardError => e
-        error_message = "Error generating CSV: #{e.message}\n\n"
-        error_message += "Error occurred at:\n#{e.backtrace.first}\n\n"
-        error_message += "Full backtrace:\n#{e.backtrace.join("\n")}"
-        puts error_message
-        UI.messagebox(error_message)
-      end
-    end
-
-    # Test methods (can be removed in production)
-    def self.test_basic_file_write
-      begin
-        test_file_path = File.join(Sketchup.find_support_file("Documents"), "basic_test.csv")
-        File.open(test_file_path, "w") do |file|
-          file.puts "Header 1,Header 2"
-          file.puts "Data 1,Data 2"
-        end
-        puts "Basic test file created successfully at #{test_file_path}"
-        true
-      rescue StandardError => e
-        puts "Error in basic file write test: #{e.message}"
-        puts e.backtrace
-        false
-      end
-    end
-
-    def self.test_csv_functionality
-      begin
-        test_file_path = File.join(Sketchup.find_support_file("Documents"), "csv_test.csv")
-        puts "Attempting to open file at: #{test_file_path}"
-        CSV.open(test_file_path, "wb") do |csv|
-          puts "File opened successfully"
-          puts "Writing header row..."
-          csv << ["Header 1", "Header 2"]
-          puts "Header row written"
-          puts "Writing data row..."
-          csv << ["Data 1", "Data 2"]
-          puts "Data row written"
-        end
-        puts "CSV test file created successfully at #{test_file_path}"
-        true
-      rescue StandardError => e
-        puts "Error in CSV test: #{e.message}"
-        puts "Error backtrace:"
-        puts e.backtrace
-        false
-      end
-    end
-
-    def self.run_tests
-      puts "Testing basic file write..."
-      if test_basic_file_write
-        puts "Basic file write successful. Testing CSV functionality..."
-        if test_csv_functionality
-          puts "CSV functionality test passed. Generating full report..."
-          generate_csv_report
-        else
-          UI.messagebox("CSV functionality test failed. Cannot proceed with report generation.")
-        end
-      else
-        UI.messagebox("Basic file write test failed. Check file system permissions.")
-      end
-    end
+    #           # Write data
+    #           monthly_cashflow.each do |month_data|
+    #             csv << month_data.values
+    #           end
+    #         end
+    #         puts "CSV generation completed successfully"
+    #         UI.messagebox("CSV report generated and saved to: #{file_path}")
+    #       else
+    #         puts "CSV generation cancelled by user"
+    #         UI.messagebox("CSV generation cancelled.")
+    #       end
+    #     else
+    #       raise NameError, "CashFlowCalculator is not defined"
+    #     end
+    #   rescue StandardError => e
+    #     error_message = "Error generating CSV: #{e.message}\n\n"
+    #     error_message += "Error occurred at:\n#{e.backtrace.first}\n\n"
+    #     error_message += "Full backtrace:\n#{e.backtrace.join("\n")}"
+    #     puts error_message
+    #     UI.messagebox(error_message)
+    #   end
+    # end
 
     def self.generate_property_line_stats
       model = Sketchup.active_model
@@ -500,7 +448,7 @@ module Real_Estate_Optimizer
         count = total_apartments[type]
         percentage = (count.to_f / grand_total * 100).round(2)
         width = apartment_data[type][:width]
-        puts "Debug: Apartment type: #{type}, Width: #{width}"
+        # puts "Debug: Apartment type: #{type}, Width: #{width}"
 
         area = type.scan(/\d+/).first.to_f
         hue = ((area - 50) * 2) % 360
@@ -543,15 +491,13 @@ module Real_Estate_Optimizer
       model = Sketchup.active_model
       total_value = 0
     
-      model.active_entities.grep(Sketchup::ComponentInstance).each do |instance|
-        if instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
-          apartment_stocks = JSON.parse(instance.definition.get_attribute('building_data', 'apartment_stocks') || '{}')
-          apartment_stocks.each do |apt_type, count|
-            apt_data = get_apartment_data(apt_type)
-            area = apt_data['area'].to_f
-            unit_price = apt_data['sales_scenes'].first['price'].to_f if apt_data['sales_scenes'] && apt_data['sales_scenes'].first
-            total_value += count * unit_price * area if unit_price && area
-          end
+      TraversalUtils.traverse_building_instances(model).each do |instance, transformation|
+        apartment_stocks = JSON.parse(instance.definition.get_attribute('building_data', 'apartment_stocks') || '{}')
+        apartment_stocks.each do |apt_type, count|
+          apt_data = get_apartment_data(apt_type)
+          area = apt_data['area'].to_f
+          unit_price = apt_data['sales_scenes'].first['price'].to_f if apt_data['sales_scenes'] && apt_data['sales_scenes'].first
+          total_value += count * unit_price * area if unit_price && area
         end
       end
     

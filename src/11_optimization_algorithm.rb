@@ -2,6 +2,9 @@
 
 require_relative '8_cashflow'
 require_relative '8_output'
+require_relative  '8_traversal_utils'
+require_relative '8_financial_calculations'
+
 
 module Real_Estate_Optimizer
   module OptimizationAlgorithm
@@ -91,7 +94,7 @@ module Real_Estate_Optimizer
       Sketchup.active_model.start_operation('Update Building Init Times', true)
       schedule.each_with_index do |init_time, index|
         if index < buildings.length
-          building = buildings[index]
+          building, _ = buildings[index]  # Unpack the array, ignoring the transformation
           if building.is_a?(Sketchup::ComponentInstance)
             building.set_attribute('dynamic_attributes', 'construction_init_time', init_time)
           else
@@ -106,9 +109,10 @@ module Real_Estate_Optimizer
 
     def self.calculate_direction_priority(schedule, buildings, settings)
       priority_sum = 0
-      buildings.each_with_index do |building, index|
-        x_coord = building.transformation.origin.x.to_m
-        y_coord = building.transformation.origin.y.to_m
+      buildings.each_with_index do |building_data, index|
+        building, transformation = building_data  # Unpack the array
+        x_coord = transformation.origin.x.to_m
+        y_coord = transformation.origin.y.to_m
         init_time = schedule[index]
         priority_value = settings['north_south_weight'] * y_coord + settings['east_west_weight'] * x_coord
         priority_sum += priority_value * (72 - init_time) / 72.0  # Earlier init times have higher priority
@@ -121,11 +125,12 @@ module Real_Estate_Optimizer
     def self.calculate_property_line_priority(schedule, buildings, settings)
       property_line_order = settings['property_line_order']
       return 1.0 if property_line_order.empty?
-
+    
       priority_sum = 0
       total_buildings = schedule.size
-
-      buildings.each_with_index do |building, index|
+    
+      buildings.each_with_index do |building_data, index|
+        building, _ = building_data  # Unpack the array, ignoring the transformation
         property_line_keyword = building.get_attribute('dynamic_attributes', 'property_line_keyword')
         init_time = schedule[index]
         if property_line_keyword
@@ -136,15 +141,14 @@ module Real_Estate_Optimizer
           end
         end
       end
-
+    
       average_priority = priority_sum / total_buildings
       Math.exp(average_priority - 0.5)
     end
 
     def self.find_building_instances(model)
-      model.active_entities.grep(Sketchup::ComponentInstance).select do |instance|
-        instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
-      end
+      TraversalUtils.traverse_building_instances(model, max_depth)
+
     end
   end
 end
