@@ -1,3 +1,6 @@
+Ruby API Sketchup version 2021, coding assistant, provide code suggestion in clear context using ruby and html
+understand the concepts in the project: apartment types, building types, land property lines, supervision fund logics.
+
 model=Sketchup.active_model
 #<Sketchup::Model:0x0001e611f66b68>
 data = model.get_attribute('project_data', 'data')

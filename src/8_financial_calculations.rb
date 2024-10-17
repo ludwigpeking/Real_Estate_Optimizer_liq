@@ -1,59 +1,50 @@
 module Real_Estate_Optimizer
   module FinancialCalculations
     def self.calculate_irr(cashflows, max_iterations = 1000, precision = 1e-6)
+      puts "Starting IRR calculation with #{cashflows.length} cashflows"
+      puts "First few cashflows: #{cashflows.take(5)}"
+      puts "Last few cashflows: #{cashflows.last(5)}"
+
       return nil if cashflows.empty?
-      return nil unless irr_calculable?(cashflows)
-
-      # Use bisection method to find a good initial bracket
-      low_rate = -0.99999999
-      high_rate = 1.0
-      while npv(cashflows, low_rate) * npv(cashflows, high_rate) > 0
-        high_rate *= 2
-        break if high_rate > 1e6  # Avoid infinite loop
+      unless irr_calculable?(cashflows)
+        puts "IRR is not calculable for these cashflows"
+        return nil
       end
 
-      # Use a combination of bisection and secant methods
-      rate = (low_rate + high_rate) / 2
-      prev_rate = low_rate
+      # Use Newton-Raphson method with a good initial guess
+      rate = initial_guess(cashflows)
+      puts "Initial guess: #{rate}"
+
       iteration = 0
-
       while iteration < max_iterations
-        npv_rate = npv(cashflows, rate)
-        
-        if npv_rate.abs < precision
-          return rate
+        npv = npv(cashflows, rate)
+        derivative = npv_derivative(cashflows, rate)
+
+        break if derivative.abs < precision
+
+        new_rate = rate - npv / derivative
+
+        if (new_rate - rate).abs < precision
+          puts "IRR found: #{new_rate}"
+          return new_rate
         end
 
-        if npv_rate * npv(cashflows, low_rate) < 0
-          high_rate = rate
-        else
-          low_rate = rate
-        end
-
-        # Secant method
-        npv_prev = npv(cashflows, prev_rate)
-        if (npv_rate - npv_prev).abs > 1e-10
-          new_rate = rate - npv_rate * (rate - prev_rate) / (npv_rate - npv_prev)
-          if new_rate > low_rate && new_rate < high_rate
-            prev_rate = rate
-            rate = new_rate
-            next
-          end
-        end
-
-        # Bisection method
-        prev_rate = rate
-        rate = (low_rate + high_rate) / 2
+        rate = new_rate
         iteration += 1
+
+        puts "Iteration #{iteration}: rate = #{rate}" if iteration % 100 == 0
       end
 
-      nil  # Return nil if IRR did not converge
+      puts "IRR calculation did not converge after #{max_iterations} iterations"
+      nil
     end
 
     def self.npv(cashflows, rate)
-      cashflows.each_with_index.sum do |cf, t|
-        cf / ((1 + rate) ** t)
-      end
+      cashflows.each_with_index.sum { |cf, t| cf / ((1 + rate) ** t) }
+    end
+
+    def self.npv_derivative(cashflows, rate)
+      cashflows.each_with_index.sum { |cf, t| -t * cf / ((1 + rate) ** (t + 1)) }
     end
 
     def self.irr_calculable?(cashflows)
@@ -64,7 +55,16 @@ module Real_Estate_Optimizer
         neg = true if cf < 0
         sum += cf
       end
-      pos && neg && sum.abs > 1e-10
+      result = pos && neg && sum.abs > 1e-10
+      puts "IRR calculable: #{result} (pos: #{pos}, neg: #{neg}, sum: #{sum})"
+      result
+    end
+
+    def self.initial_guess(cashflows)
+      n = cashflows.length
+      total_positive = cashflows.select { |cf| cf > 0 }.sum
+      total_negative = cashflows.select { |cf| cf < 0 }.sum.abs
+      (total_positive / total_negative) ** (1.0 / n) - 1
     end
   end
 end

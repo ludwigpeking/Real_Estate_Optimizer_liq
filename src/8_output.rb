@@ -375,10 +375,20 @@ module Real_Estate_Optimizer
       
       stats
     end
+
+    def self.property_line_sort_key(name)
+      match = name.match(/(\d+)([A-Za-z]*)/)
+      if match
+        [match[1].to_i, match[2]]  # Sort by number first, then by letter
+      else
+        [Float::INFINITY, name]  # Put non-matching names at the end
+      end
+    end
     
     def self.generate_property_line_table(property_line_data, all_apartment_types)
       sorted_apartment_types = sort_apartment_types(all_apartment_types)
-      
+      sorted_property_lines = property_line_data.keys.sort_by { |name| property_line_sort_key(name) }
+    
       table = "<h3>分地块统计 Property Line Statistics</h3>"
       table += "<table><tr><th>地块 Property Line</th>"
       sorted_apartment_types.each do |type|
@@ -395,7 +405,8 @@ module Real_Estate_Optimizer
       table += "<th>可售净容积率 FAR</th>"
       table += "<th>建筑密度 Footprint Coverage Rate (%)</th></tr>"
     
-      property_line_data.each do |keyword, data|
+      sorted_property_lines.each do |keyword|
+        data = property_line_data[keyword]
         table += "<tr><td style='font-weight: bold; font-size: 120%;'>#{keyword}</td>"
         sorted_apartment_types.each do |type|
           count = data[:apartment_stocks][type] || 0

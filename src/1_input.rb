@@ -48,10 +48,21 @@ module Real_Estate_Optimizer
           }
 
           function populatePropertyLines(lines) {
-            propertyLines = lines;
+            propertyLines = lines.sort((a, b) => {
+              const aMatch = a.name.match(/(\d+)([A-Za-z]*)/);
+              const bMatch = b.name.match(/(\d+)([A-Za-z]*)/);
+              if (aMatch && bMatch) {
+                const aNum = parseInt(aMatch[1]);
+                const bNum = parseInt(bMatch[1]);
+                if (aNum !== bNum) return aNum - bNum;
+                return aMatch[2].localeCompare(bMatch[2]);
+              }
+              return a.name.localeCompare(b.name);
+            });
+            
             const container = document.getElementById('propertyLinesContainer');
             container.innerHTML = '';
-            lines.forEach((line, index) => {
+            propertyLines.forEach((line, index) => {
               container.innerHTML += `
                 <div>
                   <h4>${line.name} (${line.area} m²)</h4>
@@ -142,7 +153,7 @@ module Real_Estate_Optimizer
           <input type="number" id="unsaleable_amenity_cost" min="0" step="1">
         </div>
 
-        <h3>Property Lines</h3>
+        <h3>地块列表 Property Lines</h3>
         <div id="propertyLinesContainer"></div>
 
         <h3>配套、车位有关信息 Amenity, Parking Related Info</h3>
