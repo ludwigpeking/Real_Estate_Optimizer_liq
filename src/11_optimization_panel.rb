@@ -24,14 +24,14 @@ module Real_Estate_Optimizer
           </style>
         </head>
         <body>
-          <h2>Optimization Weights</h2>
+          <h2>优化权重 Optimization Weights</h2>
           <div>
-            <label for="irr_weight">IRR Weight:</label>
+            <label for="irr_weight">内部收益率权重 IRR Weight:</label>
             <input type="range" id="irr_weight" min="0" max="100" value="50" oninput="updateWeightValue('irr_weight')">
             <span id="irr_weight_value">50</span>
           </div>
           <div>
-            <label for="moic_weight">MOIC Weight:</label>
+            <label for="moic_weight">总投资汇报率权重 MOIC Weight:</label>
             <input type="range" id="moic_weight" min="0" max="100" value="50" oninput="updateWeightValue('moic_weight')">
             <span id="moic_weight_value">50</span>
           </div>
@@ -166,7 +166,7 @@ module Real_Estate_Optimizer
         OptimizationAlgorithm.update_model_with_solution(buildings, best_schedule)
         
         # Update output panel
-        Output.update_output_data(Sketchup.active_model)
+        # Output.update_output_data(Sketchup.active_model)
         
         # Update phasing colors
         PhasingColorUpdater.update_phasing_colors

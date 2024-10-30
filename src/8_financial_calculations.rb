@@ -1,19 +1,19 @@
 module Real_Estate_Optimizer
   module FinancialCalculations
     def self.calculate_irr(cashflows, max_iterations = 1000, precision = 1e-6)
-      puts "Starting IRR calculation with #{cashflows.length} cashflows"
-      puts "First few cashflows: #{cashflows.take(5)}"
-      puts "Last few cashflows: #{cashflows.last(5)}"
+      # puts "Starting IRR calculation with #{cashflows.length} cashflows"
+      # puts "First few cashflows: #{cashflows.take(5)}"
+      # puts "Last few cashflows: #{cashflows.last(5)}"
 
       return nil if cashflows.empty?
       unless irr_calculable?(cashflows)
-        puts "IRR is not calculable for these cashflows"
+        # puts "IRR is not calculable for these cashflows"
         return nil
       end
 
       # Use Newton-Raphson method with a good initial guess
       rate = initial_guess(cashflows)
-      puts "Initial guess: #{rate}"
+      # puts "Initial guess: #{rate}"
 
       iteration = 0
       while iteration < max_iterations
@@ -25,17 +25,17 @@ module Real_Estate_Optimizer
         new_rate = rate - npv / derivative
 
         if (new_rate - rate).abs < precision
-          puts "IRR found: #{new_rate}"
+          # puts "IRR found: #{new_rate}"
           return new_rate
         end
 
         rate = new_rate
         iteration += 1
 
-        puts "Iteration #{iteration}: rate = #{rate}" if iteration % 100 == 0
+        # puts "Iteration #{iteration}: rate = #{rate}" if iteration % 100 == 0
       end
 
-      puts "IRR calculation did not converge after #{max_iterations} iterations"
+      # puts "IRR calculation did not converge after #{max_iterations} iterations"
       nil
     end
 
@@ -56,7 +56,7 @@ module Real_Estate_Optimizer
         sum += cf
       end
       result = pos && neg && sum.abs > 1e-10
-      puts "IRR calculable: #{result} (pos: #{pos}, neg: #{neg}, sum: #{sum})"
+      # puts "IRR calculable: #{result} (pos: #{pos}, neg: #{neg}, sum: #{sum})"
       result
     end
 

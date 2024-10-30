@@ -171,7 +171,6 @@ module Real_Estate_Optimizer
 
     def self.update_attributes(value)
       attributes = JSON.parse(value)
-      puts "Updating attributes with: #{attributes}"
       selection = Sketchup.active_model.selection
       
       if selection.empty?
@@ -186,12 +185,18 @@ module Real_Estate_Optimizer
         next unless entity.is_a?(Sketchup::ComponentInstance)
         
         definition = entity.definition
-        
+    
+        # Update construction init time if provided
         if attributes['construction_init_time'] != ''
-          entity.set_attribute('dynamic_attributes', 'construction_init_time', attributes['construction_init_time'].to_i)
-          definition.set_attribute('dynamic_attributes', 'construction_init_time', attributes['construction_init_time'].to_i)
+          init_time = attributes['construction_init_time'].to_i
+          entity.set_attribute('dynamic_attributes', 'construction_init_time', init_time)
+          definition.set_attribute('dynamic_attributes', 'construction_init_time', init_time)
+          
+          # Update phasing color for this instance
+          PhasingColorUpdater.update_single_building(entity)
         end
     
+        # Update other attributes...
         if attributes['sales_permit_time'] != ''
           entity.set_attribute('dynamic_attributes', 'sales_permit_time', attributes['sales_permit_time'].to_i)
           definition.set_attribute('dynamic_attributes', 'sales_permit_time', attributes['sales_permit_time'].to_i)

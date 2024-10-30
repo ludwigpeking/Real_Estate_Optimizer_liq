@@ -134,6 +134,7 @@ module Real_Estate_Optimizer
                 addPricingScene(scene.price, scene.volumn);
               });
             }
+            
 
             function updateSavedApartmentTypes(apartmentTypes) {
               var select = document.getElementById('savedApartmentTypes');
@@ -268,7 +269,6 @@ module Real_Estate_Optimizer
 
       dialog.show
     end
-
     def self.create_apartment_component(apartment_data)
       model = Sketchup.active_model
       definitions = model.definitions
@@ -283,48 +283,69 @@ module Real_Estate_Optimizer
         model.layers.add(layer_name) unless model.layers[layer_name]
       end
     
-      # Set liq_color_mass as active and visible, hide others
-      layers.each do |layer_name|
-        layer = model.layers[layer_name]
-        layer.visible = (layer_name == 'liq_color_mass')
-      end
-      model.active_layer = model.layers['liq_color_mass']
-    
       # Create or update component definition
       apartment_def = definitions[component_name] || definitions.add(component_name)
       apartment_def.entities.clear!
     
+      # Store current active layer
+      original_layer = model.active_layer
+    
       # Create geometry for each layer
       layers.each do |layer_name|
+        # Set the layer as active before creating the group
+        model.active_layer = model.layers[layer_name]
+        
         group = apartment_def.entities.add_group
         group.layer = layer_name
-        
+    
         # Create the geometry for the apartment within the group
         width = apartment_data['width'].to_f.m
         depth = apartment_data['depth'].to_f.m
         height = 3.m  # Assuming a standard floor height of 3 meters
     
+        # Create base geometry
         face = group.entities.add_face([0, 0, 0], [0, depth, 0], [width, depth, 0], [width, 0, 0])
         face.pushpull(-height)
     
-        # Add material
-        material = model.materials.add("#{component_name}_#{layer_name}")
-        
-        if layer_name == 'liq_color_mass'
-          category = apartment_data['apartment_category']
-          if ['商铺', '办公', '公寓'].include?(category)
-            material.color = Sketchup::Color.new(255, 0, 0)  # Red for commercial, office, and apartment
-          else
-            hue = (apartment_data['area'].to_f - 50) * 2 % 360
-            rgb = hsl_to_rgb(hue, 100, 50)
-            material.color = Sketchup::Color.new(*rgb)
-          end
+        # Handle materials based on layer
+        if layer_name == 'liq_phasing'
+          # For phasing layer, don't apply any material - let it inherit from parent
+          group.entities.grep(Sketchup::Face).each { |entity| 
+            entity.material = nil  # Clear any existing material
+            entity.back_material = nil  # Clear back material too
+            entity.layer = layer_name
+          }
         else
-          material.color = Sketchup::Color.new(255, 255, 255)  # White for all other layers
+          # For other layers, apply specific materials
+          material = model.materials.add("#{component_name}_#{layer_name}")
+          
+          if layer_name == 'liq_color_mass'
+            category = apartment_data['apartment_category']
+            if ['商铺', '办公', '公寓'].include?(category)
+              material.color = Sketchup::Color.new(255, 0, 0)
+            else
+              hue = (apartment_data['area'].to_f - 50) * 2 % 360
+              rgb = hsl_to_rgb(hue, 100, 50)
+              material.color = Sketchup::Color.new(*rgb)
+            end
+          else
+            material.color = Sketchup::Color.new(255, 255, 255)
+          end
+          
+          group.entities.grep(Sketchup::Face).each { |entity| 
+            entity.material = material
+            entity.layer = layer_name
+          }
         end
         
-        group.entities.grep(Sketchup::Face).each { |entity| entity.material = material }
+        # Set layer for all edges
+        group.entities.grep(Sketchup::Edge).each { |edge| 
+          edge.layer = layer_name
+        }
       end
+    
+      # Restore original active layer
+      model.active_layer = original_layer
     
       # Add attributes to the component
       apartment_def.set_attribute('apartment_data', 'area', apartment_data['area'])
@@ -334,6 +355,17 @@ module Real_Estate_Optimizer
       model.commit_operation
     
       apartment_def
+    end
+
+    def self.sort_apartment_types(apartment_types)
+      apartment_types.sort_by do |type|
+        match = type.match(/(\d+)([A-Za-z]*)/)
+        if match
+          [match[1].to_i, match[2]]  # Sort by number first, then by letter
+        else
+          [Float::INFINITY, type]  # Put non-matching names at the end
+        end
+      end
     end
     
     def self.hsl_to_rgb(h, s, l)
@@ -367,7 +399,6 @@ module Real_Estate_Optimizer
       end
       model.active_layer = model.layers[layer_name]
     end
-    
 
     def self.place_component_in_model(component_def)
       model = Sketchup.active_model
@@ -389,7 +420,12 @@ module Real_Estate_Optimizer
     def self.update_saved_apartment_types(dialog)
       model = Sketchup.active_model
       apartment_type_names = model.get_attribute('aparment_type_data', APARTMENT_TYPE_LIST_KEY, [])
-      dialog.execute_script("updateSavedApartmentTypes(#{apartment_type_names.to_json})")
+      
+      # Sort the apartment types
+      sorted_apartment_types = sort_apartment_types(apartment_type_names)
+      
+      # Pass the sorted array to the JavaScript function
+      dialog.execute_script("updateSavedApartmentTypes(#{sorted_apartment_types.to_json})")
     end
   end
 end

@@ -145,14 +145,22 @@ module Real_Estate_Optimizer
       
           num_floors.times do
             floor_type['apartmentTypes'].each do |apartment|
-              add_apartment(building_def, apartment['x'].to_f, apartment['y'].to_f, z_offset, apartment['name'], floor_height)
+              add_apartment(
+                building_def, 
+                apartment['x'].to_f, 
+                apartment['y'].to_f, 
+                z_offset, 
+                apartment['name'], 
+                floor_height,
+                apartment['mirrorX']  # Pass the mirrorX value
+              )
             end
             z_offset += floor_height
           end
         end
       end
       
-      def self.add_apartment(building_def, x_offset, y_offset, z_offset, apartment_name, floor_height)
+      def self.add_apartment(building_def, x_offset, y_offset, z_offset, apartment_name, floor_height, mirror_x)
         model = Sketchup.active_model
         apartment_def = model.definitions[apartment_name]
         
@@ -163,8 +171,16 @@ module Real_Estate_Optimizer
       
         # Create a new instance of the apartment and add it to the building
         transform = Geom::Transformation.new([x_offset.m, y_offset.m, z_offset.m])
+        
+        if mirror_x
+          # Create a mirroring transformation
+          mirror_transform = Geom::Transformation.scaling(-1, 1, 1)
+          # Combine the transformations
+          transform = transform * mirror_transform
+        end
+        
         instance = building_def.entities.add_instance(apartment_def, transform)
-    
+      
         # Ensure the instance is on the 'liq_0' layer
         instance.layer = model.layers['liq_0']
       end

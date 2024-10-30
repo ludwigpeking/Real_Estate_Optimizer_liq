@@ -49,23 +49,26 @@ module Real_Estate_Optimizer
                 }
                 
                 function addApartmentType(floorTypeId) {
-                    const container = document.getElementById(`apartmentTypesContainer${floorTypeId}`);
-                    const apartmentTypeId = Date.now(); //this is not understood
-                    const apartmentTypeHtml = `
-                        <div id="apartmentType${apartmentTypeId}" class="apartment-type">
-                            <label>户型名称 Apartment Name: 
-                                <select id="apartmentName${apartmentTypeId}" onchange="updateBuildingTypeName()">
-                                    <option value="">选择户型 Select an apartment type</option>
-                                </select>
-                            </label>
-                            <label>X 坐标 X Position: <input type="number" id="apartmentX${apartmentTypeId}" value="0" step="0.1"></label>
-                            <label>Y 坐标 Y Position: <input type="number" id="apartmentY${apartmentTypeId}" value="0" step="0.1"></label>
-                            <button onclick="removeApartmentType(${apartmentTypeId})">删除 Remove</button>
-                        </div>
-                    `;
-                    container.insertAdjacentHTML('beforeend', apartmentTypeHtml);
-                    populateApartmentOptions();
-                    updateBuildingTypeName(); //this is ok
+                  const container = document.getElementById(`apartmentTypesContainer${floorTypeId}`);
+                  const apartmentTypeId = Date.now();
+                  const apartmentTypeHtml = `
+                      <div id="apartmentType${apartmentTypeId}" class="apartment-type">
+                          <label>户型名称 Apartment Name: 
+                              <select id="apartmentName${apartmentTypeId}" onchange="updateBuildingTypeName()">
+                                  <option value="">选择户型 Select an apartment type</option>
+                              </select>
+                          </label><br>
+                          <label>
+                              <input type="checkbox" id="mirrorX${apartmentTypeId}"> x 镜像 x Mirrored
+                          </label><br>
+                          <label>X 坐标 X Position: <input type="number" id="apartmentX${apartmentTypeId}" value="0" step="0.1"></label>
+                          <label>Y 坐标 Y Position: <input type="number" id="apartmentY${apartmentTypeId}" value="0" step="0.1"></label>
+                          <button onclick="removeApartmentType(${apartmentTypeId})">删除 Remove</button>
+                      </div>
+                  `;
+                  container.insertAdjacentHTML('beforeend', apartmentTypeHtml);
+                  populateApartmentOptions();
+                  updateBuildingTypeName();
                 }
 
                 function removeFloorType(floorTypeId) {
@@ -90,12 +93,12 @@ module Real_Estate_Optimizer
                   let floorTypes = document.querySelectorAll('.floor-type');
                   let apartmentAreas = {};
                   let totalFloors = 0;
-
+                
                   floorTypes.forEach(function(floorType) {
                     let numberFloorsElement = floorType.querySelector('input[id^="numberFloors"]');
                     let numberOfFloors = numberFloorsElement ? parseInt(numberFloorsElement.value) || 0 : 0;
                     totalFloors += numberOfFloors;
-
+                
                     let apartments = floorType.querySelectorAll('select[id^="apartmentName"]');
                     apartments.forEach(function(apartment) {
                       if (apartment && apartment.value) {
@@ -106,19 +109,21 @@ module Real_Estate_Optimizer
                       }
                     });
                   });
-
+                
                   let sortedAreas = Object.entries(apartmentAreas)
                     .sort((a, b) => b[1] - a[1])
                     .map(entry => entry[0]);
-
+                
                   let customSuffix = document.getElementById('customNameSuffix').value.trim();
                   let buildingTypeName = sortedAreas.join('+') + ' ' + totalFloors + '层';
                   
                   if (customSuffix) {
                     buildingTypeName += ' ' + customSuffix;
                   }
-
+                
                   document.getElementById('buildingTypeName').textContent = buildingTypeName;
+                  // Store the custom suffix separately in a data attribute
+                  document.getElementById('buildingTypeName').setAttribute('data-suffix', customSuffix);
                 }
 
                 function extractFirstNumber(input) {
@@ -170,7 +175,8 @@ module Real_Estate_Optimizer
 
                 function submitForm() {
                   let formData = {
-                    name: document.getElementById('buildingTypeName') ? document.getElementById('buildingTypeName').textContent : '',
+                    name: document.getElementById('buildingTypeName').textContent,
+                    customSuffix: document.getElementById('customNameSuffix').value.trim(), // Save suffix separately
                     floorTypes: [],
                     standardConstructionTime: {},
                     supervisionFundReleaseSchedule: [],
@@ -200,10 +206,12 @@ module Real_Estate_Optimizer
                       let nameElement = apartmentType.querySelector('select[id^="apartmentName"]');
                       let xElement = apartmentType.querySelector('input[id^="apartmentX"]');
                       let yElement = apartmentType.querySelector('input[id^="apartmentY"]');
+                      let mirrorXElement = apartmentType.querySelector('input[id^="mirrorX"]');
                       floorTypeData.apartmentTypes.push({
                         name: nameElement ? nameElement.value : '',
                         x: xElement ? parseFloat(xElement.value) || 0 : 0,
-                        y: yElement ? parseFloat(yElement.value) || 0 : 0
+                        y: yElement ? parseFloat(yElement.value) || 0 : 0,
+                        mirrorX: mirrorXElement ? mirrorXElement.checked : false
                       });
                     });
 
@@ -231,6 +239,26 @@ module Real_Estate_Optimizer
                     if (selectedName) {
                         window.location = 'skp:load_building_type@' + encodeURIComponent(selectedName);
                     }
+                }
+
+                function extractSuffixFromName(buildingName) {
+                  // Pattern: number + '层' + optional suffix
+                  const match = buildingName.match(/\d+层\s*(.*)$/);
+                  return match ? match[1].trim() : '';
+                }
+
+                function sortBuildingTypes(buildingTypes) {
+                  return buildingTypes.sort((a, b) => {
+                    const aMatch = a.match(/(\d+)([A-Za-z]*)/);
+                    const bMatch = b.match(/(\d+)([A-Za-z]*)/);
+                    if (aMatch && bMatch) {
+                      const aNum = parseInt(aMatch[1]);
+                      const bNum = parseInt(bMatch[1]);
+                      if (aNum !== bNum) return aNum - bNum;
+                      return aMatch[2].localeCompare(bMatch[2]);
+                    }
+                    return a.localeCompare(b);
+                  });
                 }
 
                 function deleteBuildingType() {
@@ -365,8 +393,8 @@ module Real_Estate_Optimizer
             project_data['building_types'] << form_data
             model.set_attribute('project_data', 'data', project_data.to_json)
             
-            puts "Saved building type: #{form_data['name']}"
-            puts "Updated building type list: #{building_type_names.inspect}"
+            # puts "Saved building type: #{form_data['name']}"
+            # puts "Updated building type list: #{building_type_names.inspect}"
             
             # Update the dialog with new values
             dialog.execute_script("document.getElementById('totalArea').textContent = '#{form_data['total_area']}'")
@@ -403,12 +431,10 @@ module Real_Estate_Optimizer
             # Get the list of building type names
             building_type_names = model.get_attribute('project_data', BuildingGenerator::BUILDING_TYPE_LIST_KEY, [])
             
-            puts "Available building types: #{building_type_names.inspect}"
-            
             if !building_type_names.include?(name)
               puts "Warning: Building type '#{name}' not found in the list"
               UI.messagebox("Building type '#{name}' not found.")
-              next  # Use 'next' instead of 'return' in a block
+              next
             end
             
             # Try to get the building type data from the component definition
@@ -418,9 +444,7 @@ module Real_Estate_Optimizer
               if building_type_json
                 building_type = JSON.parse(building_type_json)
                 load_building_data(dialog, building_type)
-                dialog.execute_script("document.getElementById('customNameSuffix').value = '#{building_type['custom_suffix'] || ''}'")
-
-                next  # Use 'next' instead of 'return' in a block
+                next
               end
             end
             
@@ -432,7 +456,7 @@ module Real_Estate_Optimizer
                 building_type = project_data['building_types'].find { |bt| bt['name'] == name }
                 if building_type
                   load_building_data(dialog, building_type)
-                  next  # Use 'next' instead of 'return' in a block
+                  next
                 end
               end
             end
@@ -470,10 +494,21 @@ module Real_Estate_Optimizer
       def self.update_saved_building_types(dialog)
         model = Sketchup.active_model
         building_type_names = model.get_attribute('project_data', BUILDING_TYPE_LIST_KEY, [])
-        puts "Available building types: #{building_type_names.inspect}"
+        # puts "Available building types: #{building_type_names.inspect}"
+        
+        # Sort the building types
+        sorted_building_types = building_type_names.sort_by do |name|
+          match = name.match(/(\d+)([A-Za-z]*)/)
+          if match
+            [match[1].to_i, match[2]]  # Sort by number first, then by letter
+          else
+            [Float::INFINITY, name]  # Put non-matching names at the end
+          end
+        end
+        
         js_code = "var select = document.getElementById('savedBuildingTypes');"
         js_code += "select.innerHTML = '<option value=\"\">选择已有楼型 Select a building type</option>';"
-        building_type_names.each do |name|
+        sorted_building_types.each do |name|
           js_code += "select.innerHTML += '<option value=\"#{name}\">#{name}</option>';"
         end
         dialog.execute_script(js_code)
@@ -482,6 +517,15 @@ module Real_Estate_Optimizer
       def self.load_building_data(dialog, building_data)
         js_code_lines = []
         js_code_lines << "document.getElementById('floorTypesContainer').innerHTML = '';"
+      
+        # Extract suffix from name if it's not stored separately
+        suffix = building_data['customSuffix']
+        if suffix.nil? || suffix.empty?
+          js_code_lines << "var suffix = extractSuffixFromName('#{building_data['name']}');"
+          js_code_lines << "document.getElementById('customNameSuffix').value = suffix;"
+        else
+          js_code_lines << "document.getElementById('customNameSuffix').value = '#{suffix}';"
+        end
       
         building_data['floorTypes'].each_with_index do |floor_type, index|
           js_code_lines << "addFloorType();"
@@ -495,12 +539,12 @@ module Real_Estate_Optimizer
             js_code_lines << "lastApartment.querySelector('select').value = '#{apt['name']}';"
             js_code_lines << "lastApartment.querySelector('input[id^=\"apartmentX\"]').value = #{apt['x']};"
             js_code_lines << "lastApartment.querySelector('input[id^=\"apartmentY\"]').value = #{apt['y']};"
+            js_code_lines << "lastApartment.querySelector('input[id^=\"mirrorX\"]').checked = #{apt['mirrorX'] ? 'true' : 'false'};"
           end
         end
       
         js_code_lines << "document.getElementById('totalArea').textContent = #{building_data['total_area'] || 0};"
         js_code_lines << "document.getElementById('footprintArea').textContent = #{building_data['footprint_area'] || 0};"
-      
         js_code_lines << "document.getElementById('monthsFromConstructionInitToZeroLevel').value = #{building_data['standardConstructionTime']['monthsFromConstructionInitToZeroLevel']};"
         js_code_lines << "document.getElementById('monthsFromZeroLevelToRoofLevel').value = #{building_data['standardConstructionTime']['monthsFromZeroLevelToRoofLevel']};"
         js_code_lines << "document.getElementById('monthsFromRoofLevelToDelivery').value = #{building_data['standardConstructionTime']['monthsFromRoofLevelToDelivery']};"

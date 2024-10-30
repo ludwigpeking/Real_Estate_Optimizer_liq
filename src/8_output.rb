@@ -152,7 +152,7 @@ module Real_Estate_Optimizer
       
       property_line_stats = generate_property_line_stats
       # puts "Generated property line stats (first 500 characters):"
-      puts property_line_stats[0..499]
+      # puts property_line_stats[0..499]
     
       # Use JSON encoding to properly escape the HTML string
       json_encoded_stats = property_line_stats.to_json

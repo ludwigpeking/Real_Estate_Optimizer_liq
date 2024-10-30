@@ -362,14 +362,14 @@ module Real_Estate_Optimizer
       monthly_cashflow[71] -= corporate_tax
       accumulated_cashflow[71] -= corporate_tax
       
-      puts "Monthly cashflow: #{monthly_cashflow.inspect}"
+      # puts "Monthly cashflow: #{monthly_cashflow.inspect}"
       monthly_irr = FinancialCalculations.calculate_irr(monthly_cashflow)
-      puts "Monthly IRR: #{monthly_irr}"
+      # puts "Monthly IRR: #{monthly_irr}"
       if monthly_irr
         yearly_irr = (1 + monthly_irr)**12 - 1
-        puts "Yearly IRR: #{(yearly_irr * 100).round(2)}%"
+        # puts "Yearly IRR: #{(yearly_irr * 100).round(2)}%"
       else
-        puts "IRR could not be calculated"
+        # puts "IRR could not be calculated"
       end
       
       # Return the data including corporate tax
@@ -465,7 +465,7 @@ module Real_Estate_Optimizer
         }
       end
     
-      puts "Corporate tax calculated in monthly cashflow: #{corporate_tax}"
+      # puts "Corporate tax calculated in monthly cashflow: #{corporate_tax}"
       monthly_cashflow
     end
 
@@ -598,7 +598,7 @@ module Real_Estate_Optimizer
           </tr>
       HTML
 
-      puts "Monthly Cashflow Month 72: #{monthly_cashflow[71].inspect}"
+      # puts "Monthly Cashflow Month 72: #{monthly_cashflow[71].inspect}"
       monthly_cashflow.each do |month_data|
         html += "<tr>"
         html += "<td>#{month_data[:month]}</td>"

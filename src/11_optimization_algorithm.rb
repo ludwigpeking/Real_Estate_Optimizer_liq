@@ -50,7 +50,7 @@ module Real_Estate_Optimizer
     def self.initialize_population(buildings, size)
       population = []
       size.times do
-        schedule = buildings.map { rand(0..72) }  # Random init time between 0 and 72 months
+        schedule = buildings.map { rand(0..47) }  # Random init time between 0 and 72 months
         population << schedule
       end
       population
@@ -73,7 +73,7 @@ module Real_Estate_Optimizer
     end
 
     def self.mutate(child, rate)
-      child.map! { |gene| rand < rate ? rand(0..72) : gene }
+      child.map! { |gene| rand < rate ? rand(0..47) : gene }
     end
 
     def self.objective_function(schedule, buildings, settings)
@@ -96,6 +96,7 @@ module Real_Estate_Optimizer
         if index < buildings.length
           building, _ = buildings[index]  # Unpack the array, ignoring the transformation
           if building.is_a?(Sketchup::ComponentInstance)
+            init_time = [init_time, 47].min
             building.set_attribute('dynamic_attributes', 'construction_init_time', init_time)
           else
             puts "Warning: Building at index #{index} is not a ComponentInstance"
