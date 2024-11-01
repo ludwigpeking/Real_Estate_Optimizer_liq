@@ -31,11 +31,6 @@ module Real_Estate_Optimizer
       max_time.zero? ? 72 : max_time  # Default to 72 if no init times set
     end
 
-    def self.calculate_color(init_time, max_time)
-      ratio = 1 - (init_time.to_f / max_time)
-      blue = (255 * ratio).to_i
-      Sketchup::Color.new(0, 0, blue)
-    end
 
     def self.apply_phasing_color(instance, color)
       # Create or update the material in the model
@@ -54,16 +49,37 @@ module Real_Estate_Optimizer
       model = Sketchup.active_model
       model.start_operation('Update Single Building Phasing', true)
 
-      # Find max init time considering all buildings
-      all_instances = find_building_instances(model)
-      max_time = find_max_init_time(all_instances)
+      begin
+        # Get construction init time
+        init_time = instance.get_attribute('dynamic_attributes', 'construction_init_time', 0).to_i
+        puts "PhasingColorUpdater: Updating building with init_time: #{init_time}" # Debug log
 
-      # Calculate and apply color for this instance
-      init_time = instance.get_attribute('dynamic_attributes', 'construction_init_time', 0).to_i
-      color = calculate_color(init_time, max_time)
-      apply_phasing_color(instance, color)
+        # Calculate color (using fixed max_time of 72 for consistency)
+        color = calculate_color(init_time, 72)  # Use fixed max time
+        puts "PhasingColorUpdater: Calculated color: #{color.inspect}" # Debug log
 
-      model.commit_operation
+        # Create or update material
+        material_name = "phasing_#{instance.entityID}"
+        material = model.materials[material_name] || model.materials.add(material_name)
+        material.color = color
+        puts "PhasingColorUpdater: Created/updated material: #{material_name}" # Debug log
+
+        # Apply material to instance
+        instance.material = material
+        puts "PhasingColorUpdater: Applied material to instance" # Debug log
+
+        model.commit_operation
+      rescue => e
+        puts "PhasingColorUpdater Error: #{e.message}"
+        puts e.backtrace
+        model.abort_operation
+      end
+    end
+
+    def self.calculate_color(init_time, max_time)
+      ratio = 1.0 - (init_time.to_f / max_time)
+      blue = (255 * ratio).to_i
+      Sketchup::Color.new(255, 255-blue, 255-blue)
     end
   end
 end

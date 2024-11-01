@@ -68,6 +68,7 @@ module Real_Estate_Optimizer
                 product_baseline_unit_cost_before_allocation: parseFloat(document.getElementById('product_baseline_unit_cost_before_allocation').value),
                 width: parseFloat(document.getElementById('width').value),
                 depth: parseFloat(document.getElementById('depth').value),
+                height: parseFloat(document.getElementById('height').value) || 3.0,  // Default to 3.0 if not specified
                 sales_scenes: []
               };
 
@@ -127,6 +128,7 @@ module Real_Estate_Optimizer
               document.getElementById('product_baseline_unit_cost_before_allocation').value = data.product_baseline_unit_cost_before_allocation;
               document.getElementById('width').value = data.width;
               document.getElementById('depth').value = data.depth;
+              document.getElementById('height').value = data.height || 3.0;
 
               var container = document.getElementById('pricingScenesContainer');
               container.innerHTML = '';
@@ -193,6 +195,9 @@ module Real_Estate_Optimizer
 
             <label for="depth">进深 (m)</label>
             <input type="number" id="depth" value="11.0">
+
+              <label for="height">层高 (m)</label>
+              <input type="number" id="height" value="3.0" step="0.1">
           </div>
 
           <div class="form-section">
@@ -301,44 +306,40 @@ module Real_Estate_Optimizer
         # Create the geometry for the apartment within the group
         width = apartment_data['width'].to_f.m
         depth = apartment_data['depth'].to_f.m
-        height = 3.m  # Assuming a standard floor height of 3 meters
+        height = (apartment_data['height'] || 3.0).to_f.m
     
-        # Create base geometry
+        # All entities created will automatically be on the current active layer
         face = group.entities.add_face([0, 0, 0], [0, depth, 0], [width, depth, 0], [width, 0, 0])
         face.pushpull(-height)
     
-        # Handle materials based on layer
-        if layer_name == 'liq_phasing'
-          # For phasing layer, don't apply any material - let it inherit from parent
-          group.entities.grep(Sketchup::Face).each { |entity| 
-            entity.material = nil  # Clear any existing material
-            entity.back_material = nil  # Clear back material too
-            entity.layer = layer_name
-          }
-        else
-          # For other layers, apply specific materials
-          material = model.materials.add("#{component_name}_#{layer_name}")
+        # Only create and apply material for liq_color_mass layer
+        if layer_name == 'liq_color_mass'
+          material_name = "#{component_name}_color_mass"
+          material = model.materials[material_name] || model.materials.add(material_name)
           
-          if layer_name == 'liq_color_mass'
-            category = apartment_data['apartment_category']
-            if ['商铺', '办公', '公寓'].include?(category)
-              material.color = Sketchup::Color.new(255, 0, 0)
-            else
-              hue = (apartment_data['area'].to_f - 50) * 2 % 360
-              rgb = hsl_to_rgb(hue, 100, 50)
-              material.color = Sketchup::Color.new(*rgb)
-            end
+          category = apartment_data['apartment_category']
+          if ['商铺', '办公', '公寓'].include?(category)
+            material.color = Sketchup::Color.new(255, 0, 0)  # Red for commercial, office, and apartment
           else
-            material.color = Sketchup::Color.new(255, 255, 255)
+            hue = (apartment_data['area'].to_f - 50) * 2 % 360
+            rgb = hsl_to_rgb(hue, 100, 50)
+            material.color = Sketchup::Color.new(*rgb)
           end
           
+          # Apply material to faces in liq_color_mass layer
           group.entities.grep(Sketchup::Face).each { |entity| 
             entity.material = material
             entity.layer = layer_name
           }
+        else
+          # For all other layers, use default material
+          group.entities.grep(Sketchup::Face).each { |entity| 
+            entity.material = nil
+            entity.layer = layer_name
+          }
         end
         
-        # Set layer for all edges
+        # Set layer for all edges (no material needed)
         group.entities.grep(Sketchup::Edge).each { |edge| 
           edge.layer = layer_name
         }
@@ -351,6 +352,7 @@ module Real_Estate_Optimizer
       apartment_def.set_attribute('apartment_data', 'area', apartment_data['area'])
       apartment_def.set_attribute('apartment_data', 'category', apartment_data['apartment_category'])
       apartment_def.set_attribute('apartment_data', 'product_baseline_unit_cost', apartment_data['product_baseline_unit_cost_before_allocation'])
+      apartment_def.set_attribute('apartment_data', 'height', apartment_data['height'] || 3.0)
     
       model.commit_operation
     

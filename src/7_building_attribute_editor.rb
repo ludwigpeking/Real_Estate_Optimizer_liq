@@ -1,3 +1,5 @@
+require_relative '9_phasing_color_updater' 
+
 module Real_Estate_Optimizer
   module BuildingAttributeEditor
     def self.show_dialog
@@ -184,16 +186,23 @@ module Real_Estate_Optimizer
       selection.each do |entity|
         next unless entity.is_a?(Sketchup::ComponentInstance)
         
-        definition = entity.definition
-    
-        # Update construction init time if provided
+        definition = entity.definition  # Get the definition reference
+        
         if attributes['construction_init_time'] != ''
           init_time = attributes['construction_init_time'].to_i
+          puts "Updating construction init time to: #{init_time}" # Debug log
           entity.set_attribute('dynamic_attributes', 'construction_init_time', init_time)
-          definition.set_attribute('dynamic_attributes', 'construction_init_time', init_time)
+          definition.set_attribute('dynamic_attributes', 'construction_init_time', init_time)  # Also update definition
           
-          # Update phasing color for this instance
-          PhasingColorUpdater.update_single_building(entity)
+          begin
+            # Update phasing color and ensure phasing layer is visible
+            Real_Estate_Optimizer::PhasingColorUpdater.update_single_building(entity)
+            phasing_layer = model.layers['liq_phasing']
+            phasing_layer.visible = true if phasing_layer
+          rescue => e
+            puts "Error updating phasing color: #{e.message}"
+            puts e.backtrace
+          end
         end
     
         # Update other attributes...
@@ -210,7 +219,7 @@ module Real_Estate_Optimizer
     
       model.commit_operation
     end
-
+    
     class MySelectionObserver < Sketchup::SelectionObserver
       def initialize(dialog)
         @dialog = dialog
