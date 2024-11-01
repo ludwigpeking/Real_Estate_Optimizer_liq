@@ -247,3 +247,33 @@ first, I need a panel to change the optimization weights and criteria,
 then I need a code for the optimization algorithm
 
 last, I need a representation for the phasing, which I have already a layer in my building component created. they just need to be independent from the component in order to have independent color code that is not referenced across the instances.
+
+a few things I discover:
+
+one, the puts will create countless logs, not able to track. we should reduce the population and iteration for testing.
+
+two:
+
+fitness = (settings['irr_weight'] irr + settings['moic_weight'] moic) direction_priority property_line_priority
+
+the fitness should not evolve direction_priority or property_line_priority
+
+the thing is, I have many identical building instance that do not create difference in fitness value. the algorithm should treat them as the same, and reassign their init_time based on the direction_priority and property_line_priority. and property line priority should be superior to direction priority.
+
+three, the algorithm should treat the instances of same building type as anonymous. by doing that we can also reduce the amount of calculation. and reassign their order as I just mention, which complicate the code but significantly reduce the effort.
+
+let's shorten the time span of the construction init times to 24 months, for a less burdened process.
+
+the pattern idea may not yield the best result. the individual times may lead to more accurate result. it would make sense if :
+
+"BuildingType1" => [init_time1, interval2, interval3, ...], the values from the second can be added to its precedor's init times, but max 24, so that it could save much calculation. they can all be 0, so they can still start all together actually.
+
+the population of the initial round can be larger to cover more opportunities. the values in the array can be considered sliders, if sliding one results in a better result, it get reward to try move to that direction again. if not, it can try another direction or smaller step, the minimum step is 1 month anyway. so it wont be to hard to decide.
+
+the fitness value should be OK, which should be already deterministic values.
+
+it should be still genetic algorithm and allow randomness.
+
+the selection can be tricky. I think you should keep the highest 100 variants as the elite pool.
+
+I don't know if this suggestion if valueable, or are they against some common practice of genetic algorithm?

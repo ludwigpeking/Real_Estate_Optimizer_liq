@@ -120,10 +120,10 @@ module Real_Estate_Optimizer
     end
 
     def self.update_dialog_with_selection(selection, dialog)
-      puts "Updating dialog with selection: #{selection}" # Debug log
+      # puts "Updating dialog with selection: #{selection}" # Debug log
       attributes = get_common_attributes(selection)
       json_attributes = attributes.to_json
-      puts "Retrieved attributes JSON: #{json_attributes}" # Debug log
+      # puts "Retrieved attributes JSON: #{json_attributes}" # Debug log
       dialog.execute_script("setAttributes(#{json_attributes})")
     end
     
@@ -153,12 +153,12 @@ module Real_Estate_Optimizer
         parking_lot_number = entity.get_attribute('dynamic_attributes', 'parking_lot_number') || 
                              definition.get_attribute('dynamic_attributes', 'parking_lot_number')
         
-        puts "Entity: #{entity}, Definition: #{definition.name}"
-        puts "Construction Init Time: #{construction_init_time}"
-        puts "Sales Permit Time: #{sales_permit_time}"
-        puts "Basement Type: #{basement_type}"
-        puts "Basement Area: #{basement_area}"
-        puts "Parking Lot Number: #{parking_lot_number}"
+        # puts "Entity: #{entity}, Definition: #{definition.name}"
+        # puts "Construction Init Time: #{construction_init_time}"
+        # puts "Sales Permit Time: #{sales_permit_time}"
+        # puts "Basement Type: #{basement_type}"
+        # puts "Basement Area: #{basement_area}"
+        # puts "Parking Lot Number: #{parking_lot_number}"
     
         common_attributes['construction_init_time'] = construction_init_time if common_attributes['construction_init_time'].nil? || common_attributes['construction_init_time'] == construction_init_time
         common_attributes['sales_permit_time'] = sales_permit_time if common_attributes['sales_permit_time'].nil? || common_attributes['sales_permit_time'] == sales_permit_time
@@ -167,7 +167,7 @@ module Real_Estate_Optimizer
         common_attributes['parking_lot_number'] = parking_lot_number if common_attributes['parking_lot_number'].nil? || common_attributes['parking_lot_number'] == parking_lot_number
       end
     
-      puts "Common attributes: #{common_attributes}"
+      # puts "Common attributes: #{common_attributes}"
       common_attributes
     end
 
@@ -219,7 +219,7 @@ module Real_Estate_Optimizer
     
       model.commit_operation
     end
-    
+
     class MySelectionObserver < Sketchup::SelectionObserver
       def initialize(dialog)
         @dialog = dialog

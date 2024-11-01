@@ -159,23 +159,21 @@ module Real_Estate_Optimizer
       end
 
       dialog.add_action_callback("launch_optimization") do |action_context, settings_json|
-        settings = JSON.parse(settings_json)
-        buildings = find_building_instances(Sketchup.active_model)
-        
-        best_schedule = OptimizationAlgorithm.optimize(buildings, settings)
-        OptimizationAlgorithm.update_model_with_solution(buildings, best_schedule)
-        
-        # Update output panel
-        # Output.update_output_data(Sketchup.active_model)
-        
-        # Update phasing colors
-        PhasingColorUpdater.update_phasing_colors
-        
-        UI.messagebox("Optimization completed. Check the Output panel for results.")
-      end
-
-      dialog.add_action_callback("save_optimization_settings") do |action_context, settings_json|
-        save_settings(JSON.parse(settings_json))
+        begin
+          settings = JSON.parse(settings_json)
+          buildings = find_building_instances(Sketchup.active_model)
+          
+          # Run optimization
+          OptimizationAlgorithm.optimize(buildings, settings, dialog)
+          
+          dialog.execute_script("isOptimizing = false;")
+          UI.messagebox("Optimization completed. Check the Output panel for results.")
+        rescue => e
+          puts "Error during optimization: #{e.message}"
+          puts e.backtrace
+          dialog.execute_script("isOptimizing = false;")
+          UI.messagebox("Error during optimization. Check Ruby Console for details.")
+        end
       end
 
       dialog.show
