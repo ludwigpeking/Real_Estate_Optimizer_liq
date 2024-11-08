@@ -1,24 +1,24 @@
 body { 
-  font-family: Tahoma, sans-serif; 
-  font-size: 12px;
-  padding: 20px; 
+font-family: Tahoma, sans-serif; 
+font-size: 12px;
+padding: 20px; 
 }
 
 :lang(zh) {
-   font-family: 'Microsoft YaHei', sans-serif; 
-  }
+font-family: 'Microsoft YaHei', sans-serif; 
+}
 
-  h3 {
-    background-color: #ddd8c0;
-    color: black;
-    padding: 3px;
-    margin-top: 10px;
-    margin-bottom: 5px;
-  }
+h3 {
+background-color: #ddd8c0;
+color: black;
+padding: 3px;
+margin-top: 10px;
+margin-bottom: 5px;
+}
 
 p {
-  
-  font-size: 12px;}
+
+font-size: 12px;}
 .form-group { margin-bottom: 5px; }
 label { display: inline-block; width: 400px; }
 input[type="number"] { width: 120px; }
@@ -31,9 +31,44 @@ td input { width: 40px; font-size: 12px; }
 below, from building type panel
 */
 
-        .form-section { margin-bottom: 20px; }
-        .form-section h3 { margin-top: 0; }
-        #floorTypesContainer { margin-top: 20px; }
-        .floor-type { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
-        .apartment-type { margin-left: 20px; }
-        th, td { border: 1px solid #ddd; padding: 2px; text-align: center; }
+.form-section { margin-bottom: 20px; }
+.form-section h3 { margin-top: 0; }
+#floorTypesContainer { margin-top: 20px; }
+.floor-type { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
+.apartment-type { margin-left: 20px; }
+th, td { border: 1px solid #ddd; padding: 2px; text-align: center; }
+
+
+.construction-priority {
+  padding: 10px;
+  max-width: 400px;
+}
+
+.construction-priority h3 {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.slider-group {
+  margin-bottom: 20px;
+}
+
+.slider-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+.slider-container {
+  width: 100%;
+}
+
+input[type="range"] {
+  width: 100%;
+  height: 25px;
+}
+
+#north_south_weight_value,
+#east_west_weight_value {
+  font-weight: bold;
+}

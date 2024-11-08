@@ -277,3 +277,8 @@ it should be still genetic algorithm and allow randomness.
 the selection can be tricky. I think you should keep the highest 100 variants as the elite pool.
 
 I don't know if this suggestion if valueable, or are they against some common practice of genetic algorithm?
+
+I think we should not have seperated treatment to the apartment types with or without multiple scenes, if it has one or more sales scene, we still treat them the same. if it has only one scene, after switching, it just switch back to the first scene as it rotates in the scene array.
+this should be dealt with in the cash flow logic, not to complicate the optimization algorithm
+
+I don't know where optimization_data is ever defined in the code. it think it was not defined actually. we do cashflow calcs in two circumstances: 1) to output the situation and attributes of the instances in the model, in this case, no price switch happen. 2) when doing genetic algorithm optimization, we use the on going genes' for a in progressive virtual status. the methods need to be for both cases.
