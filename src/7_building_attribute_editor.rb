@@ -190,7 +190,7 @@ module Real_Estate_Optimizer
         
         if attributes['construction_init_time'] != ''
           init_time = attributes['construction_init_time'].to_i
-          puts "Updating construction init time to: #{init_time}" # Debug log
+          # puts "Updating construction init time to: #{init_time}" # Debug log
           entity.set_attribute('dynamic_attributes', 'construction_init_time', init_time)
           definition.set_attribute('dynamic_attributes', 'construction_init_time', init_time)  # Also update definition
           
@@ -226,22 +226,22 @@ module Real_Estate_Optimizer
       end
 
       def onSelectionAdded(selection, entity)
-        puts "onSelectionAdded: #{entity}" # Debug log
+        # puts "onSelectionAdded: #{entity}" # Debug log
         BuildingAttributeEditor.update_dialog_with_selection(selection, @dialog)
       end
 
       def onSelectionRemoved(selection, entity)
-        puts "onSelectionRemoved: #{entity}" # Debug log
+        # puts "onSelectionRemoved: #{entity}" # Debug log
         BuildingAttributeEditor.update_dialog_with_selection(selection, @dialog)
       end
 
       def onSelectionCleared(selection)
-        puts "onSelectionCleared: #{selection}" # Debug log
+        # puts "onSelectionCleared: #{selection}" # Debug log
         BuildingAttributeEditor.update_dialog_with_selection(selection, @dialog)
       end
 
       def onSelectionBulkChange(selection)
-        puts "onSelectionBulkChange: #{selection}" # Debug log
+        # puts "onSelectionBulkChange: #{selection}" # Debug log
         BuildingAttributeEditor.update_dialog_with_selection(selection, @dialog)
       end
     end

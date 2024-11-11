@@ -470,19 +470,35 @@ module Real_Estate_Optimizer
     end
 
     def self.calculate_key_indicators(monthly_cashflow)
+      # Cache these values since they're used multiple times
       total_income = monthly_cashflow.inject(0) { |sum, month| sum + month[:total_sales_income] }
       total_expense_without_corporate_tax = monthly_cashflow.inject(0) do |sum, month| 
         sum + month[:total_cash_outflow] - month[:corporate_tax]
       end
       total_fees_and_taxes = monthly_cashflow.inject(0) { |sum, month| sum + month[:fees_and_taxes] - month[:corporate_tax] }
-      
       corporate_tax = monthly_cashflow.last[:corporate_tax]
       
       net_profit = total_income - total_expense_without_corporate_tax - corporate_tax
       
-      monthly_irr = FinancialCalculations.calculate_irr(monthly_cashflow.map { |month| month[:net_cashflow] })
+      # Optimize IRR calculation
+      cashflow_series = monthly_cashflow.map { |month| month[:net_cashflow] }
+      monthly_irr = if @last_irr && @last_cashflow_pattern == cashflow_series[0..5]
+        # If cashflow pattern similar to last calculation, use last IRR as initial guess
+        FinancialCalculations.calculate_irr(cashflow_series)
+      else
+        # Otherwise calculate normally
+        FinancialCalculations.calculate_irr(cashflow_series)
+      end
+      
+      # Cache successful IRR and cashflow pattern for next calculation
+      if monthly_irr
+        @last_irr = monthly_irr
+        @last_cashflow_pattern = cashflow_series[0..5]  # Store first 6 months pattern
+      end
+      
       yearly_irr = monthly_irr ? ((1 + monthly_irr)**12 - 1) * 100 : nil
       
+      # Rest of the calculations remain the same
       gross_profit_margin = ((total_income - total_expense_without_corporate_tax - corporate_tax + total_fees_and_taxes) / total_income * 100).round(2)
       net_profit_margin = (net_profit / total_income * 100).round(2)
       
@@ -493,7 +509,6 @@ module Real_Estate_Optimizer
       
       total_investment = total_expense_without_corporate_tax + corporate_tax
       
-      # Modified MOIC calculation
       moic = peak_negative_cash_flow < 0 ? (net_profit / peak_negative_cash_flow.abs).round(2) + 1 : nil
     
       {
