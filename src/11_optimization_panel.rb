@@ -123,6 +123,12 @@ module Real_Estate_Optimizer
               </div>
             </div>
           </div>
+          <div>
+          <label for="use_property_line_priority">
+            <input type="checkbox" id="use_property_line_priority" checked>
+            启用地块优先级 Enable Property Line Priority
+          </label>
+        </div>
           <h3>地块开工顺序 Property Line Priority</h3>
           <ul id="property_line_list">
             <!-- Property lines will be populated here -->
@@ -248,7 +254,8 @@ module Real_Estate_Optimizer
                 north_south_weight: parseFloat(document.getElementById('north_south_weight').value) / 100,
                 east_west_weight: parseFloat(document.getElementById('east_west_weight').value) / 100,
                 property_line_order: getPropertyLineOrder(),
-                max_timeline: parseInt(document.getElementById('max_timeline').value)
+                max_timeline: parseInt(document.getElementById('max_timeline').value),
+                use_property_line_priority: document.getElementById('use_property_line_priority').checked
               };
               sketchup.launch_optimization(JSON.stringify(settings));
             }
@@ -260,7 +267,8 @@ module Real_Estate_Optimizer
                 north_south_weight: parseFloat(document.getElementById('north_south_weight').value) / 100,
                 east_west_weight: parseFloat(document.getElementById('east_west_weight').value) / 100,
                 property_line_order: getPropertyLineOrder(),
-                max_timeline: parseInt(document.getElementById('max_timeline').value)
+                max_timeline: parseInt(document.getElementById('max_timeline').value),
+                use_property_line_priority: document.getElementById('use_property_line_priority').checked
               };
               window.location = 'skp:save_optimization_settings@' + JSON.stringify(settings);
             }
@@ -409,12 +417,13 @@ module Real_Estate_Optimizer
 
     def self.default_settings
       {
-        'irr_weight' => 0.5,           # Changed from 50 to 0.5
-        'moic_weight' => 0.5,          # Changed from 50 to 0.5
-        'north_south_weight' => 0.0,   # Changed from 0 to 0.0
-        'east_west_weight' => 0.0,     # Changed from 0 to 0.0
+        'irr_weight' => 0.5,
+        'moic_weight' => 0.5,
+        'north_south_weight' => 0.0,
+        'east_west_weight' => 0.0,
         'property_line_order' => [],
-        'max_timeline' => 24  
+        'max_timeline' => 24,
+        'use_property_line_priority' => true
       }
     end
 

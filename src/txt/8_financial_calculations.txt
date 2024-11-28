@@ -1,5 +1,8 @@
 module Real_Estate_Optimizer
   module FinancialCalculations
+    @last_successful_irr = nil
+    @last_cashflow_pattern = nil
+
     def self.calculate_irr(cashflows, max_iterations = 1000, precision = 1e-6)
       return nil if cashflows.empty?
 
@@ -11,16 +14,27 @@ module Real_Estate_Optimizer
       # Check if calculation is possible
       return nil unless irr_calculable?(cashflows)
 
-      # Use modified secant method with better initial guesses
-      rate1 = 0.0
-      rate2 = initial_guess(cashflows)
+      # Check if current cashflow pattern is similar to last one
+      current_pattern = cashflows[0..5]  # Use first 6 months as pattern
+      if @last_successful_irr && similar_cashflow_pattern?(current_pattern, @last_cashflow_pattern)
+        rate1 = @last_successful_irr
+        rate2 = @last_successful_irr * 1.1  # Slightly higher for second guess
+      else
+        rate1 = 0.0
+        rate2 = initial_guess(cashflows)
+      end
       
       max_iterations.times do
         npv1 = npv(cashflows, rate1)
         npv2 = npv(cashflows, rate2)
         
         # Break if we've found a close enough answer
-        return rate2 if (rate2 - rate1).abs < precision
+        if (rate2 - rate1).abs < precision
+          # Cache successful result
+          @last_successful_irr = rate2
+          @last_cashflow_pattern = current_pattern
+          return rate2
+        end
         
         # Calculate new rate using modified secant method
         rate_new = rate2 - npv2 * (rate2 - rate1) / (npv2 - npv1)
@@ -44,8 +58,26 @@ module Real_Estate_Optimizer
       end
       
       # If we didn't converge, but have a reasonable rate, return it
-      return rate2 if rate2.between?(-0.99, 10.0)
+      if rate2.between?(-0.99, 10.0)
+        @last_successful_irr = rate2
+        @last_cashflow_pattern = current_pattern
+        return rate2
+      end
       nil
+    end
+
+    def self.similar_cashflow_pattern?(pattern1, pattern2)
+      return false if pattern1.nil? || pattern2.nil?
+      return false if pattern1.length != pattern2.length
+
+      # Check if the signs and rough magnitudes are similar
+      pattern1.zip(pattern2).all? do |cf1, cf2|
+        next true if cf1.zero? && cf2.zero?
+        next false if cf1.zero? || cf2.zero?
+        
+        # Same sign and within 20% of each other
+        cf1 * cf2 > 0 && (cf1 - cf2).abs / [cf1.abs, cf2.abs].max < 0.2
+      end
     end
 
     def self.npv(cashflows, rate)

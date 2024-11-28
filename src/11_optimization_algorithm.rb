@@ -384,80 +384,53 @@ module Real_Estate_Optimizer
       final_assignments = {}
       available_slots_by_type = type_schedule.dup
     
-      puts "\n=== Starting Instance Assignment ==="
-      puts "Property Line Order: #{settings['property_line_order'].join(', ')}"
+      if settings['use_property_line_priority']
+        # Existing property line priority logic
+        settings['property_line_order'].each do |property_line|
+          type_schedule.each do |type, _|
+            next unless available_slots_by_type[type]&.any?
     
-      # First, process buildings according to property line priority
-      settings['property_line_order'].each do |property_line|
-        puts "\nProcessing Property Line: #{property_line}"
-        
-        type_schedule.each do |building_type, _|
-          next unless available_slots_by_type[building_type]&.any?
+            instances = building_groups[type].select do |building, transformation|
+              position = building.definition.bounds.center.transform(transformation)
+              detected_line = CashFlowCalculator.find_containing_property_line(
+                position, 
+                CashFlowCalculator.find_property_line_components(Sketchup.active_model)
+              )
+              property_line_keyword = detected_line&.definition&.get_attribute('dynamic_attributes', 'keyword')
+              property_line_keyword == property_line
+            end
     
-          # Get all instances of this type in the current property line
-          property_line_instances = building_groups[building_type].select do |building, transformation|
-            position = building.definition.bounds.center.transform(transformation)
-            detected_line = CashFlowCalculator.find_containing_property_line(
-              position, 
-              CashFlowCalculator.find_property_line_components(Sketchup.active_model)
+            next if instances.empty?
+    
+            sorted_instances = sort_by_direction_priority(
+              instances,
+              settings['north_south_weight'].to_f,
+              settings['east_west_weight'].to_f
             )
-            property_line_keyword = detected_line&.definition&.get_attribute('dynamic_attributes', 'keyword')
-            puts " Building #{building.definition.name} belongs to line: #{property_line_keyword}"
-            property_line_keyword == property_line
+    
+            sorted_instances.each do |building, _|
+              next if final_assignments.key?(building)
+              time = available_slots_by_type[type].shift
+              final_assignments[building] = time if time
+            end
           end
+        end
+      else
+        # Direction-only priority logic
+        type_schedule.each do |type, _|
+          next unless available_slots_by_type[type]&.any?
     
-          next if property_line_instances.empty?
-    
-          # Sort instances within this property line by directional priority
+          instances = building_groups[type]
           sorted_instances = sort_by_direction_priority(
-            property_line_instances,
+            instances,
             settings['north_south_weight'].to_f,
             settings['east_west_weight'].to_f
           )
     
-          # Assign times to sorted instances
           sorted_instances.each do |building, _|
             next if final_assignments.key?(building)
-            time = available_slots_by_type[building_type].shift
-            if time
-              final_assignments[building] = time
-              puts " Assigned building #{building.definition.name} to time #{time}"
-            end
-          end
-        end
-      end
-    
-      # Handle remaining buildings
-      remaining_count = building_groups.sum do |_, instances|
-        instances.count do |building_and_transform|
-          building = building_and_transform[0]
-          !final_assignments.key?(building)
-        end
-      end
-    
-      if remaining_count > 0
-        puts "\nProcessing #{remaining_count} remaining unassigned buildings"
-        
-        type_schedule.each do |building_type, _|
-          remaining_instances = building_groups[building_type].reject { |building, _| 
-            final_assignments.key?(building) 
-          }
-          
-          next if remaining_instances.empty?
-          
-          sorted_remaining = sort_remaining_instances(
-            remaining_instances,
-            settings['property_line_order'],
-            settings['north_south_weight'].to_f,
-            settings['east_west_weight'].to_f
-          )
-    
-          sorted_remaining.each do |building, _|
-            time = available_slots_by_type[building_type]&.shift
-            if time
-              final_assignments[building] = time
-              puts " Assigned remaining building #{building.definition.name} to time #{time}"
-            end
+            time = available_slots_by_type[type].shift
+            final_assignments[building] = time if time
           end
         end
       end
@@ -545,8 +518,11 @@ module Real_Estate_Optimizer
       return -Float::INFINITY unless verify_schedule(schedule, building_groups, settings)
       
       cache_key = schedule_hash(schedule, settings)
-      return @evaluation_cache[cache_key] if @evaluation_cache.key?(cache_key)
-      
+      if @evaluation_cache.key?(cache_key)
+        cached_result = @evaluation_cache[cache_key]
+        return cached_result[:fitness]
+      end
+    
       original_states = store_building_states(building_groups)
       
       begin
@@ -554,29 +530,31 @@ module Real_Estate_Optimizer
         schedule.each do |type, times|
           instances = building_groups[type]
           times.each_with_index do |time, i|
-            instances[i][0].set_attribute('dynamic_attributes', 
-              'construction_init_time', time)
+            instances[i][0].set_attribute('dynamic_attributes', 'construction_init_time', time)
           end
         end
-
+    
         # Calculate full cashflow data with scene switches
         cashflow_data = CashFlowCalculator.calculate_and_print_full_cashflow_table
         return -Float::INFINITY unless cashflow_data
-        
+    
         # Process cashflow data
         monthly_cashflow = CashFlowCalculator.calculate_monthly_cashflow(cashflow_data)
         key_indicators = CashFlowCalculator.calculate_key_indicators(monthly_cashflow)
-
+    
         irr = key_indicators[:yearly_irr] || -100
         moic = key_indicators[:moic] || 0
-
+        
         scaled_irr = irr/100
-        scaled_moic = moic 
-
-        fitness = (settings['irr_weight'] * scaled_irr + 
-                  settings['moic_weight'] * scaled_moic)
-
-        @evaluation_cache[cache_key] = fitness
+        scaled_moic = moic
+        fitness = (settings['irr_weight'] * scaled_irr + settings['moic_weight'] * scaled_moic)
+        
+        # Cache the fitness
+        @evaluation_cache[cache_key] = {
+          fitness: fitness,
+          irr: scaled_irr
+        }
+        
         fitness
       ensure
         restore_building_states(original_states)

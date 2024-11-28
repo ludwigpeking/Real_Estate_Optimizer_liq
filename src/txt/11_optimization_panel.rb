@@ -86,17 +86,42 @@ module Real_Estate_Optimizer
             <input type="range" id="moic_weight" min="0" max="100" value="50" oninput="updateWeightValue('moic_weight')">
             <span id="moic_weight_value">50</span>
           </div>
-          <div>
-            <label for="north_south_weight">北侧先开工</label>
-            <input type="range" id="north_south_weight" min="-100" max="100" value="0" oninput="updateWeightValue('north_south_weight')">
-           
-            <span id="north_south_weight_value">0</span> <p>南侧先开工</p>
-          </div>
-          <div>
-            <label for="east_west_weight">东侧先开工</label>
-            <input type="range" id="east_west_weight" min="-100" max="100" value="0" oninput="updateWeightValue('east_west_weight')">
-           
-            <span id="east_west_weight_value">0</span> <p>西侧先开工</p>
+          <div class="construction-priority">
+            <h3>开工优先方向</h3>
+            
+            <!-- North-South slider group -->
+            <div class="slider-group">
+              <div class="slider-labels">
+                <span>北侧</span>
+                <span id="north_south_weight_value">0</span>
+                <span>南侧</span>
+              </div>
+              <div class="slider-container">
+                <input type="range" 
+                      id="north_south_weight" 
+                      min="-100" 
+                      max="100" 
+                      value="0" 
+                      oninput="updateWeightValue('north_south_weight')">
+              </div>
+            </div>
+
+            <!-- East-West slider group -->
+            <div class="slider-group">
+              <div class="slider-labels">
+                <span>西侧</span>
+                <span id="east_west_weight_value">0</span>
+                <span>东侧</span>
+              </div>
+              <div class="slider-container">
+                <input type="range" 
+                      id="east_west_weight" 
+                      min="-100" 
+                      max="100" 
+                      value="0" 
+                      oninput="updateWeightValue('east_west_weight')">
+              </div>
+            </div>
           </div>
           <h3>地块开工顺序 Property Line Priority</h3>
           <ul id="property_line_list">
@@ -207,11 +232,10 @@ module Real_Estate_Optimizer
               });
             }
 
-            function updateWeightValue(id) {
-              const slider = document.getElementById(id);
-              const valueSpan = document.getElementById(id + '_value');
-              // Round to nearest integer and append %
-              valueSpan.textContent = Math.round(parseFloat(slider.value)) + '%';
+            function updateWeightValue(sliderId) {
+              const slider = document.getElementById(sliderId);
+              const valueDisplay = document.getElementById(sliderId + '_value');
+              valueDisplay.textContent = slider.value;
             }
             function getPropertyLineOrder() {
               return propertyLines.map(line => line.name);

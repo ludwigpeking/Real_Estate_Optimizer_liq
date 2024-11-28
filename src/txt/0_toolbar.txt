@@ -20,7 +20,7 @@ module Real_Estate_Optimizer
 
       # UI.messagebox("Creating Real_Estate_Optimizer Toolbar")
 
-      toolbar = UI::Toolbar.new "Real_Estate_Optimizer"
+      toolbar = UI::Toolbar.new "妙算 Realestate Optimizer"
 
       cmd_input = UI::Command.new("Input") {
         Input.show_dialog
@@ -107,10 +107,10 @@ module Real_Estate_Optimizer
       toolbar.add_item(cmd_optimization)
 
       layers = ['liq_color_mass', 'liq_architecture', 'liq_sunlight', 'liq_phasing', 'liq_price']
-      layer_names = ['Color Mass', 'Architecture', 'Sunlight', 'Phasing', 'Price']
+      layer_names = ['面积色块 Color Mass', '外观设计 Architecture', '日照 Sunlight', '分期 Phasing', '价格系数 Price']
 
       layers.each_with_index do |layer, index|
-        cmd_layer = UI::Command.new("Switch to #{layer_names[index]}") {
+        cmd_layer = UI::Command.new(" 切换到图层 Switch to #{layer_names[index]}") {
           ApartmentManager.switch_layer(layer)
         }
         cmd_layer.small_icon = "../icons/layer_#{layer}.png"
