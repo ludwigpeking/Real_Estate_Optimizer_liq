@@ -77,9 +77,20 @@ module Real_Estate_Optimizer
     end
 
     def self.calculate_color(init_time, max_time)
-      ratio = 1.0 - (init_time.to_f / max_time)
-      blue = (255 * ratio).to_i
-      Sketchup::Color.new(255, 255-blue, 255-blue)
+      # Start color (red): RGB(255, 0, 0)
+      start_r, start_g, start_b = 255, 0, 0
+      # End color (white): RGB(255, 255, 255)
+      end_r, end_g, end_b = 255, 255, 255
+      
+      # Normalize time to 0-1 range (71 months max)
+      t = [init_time.to_f / 71.0, 1.0].min
+      
+      # Linear interpolation between colors
+      r = start_r + (end_r - start_r) * t
+      g = start_g + (end_g - start_g) * t
+      b = start_b + (end_b - start_b) * t
+      
+      Sketchup::Color.new(r.to_i, g.to_i, b.to_i)
     end
   end
 end
