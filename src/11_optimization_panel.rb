@@ -105,17 +105,7 @@ module Real_Estate_Optimizer
               </div>
             </div>
           </div>
-          <h3>优化权重 Optimization Weights</h3>
-          <div>
-            <label for="irr_weight">内部收益率权重 IRR Weight:</label>
-            <input type="range" id="irr_weight" min="0" max="100" value="50" oninput="updateWeightValue('irr_weight')">
-            <span id="irr_weight_value">50</span>
-          </div>
-          <div>
-            <label for="moic_weight">总投资汇报率权重 MOIC Weight:</label>
-            <input type="range" id="moic_weight" min="0" max="100" value="50" oninput="updateWeightValue('moic_weight')">
-            <span id="moic_weight_value">50</span>
-          </div>
+         
           <div class="construction-priority">
             <h3>开工优先方向</h3>
             
