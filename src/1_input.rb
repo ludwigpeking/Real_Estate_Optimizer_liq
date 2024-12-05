@@ -17,7 +17,7 @@ module Real_Estate_Optimizer
           :left => 100,
           :top => 100,
           :min_width => 600,
-          :min_height => 600,
+          :min_height => 700,
           :style => UI::HtmlDialog::STYLE_DIALOG
         }
       )
@@ -205,7 +205,7 @@ module Real_Estate_Optimizer
         <input type="number" id="land_cost" min="0" step="1">
       </div>
       <div class="form-group">
-        <label for="unsaleable_amenity_cost">不可售配套成本 Unsaleable Amenity Cost (万元):</label>
+        <label for="unsaleable_amenity_cost">不可售配套成本+固定分摊 Unsaleable Amenity Cost + Rigid Overhead (万元):</label>
         <input type="number" id="unsaleable_amenity_cost" min="0" step="1">
       </div>
     </div>
@@ -318,7 +318,7 @@ module Real_Estate_Optimizer
   <div class="section" id="amenity-cost-payment">
     <div class="section-header">
       <div class="section-toggle">+</div>
-      <h3>不可售配套成本支付计划（72个月） Unsaleable Amenity Cost Payment (72 months)</h3>
+      <h3>不可售配套成本+固定分摊支付计划（72个月） Unsaleable Amenity Cost + Rigid Overhead Payment (72 months)</h3>
     </div>
     <div class="section-content">
       <table id="unsaleable_amenity_cost_payment"></table>
