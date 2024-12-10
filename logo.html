@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      body {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f8f9fa;
+        height: 100vh;
+        margin: 0;
+        font-family: sans-serif;
+      }
+
+      .logo {
+        display: flex;
+        align-items: center;
+      }
+
+      .logo__icon {
+        width: 50px;
+        height: 50px;
+        margin-right: 10px;
+      }
+
+      .logo__text {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: #0d1f2d; /* Deep blue */
+        text-transform: lowercase;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="logo">
+      <!-- SVG Icon: Stylized "D" with a Check/Arrow -->
+      <svg
+        class="logo__icon"
+        viewBox="0 0 100 100"
+        xmlns="http://www.w3.org/2000/svg"
+        role="img"
+        aria-label="Decisive Logo"
+      >
+        <!-- Outer shape resembling a stylized D -->
+        <path
+          d="M20,20 C20,40 20,60 20,80 C20,90 30,100 40,100 C70,100 90,80 90,50 C90,20 70,0 40,0 C30,0 20,10 20,20 Z"
+          fill="#0D1F2D"
+        />
+        <!-- Inner check/arrow - a simple angled line inside -->
+        <path
+          d="M45,35 L55,45 L65,25"
+          stroke="#39B54A"
+          stroke-width="8"
+          stroke-linecap="round"
+          fill="none"
+        />
+      </svg>
+
+      <div class="logo__text">decisive</div>
+    </div>
+  </body>
+</html>

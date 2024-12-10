@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Advanced Sales Overlap Calculator</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+      }
+      h1,
+      h2 {
+        color: #333;
+      }
+      .input-section,
+      .results-section {
+        margin-bottom: 30px;
+      }
+      .grid-table {
+        border-collapse: collapse;
+        margin-bottom: 20px;
+        width: 100%;
+      }
+      .grid-table th,
+      .grid-table td {
+        border: 1px solid #ccc;
+        padding: 8px 12px;
+        text-align: center;
+      }
+      .grid-table th {
+        background-color: #f4f4f4;
+      }
+      .demands-input {
+        margin-bottom: 20px;
+      }
+      .demands-input label {
+        display: inline-block;
+        width: 60px;
+      }
+      .demands-input input {
+        width: 80px;
+        padding: 4px;
+        margin-right: 20px;
+        margin-bottom: 10px;
+      }
+      #calcBtn {
+        padding: 10px 20px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        cursor: pointer;
+        font-size: 16px;
+      }
+      #calcBtn:hover {
+        background-color: #0056b3;
+      }
+      #results {
+        font-size: 18px;
+        margin-bottom: 20px;
+      }
+      canvas {
+        max-width: 600px;
+      }
+      .note {
+        font-size: 14px;
+        color: #555;
+        margin-bottom: 20px;
+      }
+      .read-only {
+        background-color: #e9ecef;
+      }
+      #myChart {
+        height: 400px !important;
+        min-height: 300px !important;
+        width: 100% !important;
+        max-width: 800px !important;
+      }
+      .results-section {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Advanced Sales Overlap Calculator</h1>
+
+    <div class="input-section">
+      <h2>1. Enter Product Types</h2>
+      <div>
+        <label for="numTypes">Number of Types:</label>
+        <input
+          type="number"
+          id="numTypes"
+          value="2"
+          min="2"
+          max="10"
+          step="1"
+        />
+        <button id="setTypesBtn">Set Types</button>
+      </div>
+    </div>
+
+    <div
+      class="input-section"
+      id="demandsAndOverlapsSection"
+      style="display: none"
+    >
+      <h2>2. Enter Standalone Demands</h2>
+      <div class="demands-input" id="demandsInputs">
+        <!-- Dynamic Demand Inputs -->
+      </div>
+
+      <h2>3. Enter Overlap Rates</h2>
+      <p>
+        Fill in the overlap rates between product types. Overlaps are
+        **asymmetrical** (i.e., \( p_{ij} \) can differ from \( p_{ji} \)).
+        Rates should be between **0 and 1**.
+      </p>
+      <table class="grid-table" id="overlapTable">
+        <!-- Dynamic Overlap Table -->
+      </table>
+      <p class="note">
+        <em>
+          Only the upper triangle is editable. Lower triangle rates are
+          automatically calculated based on the symmetry condition.
+        </em>
+      </p>
+
+      <button id="calcBtn">Calculate</button>
+    </div>
+
+    <div class="results-section" id="resultsSection" style="display: none">
+      <h2>4. Results</h2>
+      <div id="results"></div>
+      <canvas id="myChart" width="600" height="400"></canvas>
+    </div>
+
+    <!-- Chart.js Library -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      // Creates demand input fields
+      function createDemandInputs(num) {
+        const demandsDiv = document.getElementById("demandsInputs");
+        demandsDiv.innerHTML = "";
+        for (let i = 0; i < num; i++) {
+          const label = document.createElement("label");
+          label.setAttribute("for", "d" + i);
+          label.textContent = String.fromCharCode(65 + i) + ":";
+
+          const input = document.createElement("input");
+          input.type = "number";
+          input.id = "d" + i;
+          input.value = i === 0 ? "10" : "3"; // Default values
+          input.min = "0";
+          input.step = "1";
+          input.addEventListener("input", () => {
+            updateMaxOverlapRates(num);
+            updateSymmetricOverlapRates(num);
+          });
+
+          demandsDiv.appendChild(label);
+          demandsDiv.appendChild(input);
+          demandsDiv.appendChild(document.createElement("br"));
+        }
+      }
+
+      function createOverlapTable(num) {
+        const table = document.getElementById("overlapTable");
+        table.innerHTML = "";
+
+        // Create table header
+        const thead = document.createElement("thead");
+        const headerRow = document.createElement("tr");
+        const emptyHeader = document.createElement("th");
+        headerRow.appendChild(emptyHeader);
+
+        for (let i = 0; i < num; i++) {
+          const th = document.createElement("th");
+          th.textContent = String.fromCharCode(65 + i);
+          headerRow.appendChild(th);
+        }
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        // Create table body
+        const tbody = document.createElement("tbody");
+        for (let i = 0; i < num; i++) {
+          const row = document.createElement("tr");
+          const rowHeader = document.createElement("th");
+          rowHeader.textContent = String.fromCharCode(65 + i);
+          row.appendChild(rowHeader);
+
+          for (let j = 0; j < num; j++) {
+            const cell = document.createElement("td");
+            if (i === j) {
+              cell.textContent = "—";
+            } else if (j < i) {
+              // Lower triangle (read-only)
+              const input = document.createElement("input");
+              input.type = "number";
+              input.id = "p_" + i + "_" + j;
+              input.min = "0";
+              input.max = "1";
+              input.step = "0.01";
+              input.value = "0";
+              input.disabled = true;
+              input.classList.add("read-only");
+              cell.appendChild(input);
+            } else {
+              // Upper triangle (editable)
+              const input = document.createElement("input");
+              input.type = "number";
+              input.id = "p_" + i + "_" + j;
+              input.min = "0";
+              input.max = "1";
+              input.step = "0.1";
+              input.value = "0";
+
+              // Only update on blur or Enter key
+              input.addEventListener("blur", () => {
+                const value = parseFloat(input.value) || 0;
+                input.value = Math.max(0, Math.min(1, value)).toFixed(4);
+                enforceOverlapConstraints(i, j, num);
+                updateSymmetricOverlapRates(num);
+              });
+
+              input.addEventListener("keydown", (e) => {
+                if (e.key === "Enter") {
+                  const value = parseFloat(input.value) || 0;
+                  input.value = Math.max(0, Math.min(1, value)).toFixed(4);
+                  enforceOverlapConstraints(i, j, num);
+                  updateSymmetricOverlapRates(num);
+                  input.blur();
+                }
+              });
+
+              cell.appendChild(input);
+            }
+            row.appendChild(cell);
+          }
+          tbody.appendChild(row);
+        }
+        table.appendChild(tbody);
+      }
+
+      function enforceOverlapConstraints(i, j, num) {
+        const p_ij_input = document.getElementById("p_" + i + "_" + j);
+        const D_i = parseFloat(document.getElementById("d" + i).value) || 0;
+        const D_j = parseFloat(document.getElementById("d" + j).value) || 0;
+
+        let max_p_ij = 1;
+        if (D_i !== 0) {
+          max_p_ij = Math.min(1, D_j / D_i);
+        } else {
+          max_p_ij = 0;
+        }
+
+        if (parseFloat(p_ij_input.value) > max_p_ij) {
+          p_ij_input.value = max_p_ij.toFixed(4);
+        }
+
+        const p_ji_input = document.getElementById("p_" + j + "_" + i);
+        if (D_j !== 0) {
+          const p_ji = (parseFloat(p_ij_input.value) * D_i) / D_j;
+          p_ji_input.value = Math.min(1, p_ji).toFixed(4);
+        } else {
+          p_ji_input.value = "0.0000";
+        }
+      }
+
+      function updateSymmetricOverlapRates(num) {
+        for (let i = 0; i < num; i++) {
+          for (let j = 0; j < num; j++) {
+            if (j < i) {
+              const p_ij =
+                parseFloat(document.getElementById("p_" + i + "_" + j).value) ||
+                0;
+              const D_i =
+                parseFloat(document.getElementById("d" + i).value) || 0;
+              const D_j =
+                parseFloat(document.getElementById("d" + j).value) || 0;
+              let p_ji = 0;
+
+              if (D_j !== 0) {
+                p_ji = (p_ij * D_i) / D_j;
+                p_ji = Math.min(1, p_ji); // Cap at 1
+              }
+
+              const p_ji_input = document.getElementById("p_" + j + "_" + i);
+              p_ji_input.value = p_ji.toFixed(4);
+            }
+          }
+        }
+      }
+
+      // Updates max overlap rates based on demands
+      function updateMaxOverlapRates(num) {
+        for (let i = 0; i < num; i++) {
+          for (let j = 0; j < num; j++) {
+            if (i !== j && j > i) {
+              const p_ij_input = document.getElementById("p_" + i + "_" + j);
+              const D_i =
+                parseFloat(document.getElementById("d" + i).value) || 0;
+              const D_j =
+                parseFloat(document.getElementById("d" + j).value) || 0;
+              let max_p_ij = 1;
+              if (D_i !== 0) {
+                max_p_ij = Math.min(1, D_j / D_i);
+              } else {
+                max_p_ij = 0;
+              }
+
+              if (parseFloat(p_ij_input.value) > max_p_ij) {
+                alert(
+                  `Overlap rate p_${String.fromCharCode(
+                    65 + i
+                  )}${String.fromCharCode(
+                    65 + j
+                  )} cannot exceed ${max_p_ij.toFixed(4)} based on the demands.`
+                );
+                p_ij_input.value = max_p_ij.toFixed(4);
+              }
+            }
+          }
+        }
+      }
+
+      document
+        .getElementById("setTypesBtn")
+        .addEventListener("click", function () {
+          const numTypes = parseInt(document.getElementById("numTypes").value);
+          if (isNaN(numTypes) || numTypes < 2 || numTypes > 10) {
+            alert("Please enter a number between 2 and 10.");
+            return;
+          }
+
+          createDemandInputs(numTypes);
+          createOverlapTable(numTypes);
+
+          // After setting up, establish baseline right away
+          updateMaxOverlapRates(numTypes);
+          updateSymmetricOverlapRates(numTypes);
+
+          document.getElementById("demandsAndOverlapsSection").style.display =
+            "block";
+          document.getElementById("resultsSection").style.display = "none";
+        });
+
+      document.getElementById("calcBtn").addEventListener("click", function () {
+        const numTypes = parseInt(document.getElementById("numTypes").value);
+        const demands = [];
+        for (let i = 0; i < numTypes; i++) {
+          const demand = parseFloat(document.getElementById("d" + i).value);
+          if (isNaN(demand) || demand < 0) {
+            alert(
+              "Please enter valid standalone demands (non-negative numbers)."
+            );
+            return;
+          }
+          demands.push(demand);
+        }
+
+        // Construct Overlap Matrix as rates
+        const p = [];
+        for (let i = 0; i < numTypes; i++) {
+          p[i] = [];
+          for (let j = 0; j < numTypes; j++) {
+            if (i === j) {
+              p[i][j] = 0;
+            } else {
+              let val =
+                parseFloat(document.getElementById("p_" + i + "_" + j).value) ||
+                0;
+              if (val < 0) val = 0;
+              if (val > 1) val = 1;
+              p[i][j] = val;
+            }
+          }
+        }
+
+        updateSymmetricOverlapRates(numTypes);
+
+        // Calculate final sales
+        const finalSales = [];
+        for (let i = 0; i < numTypes; i++) {
+          let adjustment = 0;
+          for (let j = 0; j < numTypes; j++) {
+            if (j !== i) {
+              if (demands[i] + demands[j] === 0) {
+                alert(
+                  `Cannot calculate overlap between Type ${String.fromCharCode(
+                    65 + i
+                  )} and Type ${String.fromCharCode(
+                    65 + j
+                  )} because both have zero demand.`
+                );
+                return;
+              }
+              adjustment +=
+                (p[i][j] * (demands[j] * demands[i])) /
+                (demands[i] + demands[j]);
+            }
+          }
+          const sales = demands[i] - adjustment;
+          if (sales < 0) {
+            alert(
+              `Final sales for Type ${String.fromCharCode(
+                65 + i
+              )} (${sales.toFixed(
+                2
+              )}) cannot be negative. Please adjust overlap rates.`
+            );
+            return;
+          }
+          finalSales.push(sales);
+        }
+
+        let sumAdjustments = 0;
+        for (let i = 0; i < numTypes; i++) {
+          for (let j = 0; j < numTypes; j++) {
+            if (j !== i) {
+              sumAdjustments +=
+                (p[i][j] * (demands[j] * demands[i])) /
+                (demands[i] + demands[j]);
+            }
+          }
+        }
+
+        const sumStandalone = demands.reduce((a, b) => a + b, 0);
+        const expectedTotal = sumStandalone - sumAdjustments;
+        const totalSales = finalSales.reduce((a, b) => a + b, 0);
+
+        if (totalSales < expectedTotal - 1e-6) {
+          alert(
+            `Total sales (${totalSales.toFixed(
+              2
+            )}) are below expected total (${expectedTotal.toFixed(
+              2
+            )}). Please adjust overlap rates.`
+          );
+          return;
+        }
+
+        // Display Results
+        let resultsHTML = `<strong>Total Adjusted Sales:</strong> ${totalSales.toFixed(
+          2
+        )} units/month<br><strong>Sales Distribution:</strong><br>`;
+        const labels = [];
+        const data = [];
+        const backgroundColors = [];
+        for (let i = 0; i < numTypes; i++) {
+          const type = String.fromCharCode(65 + i);
+          resultsHTML += `- ${type}: ${finalSales[i].toFixed(
+            2
+          )} units/month<br>`;
+          labels.push(type);
+          data.push(finalSales[i].toFixed(2));
+          const hue = ((i * 360) / numTypes) % 360;
+          backgroundColors.push(`hsl(${hue}, 70%, 50%)`);
+        }
+        document.getElementById("results").innerHTML = resultsHTML;
+        document.getElementById("resultsSection").style.display = "block";
+
+        if (window.myChartInstance) {
+          window.myChartInstance.destroy();
+        }
+
+        const ctx = document.getElementById("myChart").getContext("2d");
+        window.myChartInstance = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: "Final Sales (units/month)",
+                data: data,
+                backgroundColor: backgroundColors,
+                barPercentage: 0.3,
+                categoryPercentage: 0.7,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: "Units Sold",
+                  font: {
+                    size: 14,
+                  },
+                },
+                ticks: {
+                  font: {
+                    size: 12,
+                  },
+                  padding: 8,
+                },
+              },
+              x: {
+                title: {
+                  display: true,
+                  text: "Product Types",
+                  font: {
+                    size: 14,
+                  },
+                },
+                ticks: {
+                  font: {
+                    size: 12,
+                  },
+                  padding: 8,
+                },
+              },
+            },
+            plugins: {
+              legend: {
+                display: false,
+              },
+              title: {
+                display: true,
+                text: "Sales Distribution After Adjusting for Overlaps",
+                font: {
+                  size: 16,
+                },
+                padding: 20,
+              },
+            },
+          },
+        });
+      });
+    </script>
+  </body>
+</html>

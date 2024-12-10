@@ -65,7 +65,7 @@ module Real_Estate_Optimizer
             propertyLines.forEach((line, index) => {
               container.innerHTML += `
                 <div>
-                  <h4>${line.name} (${line.area} m²)</h4>
+                  <h4>${line.name} (${Math.round(line.area)} m²)</h4>
                   <label for="amenity_GFA_in_FAR_${index}">计容配套面积 Amenity GFA in FAR (平米):</label>
                   <input type="number" id="amenity_GFA_in_FAR_${index}" 
                          value="${line.amenity_GFA_in_FAR || 0}" 
