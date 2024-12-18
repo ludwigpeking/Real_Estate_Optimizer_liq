@@ -181,7 +181,7 @@ module Real_Estate_Optimizer
 
       # Calculate sales and income based on stock and sales scenes
       stock_table.each do |apt_type, stocks|
-        apt_data = JSON.parse(model.get_attribute('aparment_type_data', apt_type) || '{}')
+        apt_data = JSON.parse(model.get_attribute('apartment_type_data', apt_type) || '{}')
         sales_scene = apt_data['sales_scenes'] && apt_data['sales_scenes'].first
 
         if sales_scene
@@ -577,7 +577,7 @@ module Real_Estate_Optimizer
     
 
       html = <<-HTML
-        <h1>项目关键指标 Key Project Indicators</h1>
+        <h3>项目关键指标 Key Project Indicators</h3>
           <table>
             <tr><th>指标 Indicator</th><th>值 Value</th></tr>
             <tr><td>内部收益率 IRR</td><td>#{key_indicators[:yearly_irr] ? "#{key_indicators[:yearly_irr].round(2)}%" : 'N/A'}</td></tr>
@@ -591,7 +591,7 @@ module Real_Estate_Optimizer
             <tr><td>项目净利润（税后） Net Profit (After Tax)</td><td>#{format_number(key_indicators[:net_profit])}</td></tr>
             <tr><td>MOIC</td><td>#{key_indicators[:moic] || 'N/A'}</td></tr>
           </table>
-        <h1>现金流报告 Cashflow Report</h1>
+        <h3>现金流报告 Cashflow Report</h3>
         <table>
           <tr>
             <th>月份<br>Month</th>
@@ -637,7 +637,7 @@ module Real_Estate_Optimizer
 
       html += <<-HTML
         </table>
-        <h2>财务指标 Financial Metrics</h2>
+        <h3>财务指标 Financial Metrics</h3>
         <p>基于折现率 Discount Rate: #{(discount_rate * 100).round(2)}%净现值 NPV: #{format_number(npv)}</p>
         <p>年化内部收益率 Yearly IRR: #{key_indicators[:yearly_irr] ? "#{key_indicators[:yearly_irr].round(2)}%" : 'N/A'}</p>
         
@@ -750,7 +750,7 @@ module Real_Estate_Optimizer
     
       # Second pass: calculate sales and income
       stock_table.each do |apt_type, stocks|
-        apt_data = JSON.parse(model.get_attribute('aparment_type_data', apt_type) || '{}')
+        apt_data = JSON.parse(model.get_attribute('apartment_type_data', apt_type) || '{}')
         sales_scenes = apt_data['sales_scenes'] || []
         next if sales_scenes.empty?
     
@@ -948,7 +948,7 @@ module Real_Estate_Optimizer
     
     def self.get_apartment_data(apt_type)
       model = Sketchup.active_model
-      JSON.parse(model.get_attribute('aparment_type_data', apt_type, '{}'))
+      JSON.parse(model.get_attribute('apartment_type_data', apt_type, '{}'))
     end
 
     def self.get_unsaleable_amenity_cost_payments

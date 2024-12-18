@@ -282,3 +282,14 @@ I think we should not have seperated treatment to the apartment types with or wi
 this should be dealt with in the cash flow logic, not to complicate the optimization algorithm
 
 I don't know where optimization_data is ever defined in the code. it think it was not defined actually. we do cashflow calcs in two circumstances: 1) to output the situation and attributes of the instances in the model, in this case, no price switch happen. 2) when doing genetic algorithm optimization, we use the on going genes' for a in progressive virtual status. the methods need to be for both cases.
+
+---
+
+OVERLAPPING
+
+after mod as your suggestion, the input values can be saved, but the reversal value shows zero. think about it. the data handling should be clear. I think we need to:
+
+1. when open the panel, retrieve the apartment data from sketchup to the panel browser environment, with the input overlapping rate in the upper triangle;
+2. after the value retrieved, in the panel browser, to update the lower triangle value; they may not need to be saved to the model data, since it get updated in the panel browser.
+3. anytime, when the saving button of the apartment clicked, save the apartment data, also update the scenario values, since they have to do with the overlapping calculation. and add a button to save the overlapping input values. so the saving of them does not need to be in real time.
+   does it make sense?

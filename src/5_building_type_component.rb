@@ -7,7 +7,7 @@ module Real_Estate_Optimizer
 
       def self.print_all_apartment_types
         model = Sketchup.active_model
-        apartment_type_names = model.get_attribute('aparment_type_data', APARTMENT_TYPE_LIST_KEY, [])
+        apartment_type_names = model.get_attribute('apartment_type_data', APARTMENT_TYPE_LIST_KEY, [])
         
         puts "All Apartment Types in the Project:"
         if apartment_type_names.empty?
@@ -17,7 +17,7 @@ module Real_Estate_Optimizer
             puts "  #{index + 1}. #{name}"
             
             # Retrieve and print detailed data for each apartment type
-            apartment_data = JSON.parse(model.get_attribute('aparment_type_data', name, '{}'))
+            apartment_data = JSON.parse(model.get_attribute('apartment_type_data', name, '{}'))
             puts "     Area: #{apartment_data['area']} sq.m"
             puts "     Category: #{apartment_data['apartment_category']}"
             puts "     Baseline Cost: #{apartment_data['product_baseline_unit_cost_before_allocation']} per sq.m"
@@ -186,7 +186,7 @@ module Real_Estate_Optimizer
       end
 
       def self.get_apartment_type_data(model, apt_name)
-        apartment_data = JSON.parse(model.get_attribute('aparment_type_data', apt_name) || '{}')
+        apartment_data = JSON.parse(model.get_attribute('apartment_type_data', apt_name) || '{}')
         
         if apartment_data.empty?
           puts "Warning: No data found for apartment type '#{apt_name}'"

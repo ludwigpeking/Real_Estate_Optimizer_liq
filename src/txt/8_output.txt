@@ -28,26 +28,117 @@ module Real_Estate_Optimizer
           <meta charset="UTF-8">
           <title>Project Output</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            .tab { overflow: hidden; border: 1px solid #ccc; background-color: #f1f1f1; }
-            .tab button { background-color: inherit; float: left; border: none; outline: none; cursor: pointer; padding: 14px 16px; transition: 0.3s; }
-            .tab button:hover { background-color: #ddd; }
-            .tab button.active { background-color: #ccc; }
-            .tabcontent { display: none; padding: 6px 12px; border: 1px solid #ccc; border-top: none; }
-            table { border-collapse: collapse; width: 100%; font-size: 12px; }
-            th, td { border: 1px solid black; padding: 3px; text-align: right; }
-            th { background-color: #f2f2f2; }
-            .property-line-stats { margin-top: 20px; }
-            .refresh-button {
-              position: absolute;
-              top: 30px;
-              right: 30px;
-              padding: 5px 10px;
-              background-color: #f00;
-              color: white;
-              border: none;
-              cursor: pointer;
-            }
+          body { 
+            font-family: Tahoma, sans-serif; 
+            font-size: 12px;
+            padding: 20px; 
+          }
+          
+          :lang(zh) {
+            font-family: 'Microsoft YaHei', sans-serif; 
+          }
+          
+          /* Tab styles */
+          .tab {
+            overflow: hidden;
+            border: 1px solid #ccc;
+            background-color: #f1f1f1;
+            margin-bottom: 8px;
+          }
+          
+          .tab button {
+            background-color: inherit;
+            float: left;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            padding: 8px 12px;
+            transition: 0.3s;
+            font-size: 12px;
+          }
+          
+          .tab button:hover { background-color: #ddd; }
+          .tab button.active { background-color: #ccc; }
+          
+          .tabcontent {
+            display: none;
+            padding: 6px 12px;
+            border: 1px solid #ccc;
+            border-top: none;
+          }
+          
+          /* Table styles */
+          table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 8px 0;
+          }
+          
+          th, td {
+            border: 1px solid #ddd;
+            padding: 4px 6px;
+            text-align: right;
+            font-size: 12px;
+          }
+          
+          th {
+            background-color: #f2f2f2;
+            font-weight: normal;
+          }
+          
+          /* Property line stats */
+          .property-line-stats {
+            margin-top: 12px;
+          }
+          
+          /* Refresh button */
+          .refresh-button {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 4px 8px;
+            background-color: #f00;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+          }
+          
+          /* Headers */
+          h3 {
+            font-size: 13px;
+            margin: 12px 0 8px 0;
+            padding: 4px 0;
+            border-bottom: 1px solid #ddd;
+          }
+          
+          /* Summary section */
+          #Summary p {
+            margin: 4px 0;
+            line-height: 1.4;
+          }
+          
+          /* Value spans */
+          span[id$="Area"], 
+          span[id="totalSellableValue"] {
+            font-weight: normal;
+            color: #333;
+          }
+          
+          /* Action buttons */
+          button {
+            padding: 4px 8px;
+            font-size: 12px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            background: #fff;
+            cursor: pointer;
+          }
+          
+          button:hover {
+            background: #f5f5f5;
+          }
           </style>
         </head>
         <body>
@@ -491,7 +582,7 @@ module Real_Estate_Optimizer
     
     def self.get_apartment_data(apt_type)
       model = Sketchup.active_model
-      JSON.parse(model.get_attribute('aparment_type_data', apt_type, '{}'))
+      JSON.parse(model.get_attribute('apartment_type_data', apt_type, '{}'))
     end
 
     def self.sort_apartment_types(apartment_types)

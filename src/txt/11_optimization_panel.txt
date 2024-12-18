@@ -75,17 +75,37 @@ module Real_Estate_Optimizer
             <label for="max_timeline">最晚开工月份 Max Timeline (months):</label>
             <input type="number" id="max_timeline" min="12" max="72" value="24">
           </div>
-          <h3>优化权重 Optimization Weights</h3>
           <div>
-            <label for="irr_weight">内部收益率权重 IRR Weight:</label>
-            <input type="range" id="irr_weight" min="0" max="100" value="50" oninput="updateWeightValue('irr_weight')">
-            <span id="irr_weight_value">50</span>
+            <h3>优化方式 Optimization Method</h3>
+            <div class="radio-group">
+              <label>
+                <input type="radio" name="optimization_method" value="npv" checked>
+                净现值法 Net Present Value (NPV)
+              </label>
+              <label>
+                <input type="radio" name="optimization_method" value="irr_moic">
+                内部收益率与总投资汇报率组合 IRR + MOIC
+              </label>
+            </div>
+            <div id="discount_rate_section">
+              <label for="discount_rate">贴现率 Discount Rate (%):</label>
+              <input type="number" id="discount_rate" min="0" max="100" step="0.01" value="9">
+            </div>
+            <div id="irr_moic_weights" style="display: none;">
+              <h3>优化权重 Optimization Weights</h3>
+              <div>
+                <label for="irr_weight">内部收益率权重 IRR Weight:</label>
+                <input type="range" id="irr_weight" min="0" max="100" value="50" oninput="updateWeightValue('irr_weight')">
+                <span id="irr_weight_value">50</span>
+              </div>
+              <div>
+                <label for="moic_weight">总投资汇报率权重 MOIC Weight:</label>
+                <input type="range" id="moic_weight" min="0" max="100" value="50" oninput="updateWeightValue('moic_weight')">
+                <span id="moic_weight_value">50</span>
+              </div>
+            </div>
           </div>
-          <div>
-            <label for="moic_weight">总投资汇报率权重 MOIC Weight:</label>
-            <input type="range" id="moic_weight" min="0" max="100" value="50" oninput="updateWeightValue('moic_weight')">
-            <span id="moic_weight_value">50</span>
-          </div>
+         
           <div class="construction-priority">
             <h3>开工优先方向</h3>
             
@@ -123,6 +143,12 @@ module Real_Estate_Optimizer
               </div>
             </div>
           </div>
+          <div>
+          <label for="use_property_line_priority">
+            <input type="checkbox" id="use_property_line_priority" checked>
+            启用地块优先级 Enable Property Line Priority
+          </label>
+        </div>
           <h3>地块开工顺序 Property Line Priority</h3>
           <ul id="property_line_list">
             <!-- Property lines will be populated here -->
@@ -131,6 +157,7 @@ module Real_Estate_Optimizer
           <button onclick="launchOptimization()" class="main-button">Launch Optimization</button>
           <script>
             let propertyLines = [];
+            
 
             function moveItem(index, direction) {
               if ((direction === -1 && index === 0) || 
@@ -144,6 +171,11 @@ module Real_Estate_Optimizer
               propertyLines[newIndex] = temp;
 
               populatePropertyLines();
+            }
+            function toggleOptimizationMethod() {
+              const method = document.querySelector('input[name="optimization_method"]:checked').value;
+              const irrMoicWeights = document.getElementById('irr_moic_weights');
+              irrMoicWeights.style.display = method === 'irr_moic' ? 'block' : 'none';
             }
 
             function loadSavedSettings(settings) {
@@ -242,28 +274,15 @@ module Real_Estate_Optimizer
             }
 
             function launchOptimization() {
-              const settings = {
-                irr_weight: parseFloat(document.getElementById('irr_weight').value) / 100,
-                moic_weight: parseFloat(document.getElementById('moic_weight').value) / 100,
-                north_south_weight: parseFloat(document.getElementById('north_south_weight').value) / 100,
-                east_west_weight: parseFloat(document.getElementById('east_west_weight').value) / 100,
-                property_line_order: getPropertyLineOrder(),
-                max_timeline: parseInt(document.getElementById('max_timeline').value)
-              };
+              const settings = getOptimizationSettings();
               sketchup.launch_optimization(JSON.stringify(settings));
             }
 
             function saveSettings() {
-              const settings = {
-                irr_weight: parseFloat(document.getElementById('irr_weight').value) / 100,
-                moic_weight: parseFloat(document.getElementById('moic_weight').value) / 100,
-                north_south_weight: parseFloat(document.getElementById('north_south_weight').value) / 100,
-                east_west_weight: parseFloat(document.getElementById('east_west_weight').value) / 100,
-                property_line_order: getPropertyLineOrder(),
-                max_timeline: parseInt(document.getElementById('max_timeline').value)
-              };
+              const settings = getOptimizationSettings();
               window.location = 'skp:save_optimization_settings@' + JSON.stringify(settings);
             }
+
             // Call this function when the page loads to populate property lines
             function loadPropertyLines() {
               sketchup.get_property_lines();
@@ -289,10 +308,38 @@ module Real_Estate_Optimizer
               });
             }
 
+            function updateDiscountRate(value) {
+              window.location = 'skp:update_discount_rate@' + value;
+            }            
+
             window.onload = function() {
               applyDefaultValues();  // Apply defaults first
               loadPropertyLines();   // Then load any saved settings
             };
+
+            document.querySelectorAll('input[name="optimization_method"]').forEach(radio => {
+              radio.addEventListener('change', toggleOptimizationMethod);
+            });
+
+            function getOptimizationSettings() {
+              const method = document.querySelector('input[name="optimization_method"]:checked').value;
+              const settings = {
+                optimization_method: method,
+                discount_rate: parseFloat(document.getElementById('discount_rate').value) / 100,
+                max_timeline: parseInt(document.getElementById('max_timeline').value),
+                property_line_order: getPropertyLineOrder(),
+                use_property_line_priority: document.getElementById('use_property_line_priority').checked,
+                north_south_weight: parseFloat(document.getElementById('north_south_weight').value) / 100,
+                east_west_weight: parseFloat(document.getElementById('east_west_weight').value) / 100
+              };
+            
+              if (method === 'irr_moic') {
+                settings.irr_weight = parseFloat(document.getElementById('irr_weight').value) / 100;
+                settings.moic_weight = parseFloat(document.getElementById('moic_weight').value) / 100;
+              }
+            
+              return settings;
+            }
 
           </script>
         </body>
@@ -409,12 +456,15 @@ module Real_Estate_Optimizer
 
     def self.default_settings
       {
-        'irr_weight' => 0.5,           # Changed from 50 to 0.5
-        'moic_weight' => 0.5,          # Changed from 50 to 0.5
-        'north_south_weight' => 0.0,   # Changed from 0 to 0.0
-        'east_west_weight' => 0.0,     # Changed from 0 to 0.0
+        'optimization_method' => 'npv',
+        'discount_rate' => 0.09,
+        'north_south_weight' => 0.0,
+        'east_west_weight' => 0.0,
         'property_line_order' => [],
-        'max_timeline' => 24  
+        'max_timeline' => 24,
+        'use_property_line_priority' => true,
+        'irr_weight' => 0.5,  # Keep these for backward compatibility
+        'moic_weight' => 0.5  # and when switching methods
       }
     end
 

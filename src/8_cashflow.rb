@@ -181,7 +181,7 @@ module Real_Estate_Optimizer
 
       # Calculate sales and income based on stock and sales scenes
       stock_table.each do |apt_type, stocks|
-        apt_data = JSON.parse(model.get_attribute('aparment_type_data', apt_type) || '{}')
+        apt_data = JSON.parse(model.get_attribute('apartment_type_data', apt_type) || '{}')
         sales_scene = apt_data['sales_scenes'] && apt_data['sales_scenes'].first
 
         if sales_scene
@@ -750,7 +750,7 @@ module Real_Estate_Optimizer
     
       # Second pass: calculate sales and income
       stock_table.each do |apt_type, stocks|
-        apt_data = JSON.parse(model.get_attribute('aparment_type_data', apt_type) || '{}')
+        apt_data = JSON.parse(model.get_attribute('apartment_type_data', apt_type) || '{}')
         sales_scenes = apt_data['sales_scenes'] || []
         next if sales_scenes.empty?
     
@@ -948,7 +948,7 @@ module Real_Estate_Optimizer
     
     def self.get_apartment_data(apt_type)
       model = Sketchup.active_model
-      JSON.parse(model.get_attribute('aparment_type_data', apt_type, '{}'))
+      JSON.parse(model.get_attribute('apartment_type_data', apt_type, '{}'))
     end
 
     def self.get_unsaleable_amenity_cost_payments

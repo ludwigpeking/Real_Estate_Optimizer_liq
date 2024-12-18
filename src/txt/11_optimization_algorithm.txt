@@ -6,10 +6,9 @@ require_relative '8_financial_calculations'
 module Real_Estate_Optimizer
   module OptimizationAlgorithm
     REQUIRED_SETTINGS = [
-      'irr_weight', 
-      'moic_weight', 
-      'property_line_order',
-      'max_timeline'
+      'optimization_method',
+      'max_timeline',
+      'property_line_order'
     ]
 
     def self.optimize(buildings, settings, dialog = nil)
@@ -31,36 +30,16 @@ module Real_Estate_Optimizer
       if final_assignments
         update_model_with_solution(final_assignments)
         
-        # Add visualization of the winning solution
-        puts "\n=== Winning Solution Details ==="
+        # Calculate final NPV with proper monthly rate
+        final_cashflow = CashFlowCalculator.calculate_and_print_full_cashflow_table
+        annual_discount_rate = settings['discount_rate']
+        monthly_discount_rate = (1 + annual_discount_rate)**(1.0/12) - 1
+        final_npv = CashFlowCalculator.npv(final_cashflow[:monthly_cashflow], monthly_discount_rate)
         
-        # Print the complete genotype first
-        puts "\nComplete Genotype of Best Solution:"
-        best_schedule = best_solution.get_absolute_times
-        puts "Building Construction Schedule (By Type):"
-        best_schedule.each do |building_type, times|
-          puts "  #{building_type}:"
-          puts "    Construction times (#{times.length} buildings): #{times.join(', ')}"
-          if times.length > 1
-            intervals = times.each_cons(2).map { |a, b| b - a }
-            puts "    Intervals between buildings: #{intervals.join(', ')}"
-          end
-        end
-        
-        puts "\nApartment Type Scene Switches:"
-        best_solution.scene_switches.sort.each do |apt_type, switch_time|
-          puts "  #{apt_type} => Month #{switch_time}"
-        end
-
-        # Print the actual building assignments
-        puts "\nActual Building Assignments (By Time):"
-        final_assignments.sort_by { |_, time| time }.each do |building, time|
-          building_type = building.definition.name
-          property_line = building.get_attribute('dynamic_attributes', 'property_line_keyword') || 'N/A'
-          puts "  #{building_type} (Line: #{property_line}) => Month #{time}"
-        end
-        
-        puts "\nFitness Score: #{best_solution.fitness.round(4)}"
+        puts "\nFinal Results:"
+        puts "Optimization Fitness Score (scaled): #{best_solution.fitness.round(4)}"
+        puts "Raw NPV: #{(best_solution.fitness * 1_000_000).round(2)} yuan"
+        puts "Final NPV after applying solution: #{final_npv.round(2)} yuan"
         puts "=== Optimization Complete ==="
       end
       
@@ -95,6 +74,10 @@ module Real_Estate_Optimizer
           end
         end
         @fitness = nil
+      end
+
+      def fitness
+        @fitness || -Float::INFINITY
       end
     
       # Made this method public by moving it out of private section
@@ -205,20 +188,39 @@ module Real_Estate_Optimizer
     end
       
     def self.validate_settings(settings)
+      # Check base required settings
       missing_keys = REQUIRED_SETTINGS - settings.keys
       
+      # Check method-specific required settings
+      if settings['optimization_method'] == 'irr_moic'
+        method_keys = ['irr_weight', 'moic_weight']
+        missing_keys += method_keys - settings.keys
+      elsif settings['optimization_method'] == 'npv'
+        method_keys = ['discount_rate']
+        missing_keys += method_keys - settings.keys
+      end
+    
       if missing_keys.any?
         puts "Missing required settings: #{missing_keys.join(', ')}"
         return false
       end
-
+    
       # Validate timeline range
       max_timeline = settings['max_timeline'].to_i
       if max_timeline < 12 || max_timeline > 72
         puts "Invalid max_timeline: must be between 12 and 72 months"
         return false
       end
-
+    
+      # Validate discount rate if using NPV
+      if settings['optimization_method'] == 'npv'
+        discount_rate = settings['discount_rate'].to_f
+        if discount_rate <= 0 || discount_rate >= 1
+          puts "Invalid discount rate: must be between 0 and 1"
+          return false
+        end
+      end
+    
       true
     end
  
@@ -252,8 +254,8 @@ module Real_Estate_Optimizer
         end
         
         # Sort by fitness
-        population.sort_by! { |solution| -solution.fitness }
-        
+        population.sort_by! { |solution| -(solution.fitness || -Float::INFINITY) }    
+
         # Update best solution
         if population.first.fitness > best_fitness
           best_solution = population.first
@@ -384,80 +386,53 @@ module Real_Estate_Optimizer
       final_assignments = {}
       available_slots_by_type = type_schedule.dup
     
-      puts "\n=== Starting Instance Assignment ==="
-      puts "Property Line Order: #{settings['property_line_order'].join(', ')}"
+      if settings['use_property_line_priority']
+        # Existing property line priority logic
+        settings['property_line_order'].each do |property_line|
+          type_schedule.each do |type, _|
+            next unless available_slots_by_type[type]&.any?
     
-      # First, process buildings according to property line priority
-      settings['property_line_order'].each do |property_line|
-        puts "\nProcessing Property Line: #{property_line}"
-        
-        type_schedule.each do |building_type, _|
-          next unless available_slots_by_type[building_type]&.any?
+            instances = building_groups[type].select do |building, transformation|
+              position = building.definition.bounds.center.transform(transformation)
+              detected_line = CashFlowCalculator.find_containing_property_line(
+                position, 
+                CashFlowCalculator.find_property_line_components(Sketchup.active_model)
+              )
+              property_line_keyword = detected_line&.definition&.get_attribute('dynamic_attributes', 'keyword')
+              property_line_keyword == property_line
+            end
     
-          # Get all instances of this type in the current property line
-          property_line_instances = building_groups[building_type].select do |building, transformation|
-            position = building.definition.bounds.center.transform(transformation)
-            detected_line = CashFlowCalculator.find_containing_property_line(
-              position, 
-              CashFlowCalculator.find_property_line_components(Sketchup.active_model)
+            next if instances.empty?
+    
+            sorted_instances = sort_by_direction_priority(
+              instances,
+              settings['north_south_weight'].to_f,
+              settings['east_west_weight'].to_f
             )
-            property_line_keyword = detected_line&.definition&.get_attribute('dynamic_attributes', 'keyword')
-            puts " Building #{building.definition.name} belongs to line: #{property_line_keyword}"
-            property_line_keyword == property_line
+    
+            sorted_instances.each do |building, _|
+              next if final_assignments.key?(building)
+              time = available_slots_by_type[type].shift
+              final_assignments[building] = time if time
+            end
           end
+        end
+      else
+        # Direction-only priority logic
+        type_schedule.each do |type, _|
+          next unless available_slots_by_type[type]&.any?
     
-          next if property_line_instances.empty?
-    
-          # Sort instances within this property line by directional priority
+          instances = building_groups[type]
           sorted_instances = sort_by_direction_priority(
-            property_line_instances,
+            instances,
             settings['north_south_weight'].to_f,
             settings['east_west_weight'].to_f
           )
     
-          # Assign times to sorted instances
           sorted_instances.each do |building, _|
             next if final_assignments.key?(building)
-            time = available_slots_by_type[building_type].shift
-            if time
-              final_assignments[building] = time
-              puts " Assigned building #{building.definition.name} to time #{time}"
-            end
-          end
-        end
-      end
-    
-      # Handle remaining buildings
-      remaining_count = building_groups.sum do |_, instances|
-        instances.count do |building_and_transform|
-          building = building_and_transform[0]
-          !final_assignments.key?(building)
-        end
-      end
-    
-      if remaining_count > 0
-        puts "\nProcessing #{remaining_count} remaining unassigned buildings"
-        
-        type_schedule.each do |building_type, _|
-          remaining_instances = building_groups[building_type].reject { |building, _| 
-            final_assignments.key?(building) 
-          }
-          
-          next if remaining_instances.empty?
-          
-          sorted_remaining = sort_remaining_instances(
-            remaining_instances,
-            settings['property_line_order'],
-            settings['north_south_weight'].to_f,
-            settings['east_west_weight'].to_f
-          )
-    
-          sorted_remaining.each do |building, _|
-            time = available_slots_by_type[building_type]&.shift
-            if time
-              final_assignments[building] = time
-              puts " Assigned remaining building #{building.definition.name} to time #{time}"
-            end
+            time = available_slots_by_type[type].shift
+            final_assignments[building] = time if time
           end
         end
       end
@@ -541,62 +516,48 @@ module Real_Estate_Optimizer
         model.abort_operation
       end
     end
+
     def self.evaluate_type_schedule(schedule, scene_switches, building_groups, settings)
       return -Float::INFINITY unless verify_schedule(schedule, building_groups, settings)
       
       cache_key = schedule_hash(schedule, settings)
-      if @evaluation_cache.key?(cache_key)
-        cached_result = @evaluation_cache[cache_key]
-        # Store the IRR for future initial guesses
-        @last_irr_rate = cached_result[:irr]
-        return cached_result[:fitness]
-      end
-    
+      return @evaluation_cache[cache_key] if @evaluation_cache.key?(cache_key)
+      
       original_states = store_building_states(building_groups)
       
       begin
-        # Apply construction times from schedule
+        # Apply construction times
         schedule.each do |type, times|
           instances = building_groups[type]
           times.each_with_index do |time, i|
             instances[i][0].set_attribute('dynamic_attributes', 'construction_init_time', time)
           end
         end
-    
-        # Calculate full cashflow data with scene switches
+
+        # Calculate fitness
         cashflow_data = CashFlowCalculator.calculate_and_print_full_cashflow_table
         return -Float::INFINITY unless cashflow_data
-    
-        # Process cashflow data
-        monthly_cashflow = CashFlowCalculator.calculate_monthly_cashflow(cashflow_data)
         
-        # Use last successful IRR as initial guess if available
-        key_indicators = if @last_irr_rate
-          CashFlowCalculator.calculate_key_indicators(monthly_cashflow, initial_rate: @last_irr_rate)
+        fitness = if settings['optimization_method'] == 'npv'
+          monthly_cashflow = cashflow_data[:monthly_cashflow]
+          annual_discount_rate = settings['discount_rate']
+          monthly_discount_rate = (1 + annual_discount_rate)**(1.0/12) - 1
+          CashFlowCalculator.npv(monthly_cashflow, monthly_discount_rate)
         else
-          CashFlowCalculator.calculate_key_indicators(monthly_cashflow)
+          monthly_cashflow = CashFlowCalculator.calculate_monthly_cashflow(cashflow_data)
+          key_indicators = CashFlowCalculator.calculate_key_indicators(monthly_cashflow)
+          irr = key_indicators[:yearly_irr] || -100
+          moic = key_indicators[:moic] || 0
+          scaled_irr = irr/100
+          scaled_moic = moic
+          (settings['irr_weight'] * scaled_irr + settings['moic_weight'] * scaled_moic)
         end
-    
-        irr = key_indicators[:yearly_irr] || -100
-        moic = key_indicators[:moic] || 0
-        
-        # Store successful IRR for next calculation
-        @last_irr_rate = irr/100 if irr > -100
-        
-        scaled_irr = irr/100
-        scaled_moic = moic
-        fitness = (settings['irr_weight'] * scaled_irr + settings['moic_weight'] * scaled_moic)
-        
-        # Cache both fitness and IRR
-        @evaluation_cache[cache_key] = {
-          fitness: fitness,
-          irr: scaled_irr
-        }
-        
-        fitness
+
+        @evaluation_cache[cache_key] = fitness || -Float::INFINITY
+        fitness || -Float::INFINITY
       ensure
         restore_building_states(original_states)
       end
-    end
+end
   end
 end

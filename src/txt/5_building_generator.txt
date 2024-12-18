@@ -424,7 +424,7 @@ module Real_Estate_Optimizer
 
         dialog.add_action_callback("populate_all_apartment_types") do |action_context|
           model = Sketchup.active_model
-          apartment_type_names = model.get_attribute('aparment_type_data', 'apartment_type_names', [])
+          apartment_type_names = model.get_attribute('apartment_type_data', 'apartment_type_names', [])
           
           # Use the same sorting logic as building types
           sorted_types = apartment_type_names.sort_by do |name|

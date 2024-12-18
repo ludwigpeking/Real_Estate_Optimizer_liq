@@ -1,7 +1,7 @@
 require_relative '1_input'
 require_relative '2_propertyline_pick'
 require_relative '3_basement_pick'
-require_relative '4_apartment_manager'
+require_relative '4_customer_overlap'
 require_relative '5_building_generator'
 require_relative '6_insert_building'
 require_relative '7_building_attribute_editor'
@@ -106,6 +106,16 @@ module Real_Estate_Optimizer
       cmd_optimization.status_bar_text = "Optimization"
       toolbar.add_item(cmd_optimization)
 
+      cmd_customer_overlap = UI::Command.new("Customer Overlap") {
+        CustomerOverlap.show_dialog
+      }
+      cmd_customer_overlap.small_icon = "../icons/customer_overlap.png"
+      cmd_customer_overlap.large_icon = "../icons/customer_overlap.png"
+      cmd_customer_overlap.tooltip = "客户重叠计算"
+      cmd_customer_overlap.status_bar_text = "Calculate customer overlap between apartment types"
+      toolbar.add_item(cmd_customer_overlap)
+
+
       layers = ['liq_color_mass', 'liq_architecture', 'liq_sunlight', 'liq_phasing', 'liq_price']
       layer_names = ['面积色块 Color Mass', '外观设计 Architecture', '日照 Sunlight', '分期 Phasing', '价格系数 Price']
 
@@ -118,6 +128,9 @@ module Real_Estate_Optimizer
         cmd_layer.tooltip = "Switch to #{layer_names[index]} Layer"
         cmd_layer.status_bar_text = "Switch visibility to #{layer_names[index]} layer"
         toolbar.add_item(cmd_layer)
+
+       
+
       end
 
       # cmd_reload = UI::Command.new("Reload Plugin") {

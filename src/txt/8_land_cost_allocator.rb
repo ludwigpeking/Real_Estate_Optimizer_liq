@@ -65,9 +65,9 @@ module Real_Estate_Optimizer
       model.start_operation('Update Apartment Unit Land Costs', true)
       
       unit_land_costs.each do |apt_name, unit_cost|
-        apartment_data = JSON.parse(model.get_attribute('aparment_type_data', apt_name, '{}'))
+        apartment_data = JSON.parse(model.get_attribute('apartment_type_data', apt_name, '{}'))
         apartment_data['unit_land_cost'] = unit_cost
-        model.set_attribute('aparment_type_data', apt_name, apartment_data.to_json)
+        model.set_attribute('apartment_type_data', apt_name, apartment_data.to_json)
       end
 
       model.commit_operation
@@ -75,7 +75,7 @@ module Real_Estate_Optimizer
 
     def self.get_apartment_data(apt_name)
       model = Sketchup.active_model
-      apartment_data = JSON.parse(model.get_attribute('aparment_type_data', apt_name, '{}'))
+      apartment_data = JSON.parse(model.get_attribute('apartment_type_data', apt_name, '{}'))
       unless apartment_data['width'] && apartment_data['apartment_category']
         puts "Warning: Apartment '#{apt_name}' is missing width or category data."
         apartment_data['width'] ||= 10.0  # Default width

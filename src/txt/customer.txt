@@ -218,10 +218,22 @@
               input.step = "0.1";
               input.value = "0";
 
-              input.addEventListener("input", () => {
-                // Enforce constraints and update the corresponding lower triangle value
+              // Only update on blur or Enter key
+              input.addEventListener("blur", () => {
+                const value = parseFloat(input.value) || 0;
+                input.value = Math.max(0, Math.min(1, value)).toFixed(4);
                 enforceOverlapConstraints(i, j, num);
                 updateSymmetricOverlapRates(num);
+              });
+
+              input.addEventListener("keydown", (e) => {
+                if (e.key === "Enter") {
+                  const value = parseFloat(input.value) || 0;
+                  input.value = Math.max(0, Math.min(1, value)).toFixed(4);
+                  enforceOverlapConstraints(i, j, num);
+                  updateSymmetricOverlapRates(num);
+                  input.blur();
+                }
               });
 
               cell.appendChild(input);

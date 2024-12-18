@@ -582,7 +582,7 @@ module Real_Estate_Optimizer
     
     def self.get_apartment_data(apt_type)
       model = Sketchup.active_model
-      JSON.parse(model.get_attribute('aparment_type_data', apt_type, '{}'))
+      JSON.parse(model.get_attribute('apartment_type_data', apt_type, '{}'))
     end
 
     def self.sort_apartment_types(apartment_types)

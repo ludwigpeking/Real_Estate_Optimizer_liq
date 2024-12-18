@@ -38,7 +38,108 @@ module Real_Estate_Optimizer
         <head>
           <meta charset="UTF-8">
           <link rel="stylesheet" type="text/css" href="file:///#{File.join(__dir__, 'style.css')}">
+          <script src="file:///#{File.join(__dir__, 'chart.js')}"></script>
+        </head>
+        <body>
+          <div class="form-section">
+            <label for="apartment_category">户型属于类型 Apartment in building type of: </label>
+            <select id="apartment_category">
+              <option value="联排">联排</option>
+              <option value="叠拼">叠拼</option>
+              <option value="洋房">洋房</option>
+              <option value="小高层" selected>小高层</option>
+              <option value="大高">大高</option>
+              <option value="超高">超高</option>
+              <option value="商铺">商铺</option>
+              <option value="办公">办公</option>
+              <option value="公寓">公寓</option>
+            </select><br>
+
+            <label for="apartment_type_area">户型建筑面积 (平米)</label>
+            <input type="number" id="apartment_type_area" value="110"><br>
+
+
+            <label for="tag">备注</label>
+            <input type="text" id="tag" value=""><br>
+
+
+            <label for="apartment_type_name">户型名</label><br>
+            <div id="apartment_type_name">110小高层</div>
+          </div>
+
+          <div class="form-section">
+            <label for="product_baseline_unit_cost_before_allocation">产品基准单位成本 (元/平米)</label>
+            <input type="number" id="product_baseline_unit_cost_before_allocation" value="5500"><br>
+
+
+            <label for="width">面宽 (m)</label>
+            <input type="number" id="width" value="10.5">
+
+            <label for="depth">进深 (m)</label>
+            <input type="number" id="depth" value="11.0">
+
+              <label for="height">层高 (m)</label>
+              <input type="number" id="height" value="3.0" step="0.1">
+          </div>
+
+          <div class="form-section">
+            <h3>销售场景</h3>
+            <div id="pricingScenesContainer"></div>
+            <button onclick="saveAttributes()">保存属性 Save Attributes</button>
+            <button onclick="deleteApartmentType()">删除户型 Delete Apartment Type</button>
+          </div>
+
+          <div class="form-section">
+            <h3>加载户型 Load Apartment Type</h3>
+            <select id="savedApartmentTypes" onchange="loadApartmentType(this.value)">
+              <option value="">选择户型...</option>
+            </select>
+          </div>
           <script>
+
+          function saveOverlapMatrix() {
+            const matrix = {};
+            const types = Array.from(document.querySelectorAll('#overlapMatrix th'))
+              .slice(1)
+              .map(th => th.textContent);
+              
+            types.forEach(type1 => {
+              matrix[type1] = {};
+              types.forEach(type2 => {
+                if (type1 !== type2) {
+                  const input = document.getElementById(`overlap_${type1}_${type2}`);
+                  if (input && !input.readOnly) {
+                    matrix[type1][type2] = parseFloat(input.value) || 0;
+                  }
+                }
+              });
+            });
+            
+            window.location = 'skp:save_overlap_matrix@' + encodeURIComponent(JSON.stringify(matrix));
+          }
+          
+          function enforceOverlapConstraints(input, vol1, vol2, type1, type2) {
+            console.log("Enforcing constraints:", type1, type2, vol1, vol2);
+            if (!vol1 || !vol2) {
+                console.log("Volumes not valid for reverse calculation:", {vol1, vol2});
+                return;
+            }
+            
+            // Get the actual input element instead of using activeElement
+            const sourceInput = document.getElementById(`overlap_${type1}_${type2}`);
+            let value = parseFloat(sourceInput.value) || 0;
+            const symmetricInput = document.getElementById(`overlap_${type2}_${type1}`);
+            
+            if (symmetricInput) {
+                const symmetric_value = (value * vol1) / vol2;
+                console.log("Calculating reverse overlap:", {value, vol1, vol2, symmetric_value});
+                symmetricInput.value = Math.min(1, symmetric_value).toFixed(2);
+            }
+        }
+        
+
+
+
             function updateApartmentTypeName() {
               var area = document.getElementById('apartment_type_area').value;
               var type = document.getElementById('apartment_category').value;
@@ -137,7 +238,6 @@ module Real_Estate_Optimizer
               });
             }
             
-
             function updateSavedApartmentTypes(apartmentTypes) {
               var select = document.getElementById('savedApartmentTypes');
               select.innerHTML = '<option value="">选择户型...</option>';
@@ -150,69 +250,36 @@ module Real_Estate_Optimizer
             }
 
             window.onload = function() {
+              // Keep all existing functionality
               document.getElementById('apartment_type_area').oninput = updateApartmentTypeName;
               document.getElementById('apartment_category').onchange = updateApartmentTypeName;
               document.getElementById('tag').oninput = updateApartmentTypeName;
               addPricingScene();
               window.location = 'skp:get_saved_apartment_types';
+              
+              // Initialize overlap matrix after a slight delay to ensure apartment types are loaded
+              setTimeout(() => {
+                updateOverlapMatrix();
+              }, 1000);  // 1 second delay
+              
+              // Add observer for future changes to apartment types
+              const typesSelect = document.getElementById('savedApartmentTypes');
+              const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                  if (mutation.type === 'childList') {
+                    updateOverlapMatrix();
+                  }
+                });
+              });
+              
+              observer.observe(typesSelect, {
+                childList: true,
+                subtree: true
+              });
             }
+
+        
           </script>
-        </head>
-        <body>
-          <div class="form-section">
-            <label for="apartment_category">户型属于类型 Apartment in building type of: </label>
-            <select id="apartment_category">
-              <option value="联排">联排</option>
-              <option value="叠拼">叠拼</option>
-              <option value="洋房">洋房</option>
-              <option value="小高层" selected>小高层</option>
-              <option value="大高">大高</option>
-              <option value="超高">超高</option>
-              <option value="商铺">商铺</option>
-              <option value="办公">办公</option>
-              <option value="公寓">公寓</option>
-            </select><br>
-
-            <label for="apartment_type_area">户型建筑面积 (平米)</label>
-            <input type="number" id="apartment_type_area" value="110"><br>
-
-
-            <label for="tag">备注</label>
-            <input type="text" id="tag" value=""><br>
-
-
-            <label for="apartment_type_name">户型名</label><br>
-            <div id="apartment_type_name">110小高层</div>
-          </div>
-
-          <div class="form-section">
-            <label for="product_baseline_unit_cost_before_allocation">产品基准单位成本 (元/平米)</label>
-            <input type="number" id="product_baseline_unit_cost_before_allocation" value="5500"><br>
-
-
-            <label for="width">面宽 (m)</label>
-            <input type="number" id="width" value="10.5">
-
-            <label for="depth">进深 (m)</label>
-            <input type="number" id="depth" value="11.0">
-
-              <label for="height">层高 (m)</label>
-              <input type="number" id="height" value="3.0" step="0.1">
-          </div>
-
-          <div class="form-section">
-            <h3>销售场景</h3>
-            <div id="pricingScenesContainer"></div>
-            <button onclick="saveAttributes()">保存属性 Save Attributes</button>
-            <button onclick="deleteApartmentType()">删除户型 Delete Apartment Type</button>
-          </div>
-
-          <div class="form-section">
-            <h3>加载户型 Load Apartment Type</h3>
-            <select id="savedApartmentTypes" onchange="loadApartmentType(this.value)">
-              <option value="">选择户型...</option>
-            </select>
-          </div>
         </body>
         </html>
       HTML
@@ -225,17 +292,17 @@ module Real_Estate_Optimizer
         model = Sketchup.active_model
 
         # Retrieve the current list of apartment type names
-        apartment_type_names = model.get_attribute('aparment_type_data', APARTMENT_TYPE_LIST_KEY, [])
+        apartment_type_names = model.get_attribute('apartment_type_data', APARTMENT_TYPE_LIST_KEY, [])
         
         if apartment_type_names.include?(apartment_type_name)
           result = UI.messagebox("户型名已存在。是否覆盖？ Apartment type name already exists. Overwrite?", MB_YESNO)
           return if result == IDNO
         else
           apartment_type_names << apartment_type_name
-          model.set_attribute('aparment_type_data', APARTMENT_TYPE_LIST_KEY, apartment_type_names)
+          model.set_attribute('apartment_type_data', APARTMENT_TYPE_LIST_KEY, apartment_type_names)
         end
 
-        model.set_attribute('aparment_type_data', apartment_type_name, apartment_data.to_json)
+        model.set_attribute('apartment_type_data', apartment_type_name, apartment_data.to_json)
         puts "Stored data for #{apartment_type_name}: #{apartment_data.inspect}"  # Debugging line
 
         # Create or update the apartment component
@@ -243,15 +310,26 @@ module Real_Estate_Optimizer
 
         UI.messagebox("属性已保存 Attributes saved: " + apartment_data['apartment_type_name'])
         update_saved_apartment_types(dialog)
+        dialog.execute_script(<<-JS
+          setTimeout(() => {
+            const matrix = document.getElementById('overlapMatrix');
+            if (matrix) {
+              // Recalculate all overlap values since sales velocities might have changed
+              const inputs = matrix.querySelectorAll('input:not([readonly])');
+              inputs.forEach(input => validateOverlap(input));
+            }
+          }, 500);
+        JS
+        )
       end
 
       dialog.add_action_callback("delete_apartment_type") do |action_context, apartment_type_name|
         model = Sketchup.active_model
-        model.delete_attribute('aparment_type_data', apartment_type_name)
+        model.delete_attribute('apartment_type_data', apartment_type_name)
         
-        apartment_type_names = model.get_attribute('aparment_type_data', APARTMENT_TYPE_LIST_KEY, [])
+        apartment_type_names = model.get_attribute('apartment_type_data', APARTMENT_TYPE_LIST_KEY, [])
         apartment_type_names.delete(apartment_type_name)
-        model.set_attribute('aparment_type_data', APARTMENT_TYPE_LIST_KEY, apartment_type_names)
+        model.set_attribute('apartment_type_data', APARTMENT_TYPE_LIST_KEY, apartment_type_names)
 
         puts "Deleted data for #{apartment_type_name}"  # Debugging line
         UI.messagebox("户型已删除 Apartment type deleted: " + apartment_type_name)
@@ -260,7 +338,7 @@ module Real_Estate_Optimizer
 
       dialog.add_action_callback("load_apartment_type") do |action_context, apartment_type_name|
         model = Sketchup.active_model
-        apartment_data_json = model.get_attribute('aparment_type_data', apartment_type_name)
+        apartment_data_json = model.get_attribute('apartment_type_data', apartment_type_name)
         if apartment_data_json
           dialog.execute_script("populateApartmentType('#{apartment_data_json}')")
         else
@@ -268,8 +346,117 @@ module Real_Estate_Optimizer
         end
       end
 
+      def self.initialize_overlap_matrix(types)
+        matrix = {}
+        types.each do |type1|
+          matrix[type1] = {}
+          types.each do |type2|
+            next if type1 == type2
+            matrix[type1][type2] = 0.0
+          end
+        end
+        matrix
+      end
+
       dialog.add_action_callback("get_saved_apartment_types") do |action_context|
-        update_saved_apartment_types(dialog)
+        model = Sketchup.active_model
+        puts "\n=== Loading Apartment Types and Overlaps ==="
+        
+        # Load apartment types
+        apartment_type_names = model.get_attribute('apartment_type_data', APARTMENT_TYPE_LIST_KEY, [])
+        sorted_types = sort_apartment_types(apartment_type_names)
+        puts "Found apartment types: #{sorted_types.inspect}"
+        
+        # Load overlap matrix
+        overlap_matrix = model.get_attribute('apartment_type_data', 'overlap_matrix', '{}')
+        overlap_matrix = JSON.parse(overlap_matrix)
+        puts "Retrieved overlap matrix: #{overlap_matrix.inspect}"
+        
+        # Update apartment types in dialog
+        dialog.execute_script("updateSavedApartmentTypes(#{sorted_types.to_json})")
+        
+        # Prepare JavaScript command
+        js_command = <<-JS
+          window.savedOverlapMatrix = #{overlap_matrix.to_json};
+          console.log("Setting savedOverlapMatrix:", window.savedOverlapMatrix);
+          
+          setTimeout(() => {
+            console.log("Starting matrix update...");
+            updateOverlapMatrix();
+            
+            // First set all saved values
+            Object.keys(window.savedOverlapMatrix).forEach(type1 => {
+              Object.keys(window.savedOverlapMatrix[type1]).forEach(type2 => {
+                const input = document.getElementById(`overlap_${type1}_${type2}`);
+                if (input && !input.readOnly) {
+                  input.value = window.savedOverlapMatrix[type1][type2].toFixed(2);
+                  console.log(`Set value for ${type1}-${type2}: ${input.value}`);
+                }
+              });
+            });
+            
+            // Then update all reversal values at once
+            const editableInputs = document.querySelectorAll('#overlapMatrix input:not([readonly])');
+            console.log("Found editable inputs:", editableInputs.length);
+            
+            editableInputs.forEach(input => {
+              const parts = input.id.split('_');
+              if (parts.length === 3) {
+                const type1 = parts[1];
+                const type2 = parts[2];
+                console.log(`Requesting volumes for ${type1}-${type2}`);
+                const params = JSON.stringify({type1: type1, type2: type2});
+                window.location = 'skp:get_apartment_volumes@' + encodeURIComponent(params);
+              }
+            });
+          }, 1000);
+        JS
+        
+        # Execute JavaScript with debug output
+        puts "Executing JavaScript command..."
+        dialog.execute_script(js_command)
+        puts "JavaScript command executed"
+      end
+      
+      dialog.add_action_callback("get_apartment_volumes") do |action_context, params_json|
+        begin
+          model = Sketchup.active_model
+          params = JSON.parse(URI.decode_www_form_component(params_json))
+          type1 = params['type1']
+          type2 = params['type2']
+          
+          # Get all apartment types and their volumes at once
+          apartment_type_names = model.get_attribute('apartment_type_data', APARTMENT_TYPE_LIST_KEY, [])
+          volumes = {}
+          
+          apartment_type_names.each do |apt_type|
+            data = JSON.parse(model.get_attribute('apartment_type_data', apt_type) || '{}')
+            volumes[apt_type] = data.dig('sales_scenes', 0, 'volumn') || 0
+          end
+          
+          puts "All volumes: #{volumes.inspect}"
+          
+          # Send all volumes to JavaScript
+          js_command = <<-JS
+            if (!window.apartmentVolumes) window.apartmentVolumes = {};
+            const volumes = #{volumes.to_json};
+            Object.keys(volumes).forEach(type => {
+              window.apartmentVolumes[type] = volumes[type];
+              console.log('Updated volume for ' + type + ': ' + volumes[type]);
+            });
+            enforceOverlapConstraints(null, volumes['#{type1}'], volumes['#{type2}'], '#{type1}', '#{type2}');
+          JS
+          
+          dialog.execute_script(js_command)
+        rescue => e
+          puts "Error in get_apartment_volumes: #{e.message}"
+          puts e.backtrace
+        end
+      end
+      
+      
+      dialog.add_action_callback("save_overlap_matrix") do |action_context, matrix_json|
+        save_overlap_matrix(matrix_json)
       end
 
       dialog.show
@@ -421,7 +608,7 @@ module Real_Estate_Optimizer
 
     def self.update_saved_apartment_types(dialog)
       model = Sketchup.active_model
-      apartment_type_names = model.get_attribute('aparment_type_data', APARTMENT_TYPE_LIST_KEY, [])
+      apartment_type_names = model.get_attribute('apartment_type_data', APARTMENT_TYPE_LIST_KEY, [])
       
       # Sort the apartment types
       sorted_apartment_types = sort_apartment_types(apartment_type_names)
@@ -429,6 +616,17 @@ module Real_Estate_Optimizer
       # Pass the sorted array to the JavaScript function
       dialog.execute_script("updateSavedApartmentTypes(#{sorted_apartment_types.to_json})")
     end
+
+
+
+    def self.parse_apartment_type(raw_type)
+      return nil if raw_type.nil? || raw_type.empty?
+      
+      # Remove any whitespace and split by @ if present
+      types = raw_type.strip.split('@')
+      types.first.strip
+    end
+
   end
 end
 
