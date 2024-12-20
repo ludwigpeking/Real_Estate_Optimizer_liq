@@ -1,388 +1,567 @@
-require_relative '4_apartment_manager'
+require 'sketchup.rb'
+require 'json'
 
 module Real_Estate_Optimizer
   module CustomerOverlap
+    OVERLAP_MATRIX_KEY = 'overlap_matrix'
+    OVERLAP_DATA_DICT = 'overlap_data'
+
+    def self.ensure_overlap_matrix_exists(apartment_types)
+      model = Sketchup.active_model
+      overlap_data = model.attribute_dictionaries[OVERLAP_DATA_DICT] || model.attribute_dictionaries.add(OVERLAP_DATA_DICT)
+      existing_matrix_json = overlap_data[OVERLAP_MATRIX_KEY] || ''
+
+      if existing_matrix_json.is_a?(String) && !existing_matrix_json.empty?
+        begin
+          existing_matrix = JSON.parse(existing_matrix_json)
+          puts "Parsed existing overlap_matrix from JSON string."
+        rescue JSON::ParserError
+          puts "Failed to parse existing overlap_matrix JSON. Initializing a new matrix."
+          existing_matrix = {}
+        end
+      else
+        existing_matrix = {}
+      end
+
+      # Initialize or update the overlap matrix
+      updated = false
+      apartment_types.each do |type1|
+        unless existing_matrix.key?(type1)
+          existing_matrix[type1] = {}
+          apartment_types.each do |type2|
+            next if type1 == type2
+            existing_matrix[type1][type2] = 0.0
+          end
+          puts "Added new type #{type1} to overlap_matrix."
+          updated = true
+        else
+          apartment_types.each do |type2|
+            next if type1 == type2
+            unless existing_matrix[type1].key?(type2)
+              existing_matrix[type1][type2] = 0.0
+              puts "Added new type pair #{type1}-#{type2} to overlap_matrix."
+              updated = true
+            end
+          end
+        end
+      end
+
+      # Remove any types that no longer exist
+      existing_matrix.keys.each do |type1|
+        unless apartment_types.include?(type1)
+          existing_matrix.delete(type1)
+          puts "Removed type #{type1} from overlap_matrix."
+          updated = true
+        else
+          existing_matrix[type1].keys.each do |type2|
+            unless apartment_types.include?(type2)
+              existing_matrix[type1].delete(type2)
+              puts "Removed type pair #{type1}-#{type2} from overlap_matrix."
+              updated = true
+            end
+          end
+        end
+      end
+
+      if updated || existing_matrix.empty?
+        overlap_data[OVERLAP_MATRIX_KEY] = existing_matrix.to_json
+        puts "Initialized/Updated overlap_matrix."
+      end
+    end
+
     def self.show_dialog
+      model = Sketchup.active_model
+      apartment_type_names = model.get_attribute('apartment_type_data', 'apartment_type_names', [])
+      apartment_type_names.uniq!
+      apartment_type_names.sort!
+
+      ensure_overlap_matrix_exists(apartment_type_names)
+
       dialog = UI::HtmlDialog.new(
         {
-          dialog_title: "客户重叠计算 Customer Overlap Calculator",
-          preferences_key: "com.example.customer_overlap",
-          scrollable: true,
-          resizable: true,
-          width: 800,
-          height: 600,
-          left: 100,
-          top: 100,
-          min_width: 400,
-          min_height: 400,
-          style: UI::HtmlDialog::STYLE_DIALOG
+          :dialog_title => "Advanced Sales Overlap Calculator",
+          :preferences_key => "com.example.sales_overlap_calculator",
+          :scrollable => true,
+          :resizable => true,
+          :width => 900,
+          :height => 700,
+          :left => 100,
+          :top => 100,
+          :min_width => 600,
+          :min_height => 400,
+          :max_width => 1200,
+          :max_height => 800,
+          :style => UI::HtmlDialog::STYLE_DIALOG
         }
       )
 
       html_content = <<-HTML
-   <!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <style>
-        .apartment-info {
-            margin: 7px;
-            padding: 7px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-        }
-        .apartment-name {
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .sales-info {
-            color: #666;
-        }
-        .grid-table {
-            border-collapse: collapse;
-            margin-bottom: 20px;
-            width: 100%;
-        }
-        .grid-table th, .grid-table td {
-            border: 1px solid #ccc;
-            padding: 8px 12px;
-            text-align: center;
-        }
-        .grid-table th {
-            background-color: #f4f4f4;
-        }
-        .results-section {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        #myChart {
-            height: 400px !important;
-            width: 100% !important;
-            max-width: 800px !important;
-        }
-    </style>
+        <!DOCTYPE html>
+        <html lang="en">
+          <head>
+            <meta charset="UTF-8" />
+            <link rel="stylesheet" type="text/css" href="file:///#{File.join(__dir__, 'style.css')}">
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <title>Advanced Sales Overlap Calculator</title>
+            <style>
+              body {
+                font-family: Arial, sans-serif;
+                margin: 20px;
+              }
+              h1,
+              h3 {
+                color: #333;
+              }
+              .input-section,
+              .results-section {
+                margin-bottom: 30px;
+              }
+              .grid-table {
+                border-collapse: collapse;
+                margin-bottom: 20px;
+                width: 100%;
+              }
+              .grid-table th,
+              .grid-table td {
+                border: 1px solid #ccc;
+                padding: 8px 12px;
+                text-align: center;
+              }
+              .grid-table th {
+                background-color: #f4f4f4;
+              }
+              #saveBtn, #recalcBtn {
+                padding: 10px 20px;
+                background-color: #28a745;
+                color: white;
+                border: none;
+                cursor: pointer;
+                font-size: 16px;
+                margin-right: 10px;
+              }
+              #saveBtn:hover {
+                background-color: #218838;
+              }
+              #recalcBtn {
+                background-color: #17a2b8;
+              }
+              #recalcBtn:hover {
+                background-color: #117a8b;
+              }
+              .note {
+                font-size: 14px;
+                color: #555;
+                margin-bottom: 20px;
+              }
+              .read-only {
+                background-color: #e9ecef;
+              }
+              .zero-volume {
+                color: red;
+                font-weight: bold;
+              }
+              .results-section {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+              }
+            </style>
+          </head>
+          <body>
+            <h2>产品客户重叠测算 Customer Overlap Calculator</h2>
 
-</head>
-<body>
-    <div id="apartmentContainer"></div>
-    <div class="overlap-section">
-        <h3>客户重叠矩阵 Customer Overlap Matrix</h3>
-        <p class="note">Enter overlap rates between apartment types. Values between 0 and 1.</p>
-        <table class="grid-table" id="overlapTable"></table>
-    </div>
-    <button id="calcBtn" onclick="calculateAdjustedSales()">Calculate</button>
-   <div class="results-section" id="resultsSection">
-      <h3>Results</h3>
-      <div id="salesResults"></div>
-      <canvas id="myChart"></canvas>
-  </div>
+            <div class="input-section">
+              <h3>1. 产品流速 Sales Scenarios</h3>
+              <p> 假定每个产品独立销售，不考虑项目内其他产品的分流。 </p>
+              <table class="grid-table" id="salesScenariosTable">
+                <thead>
+                  <tr>
+                    <th>户型 Apartment Type</th>
+                    <th>月流速 Volume</th>
+                    <th>单价 Price (元/平米)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <!-- Dynamic Sales Scenarios -->
+                </tbody>
+              </table>
+            </div>
 
+            <div class="input-section">
+              <h3>2. 客户重叠率估算 Overlap Rates</h3>
+              <p>
+              填写逻辑：假定没有左侧户型，左侧户型的客户中，可以接受上侧户型的比例，不小于0，不大于1。  
+              Fill in the overlap rates between apartment types. Overlaps are
+                <strong>asymmetrical</strong> (i.e., p<sub>ij</sub> can differ from p<sub>ji</sub>).
+                Rates should be between <strong>0 and 1</strong>.
+              </p>
+              <table class="grid-table" id="overlapTable">
+                <!-- Dynamic Overlap Table -->
+              </table>
+              <p class="note">
+                <em>
+                上半部分为可编辑区域，下半部分为自动计算区域。
+                  Only the upper triangle is editable. Lower triangle rates are
+                  automatically calculated based on the symmetry condition.
+                </em>
+              </p>
 
-    <script>
-    function displayApartmentData(data) {
-      // First display apartment info
-      const container = document.getElementById('apartmentContainer');
-      container.innerHTML = '';
-      console.log("Displaying apartment data:", data);
-      
-      Object.entries(data).forEach(([name, info]) => {
-          if (info.sales_scenes && info.sales_scenes.length > 0) {
-              const scene = info.sales_scenes[0];
-              const div = document.createElement('div');
-              div.className = 'apartment-info';
-              div.innerHTML = `
-                  <div class="apartment-name">${name}</div>
-                  <div class="sales-info">
-                      Price: ${scene.price} 元/㎡<br>
-                      Volume: ${scene.volumn} 套/月
-                  </div>
-              `;
-              container.appendChild(div);
-          }
-      });
-  
-      // Then handle overlap matrix
-      const types = Object.keys(data);
-      window.apartmentVolumes = {};
-      types.forEach(name => {
-          if (data[name].sales_scenes && data[name].sales_scenes.length > 0) {
-              window.apartmentVolumes[name] = data[name].sales_scenes[0].volumn;
-          }
-      });
-      createOverlapTable(types);
-  }
-  
+              <button id="saveBtn"> 保存 Save Overlap Rates</button>
+              <button id="recalcBtn"> 重新计算调整后的总量 Recalculate Adjusted Sales</button>
+            </div>
 
+            <div class="results-section" id="resultsSection" style="display: none">
+              <h3>3. 调整后的总量 Adjusted Sales Results</h3>
+              <div id="results"></div>
+            </div>
 
-function createOverlapTable(types) {
-    const table = document.getElementById('overlapTable');
-    table.innerHTML = '';
-    
-    // Create header row
-    const headerRow = document.createElement('tr');
-    headerRow.appendChild(document.createElement('th'));
-    types.forEach(type => {
-        const th = document.createElement('th');
-        th.textContent = type;
-        headerRow.appendChild(th);
-    });
-    table.appendChild(headerRow);
-    
-    // Create matrix rows
-    types.forEach((rowType, i) => {
-        const row = document.createElement('tr');
-        const header = document.createElement('th');
-        header.textContent = rowType;
-        row.appendChild(header);
-        
-        types.forEach((colType, j) => {
-            const cell = document.createElement('td');
-            if (i === j) {
-                cell.textContent = '—';
-            } else if (j > i) {
-                const input = document.createElement('input');
-                input.type = 'number';
-                input.min = '0';
-                input.max = '1';
-                input.step = '0.1';
-                input.id = `overlap_${rowType}_${colType}`;
-                input.className = 'overlap-input';
-                input.value = '0.0';
-                input.onchange = () => validateOverlap(input);
-                cell.appendChild(input);
-            } else {
-                const input = document.createElement('input');
-                input.type = 'number';
-                input.id = `overlap_${rowType}_${colType}`;
-                input.className = 'overlap-input read-only';
-                input.value = '0.0';
-                input.readOnly = true;
-                cell.appendChild(input);
-            }
-            row.appendChild(cell);
-        });
-        table.appendChild(row);
-    });
-}
+            <script>
+              let apartmentTypes = [];
+              let salesScenarios = {};
+              let overlapMatrix = {};
 
-function validateOverlap(input) {
-    let value = parseFloat(input.value) || 0;
-    value = Math.min(1, Math.max(0, value));
-    input.value = value.toFixed(2);
-    
-    const parts = input.id.split('_');
-    if (parts.length === 3) {
-        const type1 = parts[1];
-        const type2 = parts[2];
-        const params = JSON.stringify({type1: type1, type2: type2});
-        window.location = 'skp:get_apartment_volumes@' + encodeURIComponent(params);
-    }
-}
+              // Initialize the dialog with data from Ruby
+              function initializeData(apartmentTypesData, salesScenariosData, overlapMatrixData) {
+                console.log("Initializing data with:", apartmentTypesData, salesScenariosData, overlapMatrixData);
+                apartmentTypes = apartmentTypesData;
+                salesScenarios = salesScenariosData;
+                overlapMatrix = overlapMatrixData;
 
-  function enforceOverlapConstraints(type1, type2) {
-      const vol1 = window.apartmentVolumes[type1];
-      const vol2 = window.apartmentVolumes[type2];
-      const input = document.getElementById(`overlap_${type1}_${type2}`);
-      const value = parseFloat(input.value) || 0;
-      const symmetricInput = document.getElementById(`overlap_${type2}_${type1}`);
-      
-      if (symmetricInput && vol1 && vol2) {
-          const symmetric_value = (value * vol1) / vol2;
-          symmetricInput.value = Math.min(1, symmetric_value).toFixed(2);
-      }
-  }
-  function calculateAdjustedSales() {
-    const types = Array.from(document.querySelectorAll('#overlapTable th'))
-        .slice(1)
-        .map(th => th.textContent);
-    
-    if (types.length === 0) return;
-    
-    const demands = {};
-    const overlaps = {};
-    
-    // Get volumes from global object
-    types.forEach(type => {
-        demands[type] = window.apartmentVolumes[type] || 0;
-        overlaps[type] = {};
-        types.forEach(otherType => {
-            if (type !== otherType) {
-                const input = document.getElementById(`overlap_${type}_${otherType}`);
-                if (input) {
-                    overlaps[type][otherType] = parseFloat(input.value) || 0;
+                populateSalesScenariosTable();
+                createOverlapTable();
+                calculateAdjustedSales();
+              }
+
+              function populateSalesScenariosTable() {
+                const tbody = document.getElementById('salesScenariosTable').querySelector('tbody');
+                tbody.innerHTML = '';
+                apartmentTypes.forEach(type => {
+                  const tr = document.createElement('tr');
+
+                  // Apartment Type Name
+                  const tdName = document.createElement('td');
+                  tdName.textContent = type;
+                  tr.appendChild(tdName);
+
+                  // Volume
+                  const tdVolume = document.createElement('td');
+                  const volume = salesScenarios[type] && salesScenarios[type].volume ? salesScenarios[type].volume : 0;
+                  if (volume === 0) {
+                    tdVolume.innerHTML = '<span class="zero-volume">0</span>';
+                  } else {
+                    tdVolume.textContent = volume;
+                  }
+                  tr.appendChild(tdVolume);
+
+                  // Price
+                  const tdPrice = document.createElement('td');
+                  const price = salesScenarios[type] && salesScenarios[type].price ? salesScenarios[type].price : 0;
+                  tdPrice.textContent = price;
+                  tr.appendChild(tdPrice);
+
+                  tbody.appendChild(tr);
+                });
+              }
+
+              function createOverlapTable() {
+                const table = document.getElementById("overlapTable");
+                table.innerHTML = "";
+
+                // Create table header
+                const thead = document.createElement("thead");
+                const headerRow = document.createElement("tr");
+                const emptyHeader = document.createElement("th");
+                headerRow.appendChild(emptyHeader);
+
+                apartmentTypes.forEach(type => {
+                  const th = document.createElement("th");
+                  th.textContent = type;
+                  headerRow.appendChild(th);
+                });
+                thead.appendChild(headerRow);
+                table.appendChild(thead);
+
+                // Create table body
+                const tbody = document.createElement("tbody");
+                apartmentTypes.forEach((type1, i) => {
+                  const row = document.createElement("tr");
+                  const rowHeader = document.createElement("th");
+                  rowHeader.textContent = type1;
+                  row.appendChild(rowHeader);
+
+                  apartmentTypes.forEach((type2, j) => {
+                    const cell = document.createElement("td");
+                    if (i === j) {
+                      cell.textContent = "—";
+                    } else if (j < i) {
+                      // Lower triangle (read-only)
+                      const input = document.createElement("input");
+                      input.type = "number";
+                      input.id = `p_${i}_${j}`;
+                      input.min = "0";
+                      input.max = "1";
+                      input.step = "0.01";
+                      // Corrected Line: Set p_ji from overlapMatrix[type2][type1]
+                      input.value = overlapMatrix[type1] && overlapMatrix[type1][type2] ? overlapMatrix[type1][type2] : 0;
+                      input.disabled = true;
+                      input.classList.add("read-only");
+                      cell.appendChild(input);
+                    } else {
+                      // Upper triangle (editable)
+                      const input = document.createElement("input");
+                      input.type = "number";
+                      input.id = `p_${i}_${j}`;
+                      input.min = "0";
+                      input.max = "1";
+                      input.step = "0.01";
+                      input.value = overlapMatrix[type1] && overlapMatrix[type1][type2] ? overlapMatrix[type1][type2] : 0;
+
+                      input.addEventListener("input", () => {
+                        console.log(`Input changed: p_${type1}_${type2} = ${input.value}`);
+                        enforceOverlapConstraints(i, j);
+                      });
+
+                      cell.appendChild(input);
+                    }
+                    row.appendChild(cell);
+                  });
+                  tbody.appendChild(row);
+                });
+                table.appendChild(tbody);
+              }
+
+              function enforceOverlapConstraints(i, j) {
+                const type1 = apartmentTypes[i];
+                const type2 = apartmentTypes[j];
+                const p_ij_input = document.getElementById(`p_${i}_${j}`);
+                const p_ji_input = document.getElementById(`p_${j}_${i}`);
+
+                const D_i = salesScenarios[type1] && salesScenarios[type1].volume ? salesScenarios[type1].volume : 0;
+                const D_j = salesScenarios[type2] && salesScenarios[type2].volume ? salesScenarios[type2].volume : 0;
+
+                let max_p_ij = 1;
+                if (D_i !== 0) {
+                  max_p_ij = Math.min(1, D_j / D_i);
+                } else {
+                  max_p_ij = 0;
                 }
-            }
-        });
-    });
-    
-    // Calculate adjusted sales
-    const adjustedSales = {};
-    let totalSales = 0;
-    
-    types.forEach(type => {
-        let adjustment = 0;
-        types.forEach((otherType, j) => {
-            // Only consider upper triangle of overlap matrix
-            if (type !== otherType && types.indexOf(type) < j) {
-                const overlap = overlaps[type][otherType] || 0;
-                if (demands[type] + demands[otherType] > 0) {
-                    adjustment += (overlap * (demands[otherType] * demands[type])) / 
-                                (demands[type] + demands[otherType]);
+
+                if (parseFloat(p_ij_input.value) > max_p_ij) {
+                  alert(`Overlap rate p_${type1}${type2} cannot exceed ${max_p_ij.toFixed(4)} based on the demands.`);
+                  p_ij_input.value = max_p_ij.toFixed(4);
+                  console.log(`Adjusted p_${type1}_${type2} to max_p_ij: ${max_p_ij}`);
                 }
-            }
-        });
-        adjustedSales[type] = Math.max(0, demands[type] - adjustment);
-        totalSales += adjustedSales[type];
-    });
-    
-    // Update results
-    const resultsDiv = document.getElementById('salesResults');
-    const container = document.getElementById('resultsSection');
-    container.style.display = 'block';
-    
-    let html = `<strong>总调整销量 Total Adjusted Sales:</strong> ${totalSales.toFixed(2)} 套/月<br>`;
-    html += '<strong>销售分布 Sales Distribution:</strong><br>';
-    
-    Object.entries(adjustedSales).forEach(([type, sales]) => {
-        html += `- ${type}: ${sales.toFixed(2)} 套/月<br>`;
-    });
-    
-    resultsDiv.innerHTML = html;
-}
 
+                let p_ij = parseFloat(p_ij_input.value) || 0;
 
-function updateResults(totalSales, adjustedSales) {
-  const resultsDiv = document.getElementById('salesResults');
-  const container = document.getElementById('resultsSection');
-  
-  
-    container.style.display = 'block';
-    
-    let html = `<strong>总调整销量 Total Adjusted Sales:</strong> ${totalSales.toFixed(2)} 套/月<br>`;
-    html += '<strong>销售分布 Sales Distribution:</strong><br>';
-    
-    const labels = [];
-    const data = [];
-    const backgroundColors = [];
-    
-    Object.entries(adjustedSales).forEach(([type, sales], index) => {
-        html += `- ${type}: ${sales.toFixed(2)} 套/月<br>`;
-        labels.push(type);
-        data.push(sales.toFixed(2));
-        const hue = ((index * 360) / Object.keys(adjustedSales).length) % 360;
-        backgroundColors.push(`hsl(${hue}, 70%, 50%)`);
-    });
-    
-    resultsDiv.innerHTML = html;
-    updateChart(labels, data, backgroundColors);
-}
+                if (D_j !== 0) {
+                  let p_ji = (p_ij * D_i) / D_j;
+                  p_ji = Math.min(1, p_ji).toFixed(4);
+                  p_ji_input.value = p_ji;
+                  console.log(`Calculated p_${type2}_${type1} = ${p_ji}`);
 
-function updateChart(labels, data, backgroundColors) {
-    const ctx = document.getElementById('salesChart').getContext('2d');
-    
-    if (window.salesChartInstance) {
-        window.salesChartInstance.destroy();
-    }
-    
-    window.salesChartInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: '销售量 (套/月)',
-                data: data,
-                backgroundColor: backgroundColors,
-                barPercentage: 0.3,
-                categoryPercentage: 0.7
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true
+                  // **Update overlapMatrix with new values**
+                  overlapMatrix[type1][type2] = p_ij;
+                  overlapMatrix[type2][type1] = parseFloat(p_ji);
+                  console.log(`Updated overlapMatrix: ${type1}->${type2} = ${p_ij}, ${type2}->${type1} = ${p_ji}`);
+                } else {
+                  p_ji_input.value = "0.0000";
+                  console.log(`Set p_${type2}_${type1} to 0.0000 due to D_j = 0`);
+
+                  // **Update overlapMatrix with new values**
+                  overlapMatrix[type1][type2] = p_ij;
+                  overlapMatrix[type2][type1] = 0;
+                  console.log(`Updated overlapMatrix: ${type1}->${type2} = ${p_ij}, ${type2}->${type1} = 0`);
                 }
-            },
-            plugins: {
-                legend: {
-                    display: false
-                },
-                title: {
-                    display: true,
-                    text: '户型销售分布',
-                    font: { size: 16 }
-                }
-            }
-        }
-    });
-}
-window.onload = function() {
-  console.log("Window loaded, requesting apartment data...");
-  window.location = 'skp:get_apartment_data';
-}
-</script>
-</body>
-</html>
 
+                // Debug: Log the entire overlapMatrix after constraints enforcement
+                console.log("Current overlapMatrix after enforcing constraints:", JSON.stringify(overlapMatrix));
+              }
+
+              function collectOverlapMatrix() {
+                const matrix = {};
+                apartmentTypes.forEach((type1, i) => {
+                  if (!matrix[type1]) {
+                    matrix[type1] = {};
+                  }
+                  apartmentTypes.forEach((type2, j) => {
+                    if (type1 === type2) return;
+                    if (j > i) {
+                      const input = document.getElementById(`p_${i}_${j}`);
+                      const p_ij = parseFloat(input.value) || 0;
+                      matrix[type1][type2] = p_ij;
+                      console.log(`Collected p_${type1}_${type2} = ${p_ij}`);
+
+                      // Calculate p_ji based on p_ij and demands
+                      const D_i = salesScenarios[type1] && salesScenarios[type1].volume ? salesScenarios[type1].volume : 0;
+                      const D_j = salesScenarios[type2] && salesScenarios[type2].volume ? salesScenarios[type2].volume : 0;
+                      let p_ji = 0;
+                      if (D_j !== 0) {
+                        p_ji = Math.min(1, (p_ij * D_i) / D_j).toFixed(4);
+                      }
+                      if (!matrix[type2]) {
+                        matrix[type2] = {};
+                      }
+                      matrix[type2][type1] = parseFloat(p_ji);
+                      console.log(`Calculated p_${type2}_${type1} = ${p_ji}`);
+                    }
+                  });
+                });
+                console.log("Final collected overlap matrix:", JSON.stringify(matrix));
+                return matrix;
+              }
+
+              function calculateAdjustedSales() {
+                console.log("Calculating adjusted sales with overlapMatrix:", JSON.stringify(overlapMatrix));
+                const finalSales = {};
+                apartmentTypes.forEach((type, i) => {
+                  const D_i = salesScenarios[type] && salesScenarios[type].volume ? salesScenarios[type].volume : 0;
+                  let adjustment = 0;
+                  apartmentTypes.forEach((otherType, j) => {
+                    if (type === otherType) return;
+                    const D_j = salesScenarios[otherType] && salesScenarios[otherType].volume ? salesScenarios[otherType].volume : 0;
+                    const p_ij = overlapMatrix[type] && overlapMatrix[type][otherType] ? overlapMatrix[type][otherType] : 0;
+                    console.log(`Using p_ij=${p_ij} for ${type} due to ${otherType}`);
+                    if (D_i + D_j === 0) return;
+                    adjustment += (p_ij * (D_j * D_i)) / (D_i + D_j);
+                    console.log(`Adjustment for ${type} due to ${otherType}: p_ij=${p_ij}, D_i=${D_i}, D_j=${D_j}, adjustment += ${(p_ij * (D_j * D_i)) / (D_i + D_j)}`);
+                  });
+                  const sales = D_i - adjustment;
+                  finalSales[type] = sales >= 0 ? sales.toFixed(2) : 0;
+                  console.log(`Calculated final sales for ${type}: ${finalSales[type]}`);
+                });
+
+                // Calculate total adjusted sales
+                let totalSales = 0;
+                let resultsHTML = `<strong>调整后的总月销量（套/月）Total Adjusted Sales:</strong> `;
+                apartmentTypes.forEach(type => {
+                  totalSales += parseFloat(finalSales[type]);
+                });
+                resultsHTML += `${totalSales.toFixed(2)} units/month<br><strong>销量分布 Sales Distribution:</strong><br>`;
+                apartmentTypes.forEach(type => {
+                  resultsHTML += `- ${type}: ${finalSales[type]} units/month<br>`;
+                });
+
+                console.log("Adjusted Sales Results:", resultsHTML);
+                document.getElementById("results").innerHTML = resultsHTML;
+                document.getElementById("resultsSection").style.display = "block";
+              }
+
+              document.getElementById('saveBtn').addEventListener('click', function () {
+                const matrix = collectOverlapMatrix();
+                console.log("Saving overlap matrix:", JSON.stringify(matrix));
+                window.location = 'skp:save_overlap_matrix@' + encodeURIComponent(JSON.stringify(matrix));
+                overlapMatrix = matrix; // Update the overlapMatrix variable
+                calculateAdjustedSales();
+              });
+
+              document.getElementById('recalcBtn').addEventListener('click', function () {
+                console.log("Recalculating adjusted sales.");
+                calculateAdjustedSales();
+              });
+
+              window.onload = function() {
+                // Request data from Ruby
+                console.log("Dialog loaded. Requesting overlap data.");
+                window.location = 'skp:get_overlap_data';
+              }
+
+              function receiveData(apartmentTypesData, salesScenariosData, overlapMatrixData) {
+                console.log("Received data from Ruby:", apartmentTypesData, salesScenariosData, overlapMatrixData);
+                apartmentTypes = apartmentTypesData;
+                salesScenarios = salesScenariosData;
+                overlapMatrix = overlapMatrixData;
+
+                populateSalesScenariosTable();
+                createOverlapTable();
+                calculateAdjustedSales();
+              }
+
+            </script>
+          </body>
+        </html>
       HTML
 
       dialog.set_html(html_content)
 
-      dialog.add_action_callback("get_apartment_data") do |action_context|
+      # Action callback to receive data
+      dialog.add_action_callback("get_overlap_data") do |action_context|
         model = Sketchup.active_model
-        apartment_types = {}
-        
-        # Get all apartment type names - directly use the list
-        type_names = model.get_attribute('apartment_type_data', ApartmentManager::APARTMENT_TYPE_LIST_KEY, [])
-        puts "Found apartment types: #{type_names.inspect}"
-        
-        # Get data for each apartment type
-        type_names.each do |name|
-          data_json = model.get_attribute('apartment_type_data', name)
-          if data_json
-            apartment_types[name] = JSON.parse(data_json)
-            puts "Loaded data for #{name}: #{apartment_types[name].inspect}"
+        apartment_type_names = model.get_attribute('apartment_type_data', 'apartment_type_names', [])
+        apartment_type_names.uniq!
+        apartment_type_names.sort!
+
+        puts "Retrieving overlap data for apartment types: #{apartment_type_names.inspect}"
+
+        # Gather sales scenarios
+        sales_scenarios = {}
+        apartment_type_names.each do |type|
+          apartment_data_json = model.get_attribute('apartment_type_data', type, '{}')
+          apartment_data = JSON.parse(apartment_data_json) rescue {}
+          if apartment_data['sales_scenes'] && !apartment_data['sales_scenes'].empty?
+            # Sum volumes and average prices across sales_scenes
+            total_volume = 0
+            total_price = 0.0
+            count = 0
+            apartment_data['sales_scenes'].each do |scene|
+              total_volume += scene['volumn'].to_i
+              total_price += scene['price'].to_f
+              count += 1
+            end
+            average_price = count > 0 ? (total_price / count).round(2) : 0
+            sales_scenarios[type] = {
+              volume: total_volume,
+              price: average_price
+            }
+            puts "Apartment Type: #{type}, Volume: #{sales_scenarios[type][:volume]}, Price: #{sales_scenarios[type][:price]}"
+          else
+            sales_scenarios[type] = {
+              volume: 0,
+              price: 0
+            }
+            puts "Apartment Type: #{type} has no sales scenarios. Volume set to 0."
           end
         end
-      
-        dialog.execute_script("displayApartmentData(#{apartment_types.to_json})")
+
+        # Get overlap matrix
+        overlap_data = model.attribute_dictionaries[OVERLAP_DATA_DICT]
+        overlap_matrix_json = overlap_data ? overlap_data[OVERLAP_MATRIX_KEY] : ''
+        overlap_matrix = {}
+        if overlap_matrix_json && !overlap_matrix_json.empty?
+          overlap_matrix = JSON.parse(overlap_matrix_json) rescue {}
+          puts "Retrieved overlap_matrix: #{overlap_matrix.inspect}"
+        else
+          puts "No existing overlap_matrix found. Using empty matrix."
+        end
+
+        # Send data to JS
+        dialog.execute_script("initializeData(#{apartment_type_names.to_json}, #{sales_scenarios.to_json}, #{overlap_matrix.to_json})")
       end
 
-      dialog.add_action_callback("get_apartment_volumes") do |action_context, params_json|
+      # Action callback to save overlap matrix
+      dialog.add_action_callback("save_overlap_matrix") do |action_context, matrix_json|
         begin
+          matrix = JSON.parse(matrix_json)
           model = Sketchup.active_model
-          params = JSON.parse(URI.decode_www_form_component(params_json))
-          type1 = params['type1']
-          type2 = params['type2']
-          
-          data1_raw = model.get_attribute('apartment_type_data', type1)
-          data2_raw = model.get_attribute('apartment_type_data', type2)
-          
-          data1 = JSON.parse(data1_raw || '{}')
-          data2 = JSON.parse(data2_raw || '{}')
-          
-          vol1 = data1.dig('sales_scenes', 0, 'volumn') || 0
-          vol2 = data2.dig('sales_scenes', 0, 'volumn') || 0
-          
-          puts "Retrieved volumes: #{type1}=#{vol1}, #{type2}=#{vol2}"
-          
-          js_command = "enforceOverlapConstraints('#{type1}', '#{type2}');"
+          overlap_data = model.attribute_dictionaries[OVERLAP_DATA_DICT] || model.attribute_dictionaries.add(OVERLAP_DATA_DICT)
+          overlap_data[OVERLAP_MATRIX_KEY] = matrix.to_json
+          puts "Saved overlap_matrix: #{matrix.inspect}"
 
+          # Verify by retrieving it back
+          saved_matrix_json = overlap_data[OVERLAP_MATRIX_KEY]
+          saved_matrix = JSON.parse(saved_matrix_json) rescue {}
+          puts "Verified saved_overlap_matrix: #{saved_matrix.inspect}"
 
-          dialog.execute_script(js_command)
-        rescue => e
-          puts "Error in get_apartment_volumes: #{e.message}"
-          puts e.backtrace
+          UI.messagebox("客户重叠矩阵成功保存 Overlap matrix has been saved successfully.")
+        rescue JSON::ParserError => e
+          puts "Failed to parse overlap_matrix JSON: #{e.message}"
+          UI.messagebox("客户重叠矩阵保存失败 Failed to parse overlap matrix JSON.")
         end
       end
-      
-      
 
+      # Show the dialog
       dialog.show
     end
-
-
   end
 end
+

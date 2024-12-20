@@ -863,33 +863,37 @@ module Real_Estate_Optimizer
     end
 
     
-    def self.process_building(instance, cashflow)
-      # puts "Processing building instance: #{instance.definition.name}"
+    def self.process_building(instance_data, cashflow)
+      instance, transformation = instance_data if instance_data.is_a?(Array)
       
       building_data = get_building_data(instance)
       construction_init_time = instance.get_attribute('dynamic_attributes', 'construction_init_time').to_i
       sales_permit_time = instance.get_attribute('dynamic_attributes', 'sales_permit_time').to_i
-      
+    
       add_building_expenses(cashflow, building_data, construction_init_time)
       add_apartment_stock(cashflow, building_data, construction_init_time + sales_permit_time)
     end
+    
     
     def self.get_building_data(instance)
       building_def = instance.definition
       total_cost = building_def.get_attribute('building_data', 'total_cost')
       apartment_stocks = building_def.get_attribute('building_data', 'apartment_stocks')
-      
       building_type_name = building_def.name
+      
       model = Sketchup.active_model
       project_data = JSON.parse(model.get_attribute('project_data', 'data'))
       building_type = project_data['building_types'].find { |bt| bt['name'] == building_type_name }
       
+      # Return data with raw apartment_stocks (will be parsed later)
       {
         total_cost: total_cost,
         apartments: apartment_stocks,
         construction_payment_schedule: building_type['constructionPaymentSchedule']
       }
     end
+    
+    
     
     def self.add_building_expenses(cashflow, building_data, construction_init_time)
       total_cost = building_data[:total_cost]
@@ -906,35 +910,70 @@ module Real_Estate_Optimizer
     def self.add_apartment_stock(cashflow, building_data, sales_permit_time)
       return if sales_permit_time >= 72
       
-      building_data[:apartments].each do |apt_type, count|
+      # Parse the apartments data if it's a string
+      apartments = building_data[:apartments]
+      if apartments.is_a?(String)
+        apartments = JSON.parse(apartments)
+      end
+      
+      # Now process the parsed data
+      apartments.each do |apt_type, count|
         cashflow[:apartment_stock][apt_type] ||= Array.new(72, 0)
         cashflow[:apartment_stock][apt_type][sales_permit_time] += count
       end
     end
-    
     def self.calculate_sales_and_income(cashflow)
+      model = Sketchup.active_model
+      price_changes = {}
+      
       cashflow[:apartment_stock].each do |apt_type, stocks|
-        apt_data = get_apartment_data(apt_type)
-        sales_scene = apt_data['sales_scenes'].first
-        area = apt_data['area']
-        
+        # Initialize arrays explicitly
         cashflow[:apartment_sales][apt_type] = Array.new(72, 0)
+        price_changes[apt_type] = []
         
-        (0...72).each do |month|
-          current_stock = stocks[month]
-          potential_sales = [current_stock, sales_scene['volumn']].min
-          actual_sales = potential_sales # You might want to add some randomness or other factors here
+        # Get apartment data and sales scenes
+        apt_data = JSON.parse(model.get_attribute('apartment_type_data', apt_type) || '{}')
+        sales_scenes = apt_data['sales_scenes'] || []
+        next unless sales_scenes.any?
+        
+        current_stock = 0
+        last_price = nil
+        
+        # Create an explicit array for months instead of using a range
+        (0..71).to_a.each do |month|
+          # Add new stock
+          current_stock += stocks[month].to_i
+          
+          # Get current scene based on scene change month
+          current_scene = if sales_scenes.length > 1 && apt_data['scene_change_month'] && 
+                           month >= apt_data['scene_change_month']
+            sales_scenes[1]
+          else
+            sales_scenes[0]
+          end
+          
+          # Track price changes
+          current_price = current_scene['price'].to_f
+          if last_price && current_price != last_price
+            price_changes[apt_type] << month
+          end
+          last_price = current_price
+          
+          # Calculate and record sales
+          monthly_sales_volume = current_scene['volumn'].to_i
+          area = apt_data['area'].to_f
+          actual_sales = [current_stock, monthly_sales_volume].min
           
           cashflow[:apartment_sales][apt_type][month] = actual_sales
-          revenue = actual_sales * sales_scene['price'] * area
-          
-          cashflow[:income][month] += revenue
-          stocks[month] -= actual_sales
-          stocks[month + 1] += stocks[month] if month < 47
+          cashflow[:income][month] += actual_sales * current_price * area
+          current_stock -= actual_sales
         end
       end
+      
+      cashflow[:price_changes] = price_changes
+      cashflow
     end
-
+    
     def self.display_cashflow(cashflow)
       # puts "Month | Expenses | Income | Net Cash Flow | Apartment Stock | Apartment Sales"
       (0...72).each do |month|

@@ -129,8 +129,6 @@ module Real_Estate_Optimizer
         cmd_layer.status_bar_text = "Switch visibility to #{layer_names[index]} layer"
         toolbar.add_item(cmd_layer)
 
-       
-
       end
 
       # cmd_reload = UI::Command.new("Reload Plugin") {

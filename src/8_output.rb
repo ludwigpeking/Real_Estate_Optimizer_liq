@@ -24,6 +24,7 @@ module Real_Estate_Optimizer
       html_content = <<-HTML
         <!DOCTYPE html>
         <html>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.js"></script>
         <head>
           <meta charset="UTF-8">
           <title>Project Output</title>
@@ -146,6 +147,7 @@ module Real_Estate_Optimizer
           <div class="tab">
             <button class="tablinks" onclick="openTab('Summary')" id="defaultOpen">面积和户型统计 Summary</button>
             <button class="tablinks" onclick="openTab('CashflowReport')">现金流报表 Cashflow Report</button>
+            <button class="tablinks" onclick="openTab('SalesChart')">产品销售表 Sales Chart</button>
           </div>
 
           <div id="Summary" class="tabcontent">
@@ -158,32 +160,318 @@ module Real_Estate_Optimizer
             <button onclick="generateCSV()">Generate CSV Report</button>
           </div>
 
-          
+          <div id="SalesChart" class="tabcontent">
+            <div class="chart-container" style="height: 400px; position: relative;">
+              <h3>产品销售表 Sales Chart</h3>
+              <canvas id="salesChart" style="width: 100%; height: 100%;"></canvas>
+              <div id="chartLegend" style="position: absolute; top: 10px; right: 10px;"></div>
+            </div>
+            <div class="chart-container" style="height: 400px; position: relative; margin-top: 20px;">
+              <h3>现金流曲线 Cashflow Curves</h3>
+              <canvas id="cashflowChart" style="width: 100%; height: 100%;"></canvas>
+              <div id="cashflowLegend" style="position: absolute; top: 10px; right: 10px;"></div>
+            </div>
+          </div>
           <div id="CashflowReport" class="tabcontent">
             <p>Loading cashflow report...</p>
           </div>
 
           <script>
-            function openTab(tabName) {
-              var i, tabcontent, tablinks;
-              tabcontent = document.getElementsByClassName("tabcontent");
-              for (i = 0; i < tabcontent.length; i++) {
-                tabcontent[i].style.display = "none";
-              }
-              tablinks = document.getElementsByClassName("tablinks");
-              for (i = 0; i < tablinks.length; i++) {
-                tablinks[i].className = tablinks[i].className.replace(" active", "");
-              }
-              document.getElementById(tabName).style.display = "block";
-              event.currentTarget.className += " active";
+          let lastSalesData = null;
+          let lastCashflowData = null;
+          let activeTab = 'Summary';
+
+          function updateCashflowChart(data) {
+            console.log('Received cashflow data:', data);
+            lastCashflowData = data;
+            
+            if (activeTab === 'SalesChart') {
+              requestAnimationFrame(() => renderCashflowChart(data));
+            }
+          }
+
+          function renderCashflowChart(data) {
+            console.log("Starting cashflow chart render process...");
+            const canvas = document.getElementById('cashflowChart');
+            const legendDiv = document.getElementById('cashflowLegend');
+            
+            if (!canvas) {
+              console.error("Cashflow chart canvas not found!");
+              return;
+            }
+
+            // Set canvas size to parent size
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            legendDiv.innerHTML = '';
+            
+            // Calculate scales
+            const padding = 40;
+            const graphWidth = canvas.width - padding * 2;
+            const graphHeight = canvas.height - padding * 2;
+            
+            // Find max and min values for Y scale
+            const monthlyCashflow = data.monthly || Array(72).fill(0);
+            const accumulatedCashflow = data.accumulated || Array(72).fill(0);
+            
+            const allValues = [...monthlyCashflow, ...accumulatedCashflow];
+            const maxValue = Math.max(...allValues);
+            const minValue = Math.min(...allValues);
+            const valueRange = maxValue - minValue;
+            
+            // Draw axes
+            ctx.beginPath();
+            ctx.strokeStyle = '#000';
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, canvas.height - padding);
+            ctx.lineTo(canvas.width - padding, canvas.height - padding);
+            ctx.stroke();
+            
+            // Draw zero line if there are negative values
+            if (minValue < 0) {
+              const zeroY = padding + (graphHeight * (maxValue / valueRange));
+              ctx.beginPath();
+              ctx.strokeStyle = '#ccc';
+              ctx.setLineDash([5, 5]);
+              ctx.moveTo(padding, zeroY);
+              ctx.lineTo(canvas.width - padding, zeroY);
+              ctx.stroke();
+              ctx.setLineDash([]);
             }
             
-            function updatePropertyLineStats(statsHtml) {
-              console.log("Updating property line stats");
-              console.log("Received HTML length:", statsHtml.length);
-              document.getElementById('propertyLineStats').innerHTML = statsHtml;
-              console.log("Property line stats updated");
+            // Helper function to convert value to Y coordinate
+            const getY = (value) => {
+              const normalizedValue = (maxValue - value) / valueRange;
+              return padding + (graphHeight * normalizedValue);
+            };
+            
+            // Y-axis labels
+            ctx.fillStyle = '#000';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            const steps = 5;
+            for (let i = 0; i <= steps; i++) {
+              const value = minValue + (valueRange * (i / steps));
+              const y = getY(value);
+              ctx.fillText((value / 10000).toFixed(0) + '万', padding - 5, y);
+              
+              // Grid line
+              ctx.beginPath();
+              ctx.strokeStyle = '#eee';
+              ctx.moveTo(padding, y);
+              ctx.lineTo(canvas.width - padding, y);
+              ctx.stroke();
             }
+            
+            // X-axis labels (every 6 months)
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            for (let month = 0; month <= 72; month += 6) {
+              const x = padding + (graphWidth * (month / 72));
+              ctx.fillText(month.toString(), x, canvas.height - padding + 5);
+            }
+            
+            // Draw monthly cashflow line
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgb(65, 105, 225)';  // Royal Blue
+            ctx.lineWidth = 2;
+            monthlyCashflow.forEach((value, month) => {
+              const x = padding + (graphWidth * (month / 72));
+              const y = getY(value);
+              if (month === 0) ctx.moveTo(x, y);
+              else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+            
+            // Draw accumulated cashflow line
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgb(46, 139, 87)';  // Sea Green
+            ctx.lineWidth = 2;
+            accumulatedCashflow.forEach((value, month) => {
+              const x = padding + (graphWidth * (month / 72));
+              const y = getY(value);
+              if (month === 0) ctx.moveTo(x, y);
+              else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+            
+            // Add legend
+            legendDiv.innerHTML = `
+              <div style="background: rgba(255,255,255,0.8); padding: 5px;">
+                <div style="color: rgb(65, 105, 225); margin: 2px;">● 月度现金流 Monthly Cashflow</div>
+                <div style="color: rgb(46, 139, 87); margin: 2px;">● 累计现金流 Accumulated Cashflow</div>
+              </div>
+            `;
+          }
+          const originalOpenTab = openTab;
+          function openTab(tabName) {
+            var i, tabcontent, tablinks;
+            tabcontent = document.getElementsByClassName("tabcontent");
+            for (i = 0; i < tabcontent.length; i++) {
+              tabcontent[i].style.display = "none";
+            }
+            
+            document.getElementById(tabName).style.display = "block";
+            activeTab = tabName;
+            
+            // If switching to sales chart tab, re-render the chart
+            if (tabName === 'SalesChart' && lastSalesData) {
+              console.log("Sales chart tab opened, re-rendering with stored data");
+              requestAnimationFrame(() => renderSalesChart(lastSalesData));
+            }
+          }
+
+          function renderSalesChart(salesData) {
+            console.log("Starting chart render process...");
+            const canvas = document.getElementById('salesChart');
+            const chartContainer = document.getElementById('SalesChart');
+            const legendDiv = document.getElementById('chartLegend');
+            
+            if (!canvas || chartContainer.style.display === 'none') {
+              console.log("Chart container is hidden or not found, skipping render");
+              return;
+            }
+          
+            console.log("Raw sales data:", salesData);
+            
+            if (!salesData || !salesData.apartmentSales || !salesData.metadata) {
+              console.error("Invalid sales data structure:", salesData);
+              return;
+            }
+            
+            // Set canvas size to parent size
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Clear previous content
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            legendDiv.innerHTML = '';
+            
+            // Calculate scales
+            const padding = 40;
+            const graphWidth = canvas.width - padding * 2;
+            const graphHeight = canvas.height - padding * 2;
+            
+            // Find max value for Y scale
+            let maxSales = 0;
+            Object.entries(salesData.apartmentSales).forEach(([type, data]) => {
+              if (Array.isArray(data)) {
+                const max = Math.max(...data.map(v => v || 0));
+                if (max > maxSales) maxSales = max;
+              }
+            });
+            
+            // Draw axes
+            ctx.beginPath();
+            ctx.strokeStyle = '#000';
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, canvas.height - padding);
+            ctx.lineTo(canvas.width - padding, canvas.height - padding);
+            ctx.stroke();
+            
+            // Draw grid and labels
+            ctx.fillStyle = '#000';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
+            
+            // Y-axis labels
+            for (let i = 0; i <= 5; i++) {
+              const y = padding + (graphHeight - graphHeight * (i / 5));
+              const value = Math.round(maxSales * (i / 5));
+              ctx.fillText(value.toLocaleString(), padding - 5, y);
+              
+              ctx.beginPath();
+              ctx.strokeStyle = '#eee';
+              ctx.moveTo(padding, y);
+              ctx.lineTo(canvas.width - padding, y);
+              ctx.stroke();
+            }
+            
+            // X-axis labels (every 6 months)
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            for (let month = 0; month <= 72; month += 6) {
+              const x = padding + (graphWidth * (month / 72));
+              ctx.fillText(month.toString(), x, canvas.height - padding + 5);
+            }
+            
+            // Draw data lines
+            let legendHTML = '<div style="background: rgba(255,255,255,0.8); padding: 5px;">';
+            Object.entries(salesData.apartmentSales).forEach(([type, data], index) => {
+              if (!Array.isArray(data) || !salesData.metadata[type]) {
+                console.log(`Skipping invalid data for ${type}`);
+                return;
+              }
+              
+              const metadata = salesData.metadata[type];
+              const typeNumber = metadata.number;
+              
+              if (!typeNumber) {
+                console.log(`Skipping type ${type} - no valid number in metadata`);
+                return;
+              }
+              
+              // Calculate color based on apartment size number
+              const hue = ((typeNumber - 50) * 2) % 360;
+              const color = `hsl(${hue}, 70%, 50%)`;
+              
+              ctx.beginPath();
+              ctx.strokeStyle = color;
+              ctx.lineWidth = 2;
+              
+              let hasDrawnPoint = false;
+              data.forEach((value, month) => {
+                const x = padding + (graphWidth * (month / 72));
+                const y = canvas.height - padding - (graphHeight * ((value || 0) / maxSales));
+                
+                if (!hasDrawnPoint) {
+                  ctx.moveTo(x, y);
+                  hasDrawnPoint = true;
+                } else {
+                  ctx.lineTo(x, y);
+                }
+                
+                // Draw price change points
+                if (salesData.priceChanges[type] && 
+                    Array.isArray(salesData.priceChanges[type]) && 
+                    salesData.priceChanges[type].includes(month)) {
+                  ctx.save();
+                  ctx.beginPath();
+                  ctx.arc(x, y, 4, 0, Math.PI * 2);
+                  ctx.fillStyle = color;
+                  ctx.fill();
+                  ctx.restore();
+                }
+              });
+              ctx.stroke();
+              
+              // Add to legend with the full original name
+              legendHTML += `<div style="color: ${color}; margin: 2px;">● ${metadata.originalName}</div>`;
+            });
+            legendHTML += '</div>';
+            legendDiv.innerHTML = legendHTML;
+          }
+          function updateSalesChart(data) {
+            console.log('Received sales data:', data);
+            lastSalesData = data;  // Store the data
+            
+            // Only render if we're on the SalesChart tab
+            if (activeTab === 'SalesChart') {
+              requestAnimationFrame(() => renderSalesChart(data));
+            }
+          }
+            
+          function updatePropertyLineStats(statsHtml) {
+            console.log("Updating property line stats");
+            console.log("Received HTML length:", statsHtml.length);
+            document.getElementById('propertyLineStats').innerHTML = statsHtml;
+            console.log("Property line stats updated");
+          }
 
             function generateCSV() {
               window.location = 'skp:generate_csv';
@@ -207,10 +495,14 @@ module Real_Estate_Optimizer
             function updateTotalSellableValue(value) {
               document.getElementById('totalSellableValue').textContent = value;
             }
-            // Open the Summary tab by default
-            document.getElementById("defaultOpen").click();
-            // Signal that the page is loaded
-            window.location = 'skp:on_page_load';
+          
+            // Initialize when the page loads
+            document.addEventListener('DOMContentLoaded', function() {
+              // Open the Summary tab by default
+              document.getElementById("defaultOpen").click();
+              // Signal that the page is loaded
+              window.location = 'skp:on_page_load';
+            });
           </script>
         </body>
         </html>
@@ -230,43 +522,95 @@ module Real_Estate_Optimizer
 
       dialog.show
     end
-
     def self.update_output_data(dialog)
+      # Update total areas
       total_area = calculate_total_construction_area
       total_sellable_area = calculate_total_sellable_construction_area
       dialog.execute_script("updateTotalArea('#{total_area.round}', '#{total_sellable_area.round}')")
-    
+      
+      # Update total sellable value
       total_sellable_value = calculate_total_sellable_value
       dialog.execute_script("updateTotalSellableValue('#{total_sellable_value.round}')")
-    
-
       
+      # Update property line stats
       property_line_stats = generate_property_line_stats
-      # puts "Generated property line stats (first 500 characters):"
-      # puts property_line_stats[0..499]
-    
-      # Use JSON encoding to properly escape the HTML string
       json_encoded_stats = property_line_stats.to_json
-      # puts "JSON encoded stats (first 500 characters):"
-      # puts json_encoded_stats[0..499]
-    
       update_script = "console.log('Updating property line stats...'); updatePropertyLineStats(#{json_encoded_stats}); console.log('Update complete');"
-      # puts "Executing script:"
-      # puts update_script
-    
       dialog.execute_script(update_script)
-    
+      
       begin
+        # Generate cashflow report
         cashflow_html = CashFlowCalculator.generate_html_report
         json_encoded_cashflow = cashflow_html.to_json
         dialog.execute_script("updateCashflowReport(#{json_encoded_cashflow});")
+        
+        # Prepare sales chart data
+        cashflow_data = CashFlowCalculator.calculate_sales_income
+        
+        # Format sales data for the chart
+        sales_data = {
+          apartmentSales: {},
+          priceChanges: {},
+          metadata: {}
+        }
+        
+        # Process income table to get sales data
+        cashflow_data[:income_table].each do |apt_type, monthly_values|
+          type_number = extract_number_from_type(apt_type)
+          next unless type_number
+          
+          sales_data[:apartmentSales][apt_type] = Array.new(72, 0)
+          sales_data[:priceChanges][apt_type] = []
+          sales_data[:metadata][apt_type] = {
+            number: type_number,
+            originalName: apt_type
+          }
+          
+          model = Sketchup.active_model
+          apt_data = JSON.parse(model.get_attribute('apartment_type_data', apt_type) || '{}')
+          sales_scenes = apt_data['sales_scenes'] || []
+          
+          if sales_scenes.length > 1 && apt_data['scene_change_month']
+            sales_data[:priceChanges][apt_type] << apt_data['scene_change_month']
+          end
+          
+          monthly_values.each_with_index do |income, month|
+            scene_index = if apt_data['scene_change_month'] && month >= apt_data['scene_change_month']
+                           1
+                         else
+                           0
+                         end
+            
+            scene = sales_scenes[scene_index] if sales_scenes.any?
+            
+            if scene && scene['price'].to_f > 0 && apt_data['area'].to_f > 0
+              sales_volume = income / (scene['price'].to_f * apt_data['area'].to_f)
+              sales_data[:apartmentSales][apt_type][month] = sales_volume
+            end
+          end
+        end
+    
+        # Get cashflow data
+        full_cashflow = CashFlowCalculator.calculate_and_print_full_cashflow_table
+        cashflow_chart_data = {
+          monthly: full_cashflow[:monthly_cashflow],
+          accumulated: full_cashflow[:accumulated_cashflow]
+        }
+        
+        # Update both charts in a single script execution
+        script = <<-JS
+          updateSalesChart(#{sales_data.to_json});
+          updateCashflowChart(#{cashflow_chart_data.to_json});
+        JS
+        
+        dialog.execute_script(script)
+        
       rescue => e
-        puts "Error generating cashflow report: #{e.message}"
+        puts "Error preparing chart data: #{e.message}"
         puts e.backtrace
-        dialog.execute_script("document.getElementById('CashflowReport').innerHTML = 'Error generating cashflow report. Check Ruby Console for details.';")
       end
     end
-
+    
     def self.calculate_total_construction_area
       model = Sketchup.active_model
       total_area = 0
@@ -578,6 +922,12 @@ module Real_Estate_Optimizer
       end
       
       table += "</table>"
+    end
+
+    def self.extract_number_from_type(apt_type)
+      # Extract all numbers from the type string and take the first one
+      matches = apt_type.scan(/\d+/)
+      matches.first ? matches.first.to_i : nil
     end
     
     def self.get_apartment_data(apt_type)

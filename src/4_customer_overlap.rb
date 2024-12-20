@@ -100,6 +100,7 @@ module Real_Estate_Optimizer
         <html lang="en">
           <head>
             <meta charset="UTF-8" />
+            <link rel="stylesheet" type="text/css" href="file:///#{File.join(__dir__, 'style.css')}">
             <meta name="viewport" content="width=device-width, initial-scale=1" />
             <title>Advanced Sales Overlap Calculator</title>
             <style>
@@ -108,7 +109,7 @@ module Real_Estate_Optimizer
                 margin: 20px;
               }
               h1,
-              h2 {
+              h3 {
                 color: #333;
               }
               .input-section,
@@ -167,10 +168,10 @@ module Real_Estate_Optimizer
             </style>
           </head>
           <body>
-            <h1>产品客户重叠测算 Customer Overlap Calculator</h1>
+            <h2>产品客户重叠测算 Customer Overlap Calculator</h2>
 
             <div class="input-section">
-              <h2>1. 产品流速 Sales Scenarios</h2>
+              <h3>1. 产品流速 Sales Scenarios</h3>
               <p> 假定每个产品独立销售，不考虑项目内其他产品的分流。 </p>
               <table class="grid-table" id="salesScenariosTable">
                 <thead>
@@ -187,7 +188,7 @@ module Real_Estate_Optimizer
             </div>
 
             <div class="input-section">
-              <h2>2. 客户重叠率估算 Overlap Rates</h2>
+              <h3>2. 客户重叠率估算 Overlap Rates</h3>
               <p>
               填写逻辑：假定没有左侧户型，左侧户型的客户中，可以接受上侧户型的比例，不小于0，不大于1。  
               Fill in the overlap rates between apartment types. Overlaps are
@@ -210,7 +211,7 @@ module Real_Estate_Optimizer
             </div>
 
             <div class="results-section" id="resultsSection" style="display: none">
-              <h2>3. 调整后的总量 Adjusted Sales Results</h2>
+              <h3>3. 调整后的总量 Adjusted Sales Results</h3>
               <div id="results"></div>
             </div>
 
