@@ -199,7 +199,7 @@ module Real_Estate_Optimizer
               console.error("Cashflow chart canvas not found!");
               return;
             }
-
+          
             // Set canvas size to parent size
             canvas.width = canvas.parentElement.clientWidth;
             canvas.height = canvas.parentElement.clientHeight;
@@ -208,39 +208,31 @@ module Real_Estate_Optimizer
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             legendDiv.innerHTML = '';
             
-            // Calculate scales
-            const padding = 40;
+            const padding = 60;
             const graphWidth = canvas.width - padding * 2;
             const graphHeight = canvas.height - padding * 2;
             
             // Find max and min values for Y scale
             const monthlyCashflow = data.monthly || Array(72).fill(0);
             const accumulatedCashflow = data.accumulated || Array(72).fill(0);
-            
             const allValues = [...monthlyCashflow, ...accumulatedCashflow];
-            const maxValue = Math.max(...allValues);
-            const minValue = Math.min(...allValues);
-            const valueRange = maxValue - minValue;
+            let maxValue = Math.max(...allValues);
+            let minValue = Math.min(...allValues);
             
-            // Draw axes
-            ctx.beginPath();
-            ctx.strokeStyle = '#000';
-            ctx.moveTo(padding, padding);
-            ctx.lineTo(padding, canvas.height - padding);
-            ctx.lineTo(canvas.width - padding, canvas.height - padding);
-            ctx.stroke();
+            // Convert to 亿 and round to next whole number
+            maxValue = Math.ceil(maxValue / 100000000) * 100000000;
+            minValue = Math.floor(minValue / 100000000) * 100000000;
             
-            // Draw zero line if there are negative values
-            if (minValue < 0) {
-              const zeroY = padding + (graphHeight * (maxValue / valueRange));
-              ctx.beginPath();
-              ctx.strokeStyle = '#ccc';
-              ctx.setLineDash([5, 5]);
-              ctx.moveTo(padding, zeroY);
-              ctx.lineTo(canvas.width - padding, zeroY);
-              ctx.stroke();
-              ctx.setLineDash([]);
+            // Create evenly spaced grid lines in 亿 increments
+            const interval = 100000000; // 1亿
+            const gridValues = [];
+            let currentValue = Math.floor(minValue / interval) * interval;
+            while (currentValue <= maxValue) {
+              gridValues.push(currentValue);
+              currentValue += interval;
             }
+            
+            const valueRange = maxValue - minValue;
             
             // Helper function to convert value to Y coordinate
             const getY = (value) => {
@@ -248,23 +240,32 @@ module Real_Estate_Optimizer
               return padding + (graphHeight * normalizedValue);
             };
             
-            // Y-axis labels
-            ctx.fillStyle = '#000';
+            // Draw Y-axis
+            ctx.beginPath();
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, canvas.height - padding);
+            ctx.stroke();
+            
+            // Draw horizontal grid lines and labels
             ctx.textAlign = 'right';
             ctx.textBaseline = 'middle';
-            const steps = 5;
-            for (let i = 0; i <= steps; i++) {
-              const value = minValue + (valueRange * (i / steps));
+            gridValues.forEach(value => {
               const y = getY(value);
-              ctx.fillText((value / 10000).toFixed(0) + '万', padding - 5, y);
               
               // Grid line
               ctx.beginPath();
-              ctx.strokeStyle = '#eee';
+              ctx.strokeStyle = value === 0 ? '#000' : '#eee';
+              ctx.lineWidth = value === 0 ? 1 : 0.5;
               ctx.moveTo(padding, y);
               ctx.lineTo(canvas.width - padding, y);
               ctx.stroke();
-            }
+              
+              // Label (in 亿 units)
+              ctx.fillStyle = '#000';
+              ctx.fillText(value / 100000000 + '亿', padding - 5, y);
+            });
             
             // X-axis labels (every 6 months)
             ctx.textAlign = 'center';
@@ -306,7 +307,8 @@ module Real_Estate_Optimizer
               </div>
             `;
           }
-          const originalOpenTab = openTab;
+          
+          // Simplified openTab function
           function openTab(tabName) {
             var i, tabcontent, tablinks;
             tabcontent = document.getElementsByClassName("tabcontent");
@@ -317,10 +319,13 @@ module Real_Estate_Optimizer
             document.getElementById(tabName).style.display = "block";
             activeTab = tabName;
             
-            // If switching to sales chart tab, re-render the chart
-            if (tabName === 'SalesChart' && lastSalesData) {
-              console.log("Sales chart tab opened, re-rendering with stored data");
-              requestAnimationFrame(() => renderSalesChart(lastSalesData));
+            if (tabName === 'SalesChart') {
+              if (lastSalesData) {
+                requestAnimationFrame(() => renderSalesChart(lastSalesData));
+              }
+              if (lastCashflowData) {
+                requestAnimationFrame(() => renderCashflowChart(lastCashflowData));
+              }
             }
           }
 
