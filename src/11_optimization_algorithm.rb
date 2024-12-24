@@ -16,7 +16,7 @@ module Real_Estate_Optimizer
       
       puts "\n=== Starting Optimization ==="
       puts "Number of buildings: #{buildings.length}"
-
+    
       # Phase 1: Group buildings and cache evaluations
       building_groups = group_identical_buildings(buildings)
       @evaluation_cache = {}  # Cache for fitness evaluations
@@ -30,16 +30,20 @@ module Real_Estate_Optimizer
       if final_assignments
         update_model_with_solution(final_assignments)
         
-        # Calculate final NPV with proper monthly rate
-        final_cashflow = CashFlowCalculator.calculate_and_print_full_cashflow_table
-        annual_discount_rate = settings['discount_rate']
-        monthly_discount_rate = (1 + annual_discount_rate)**(1.0/12) - 1
-        final_npv = CashFlowCalculator.npv(final_cashflow[:monthly_cashflow], monthly_discount_rate)
+        # Calculate final fitness using the same method used during optimization
+        final_fitness = CashFlowCalculator.calculate_fitness_only(
+          best_solution.get_absolute_times,
+          best_solution.scene_switches,
+          settings
+        )
         
         puts "\nFinal Results:"
-        puts "Optimization Fitness Score (scaled): #{best_solution.fitness.round(4)}"
-        puts "Raw NPV: #{(best_solution.fitness * 1_000_000).round(2)} yuan"
-        puts "Final NPV after applying solution: #{final_npv.round(2)} yuan"
+        puts "Optimization Fitness Score: #{final_fitness.round(4)}"
+        if settings['optimization_method'] == 'npv'
+          puts "NPV: #{final_fitness.round(2)} yuan"
+        else
+          puts "Combined IRR/MOIC Score: #{final_fitness.round(4)}"
+        end
         puts "=== Optimization Complete ==="
       end
       
@@ -517,6 +521,7 @@ module Real_Estate_Optimizer
       end
     end
 
+    
     def self.evaluate_type_schedule(schedule, scene_switches, building_groups, settings)
       return -Float::INFINITY unless verify_schedule(schedule, building_groups, settings)
       
@@ -526,38 +531,22 @@ module Real_Estate_Optimizer
       original_states = store_building_states(building_groups)
       
       begin
-        # Apply construction times
+        # Apply construction times to building instances
         schedule.each do |type, times|
           instances = building_groups[type]
           times.each_with_index do |time, i|
             instances[i][0].set_attribute('dynamic_attributes', 'construction_init_time', time)
           end
         end
-
-        # Calculate fitness
-        cashflow_data = CashFlowCalculator.calculate_and_print_full_cashflow_table
-        return -Float::INFINITY unless cashflow_data
+    
+        # Calculate fitness without UI updates
+        fitness = CashFlowCalculator.calculate_fitness_only(schedule, scene_switches, settings)
         
-        fitness = if settings['optimization_method'] == 'npv'
-          monthly_cashflow = cashflow_data[:monthly_cashflow]
-          annual_discount_rate = settings['discount_rate']
-          monthly_discount_rate = (1 + annual_discount_rate)**(1.0/12) - 1
-          CashFlowCalculator.npv(monthly_cashflow, monthly_discount_rate)
-        else
-          monthly_cashflow = CashFlowCalculator.calculate_monthly_cashflow(cashflow_data)
-          key_indicators = CashFlowCalculator.calculate_key_indicators(monthly_cashflow)
-          irr = key_indicators[:yearly_irr] || -100
-          moic = key_indicators[:moic] || 0
-          scaled_irr = irr/100
-          scaled_moic = moic
-          (settings['irr_weight'] * scaled_irr + settings['moic_weight'] * scaled_moic)
-        end
-
         @evaluation_cache[cache_key] = fitness || -Float::INFINITY
         fitness || -Float::INFINITY
       ensure
         restore_building_states(original_states)
       end
-end
+    end
   end
 end

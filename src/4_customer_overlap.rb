@@ -490,28 +490,20 @@ module Real_Estate_Optimizer
         apartment_type_names = model.get_attribute('apartment_type_data', 'apartment_type_names', [])
         apartment_type_names.uniq!
         apartment_type_names.sort!
-
+      
         puts "Retrieving overlap data for apartment types: #{apartment_type_names.inspect}"
-
+      
         # Gather sales scenarios
         sales_scenarios = {}
         apartment_type_names.each do |type|
           apartment_data_json = model.get_attribute('apartment_type_data', type, '{}')
           apartment_data = JSON.parse(apartment_data_json) rescue {}
           if apartment_data['sales_scenes'] && !apartment_data['sales_scenes'].empty?
-            # Sum volumes and average prices across sales_scenes
-            total_volume = 0
-            total_price = 0.0
-            count = 0
-            apartment_data['sales_scenes'].each do |scene|
-              total_volume += scene['volumn'].to_i
-              total_price += scene['price'].to_f
-              count += 1
-            end
-            average_price = count > 0 ? (total_price / count).round(2) : 0
+            # Use only the first sales scene
+            first_scene = apartment_data['sales_scenes'].first
             sales_scenarios[type] = {
-              volume: total_volume,
-              price: average_price
+              volume: first_scene['volumn'].to_i,
+              price: first_scene['price'].to_f
             }
             puts "Apartment Type: #{type}, Volume: #{sales_scenarios[type][:volume]}, Price: #{sales_scenarios[type][:price]}"
           else
@@ -519,11 +511,11 @@ module Real_Estate_Optimizer
               volume: 0,
               price: 0
             }
-            puts "Apartment Type: #{type} has no sales scenarios. Volume set to 0."
+            puts "Apartment Type: #{type} has no sales scenarios. Volume and Price set to 0."
           end
         end
-
-        # Get overlap matrix
+      
+        # Rest of the code remains the same...
         overlap_data = model.attribute_dictionaries[OVERLAP_DATA_DICT]
         overlap_matrix_json = overlap_data ? overlap_data[OVERLAP_MATRIX_KEY] : ''
         overlap_matrix = {}
@@ -533,11 +525,11 @@ module Real_Estate_Optimizer
         else
           puts "No existing overlap_matrix found. Using empty matrix."
         end
-
+      
         # Send data to JS
         dialog.execute_script("initializeData(#{apartment_type_names.to_json}, #{sales_scenarios.to_json}, #{overlap_matrix.to_json})")
       end
-
+      
       # Action callback to save overlap matrix
       dialog.add_action_callback("save_overlap_matrix") do |action_context, matrix_json|
         begin

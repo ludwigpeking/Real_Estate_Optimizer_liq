@@ -24,7 +24,6 @@ module Real_Estate_Optimizer
       html_content = <<-HTML
         <!DOCTYPE html>
         <html>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.js"></script>
         <head>
           <meta charset="UTF-8">
           <title>Project Output</title>
@@ -140,7 +139,33 @@ module Real_Estate_Optimizer
           button:hover {
             background: #f5f5f5;
           }
-          </style>
+
+          .chart-container {
+            width: 800px;
+            height: 400px;
+            margin: 20px auto;
+            position: relative;
+          }
+
+          canvas#salesChart,
+          canvas#cashflowChart {
+            display: block;
+          }
+          .download-button {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin: 5px;
+          }
+
+          .download-button:hover {
+            background-color: #45a049;
+          }
+        </style>
         </head>
         <body>
           <button class="refresh-button" onclick="refreshData()">刷新 Refresh</button>
@@ -166,10 +191,20 @@ module Real_Estate_Optimizer
               <canvas id="salesChart" style="width: 100%; height: 100%;"></canvas>
               <div id="chartLegend" style="position: absolute; top: 10px; right: 10px;"></div>
             </div>
+            <div style="text-align: center; margin: 10px;">
+              <button onclick="downloadCanvas('salesChart', '销售曲线')" class="download-button">
+                保存销售曲线图 Save Sales Chart
+              </button>
+            </div>
             <div class="chart-container" style="height: 400px; position: relative; margin-top: 20px;">
               <h3>现金流曲线 Cashflow Curves</h3>
               <canvas id="cashflowChart" style="width: 100%; height: 100%;"></canvas>
               <div id="cashflowLegend" style="position: absolute; top: 10px; right: 10px;"></div>
+            </div>
+            <div style="text-align: center; margin: 10px;">
+              <button onclick="downloadCanvas('cashflowChart', '现金流曲线')" class="download-button">
+                保存现金流图 Save Cashflow Chart
+              </button>
             </div>
           </div>
           <div id="CashflowReport" class="tabcontent">
@@ -200,14 +235,15 @@ module Real_Estate_Optimizer
               return;
             }
           
-            // Set canvas size to parent size
-            canvas.width = canvas.parentElement.clientWidth;
-            canvas.height = canvas.parentElement.clientHeight;
+            // Set fixed canvas dimensions
+            canvas.width = 800;
+            canvas.height = 400;
             
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             legendDiv.innerHTML = '';
             
+            // Rest of the chart rendering logic with fixed dimensions
             const padding = 60;
             const graphWidth = canvas.width - padding * 2;
             const graphHeight = canvas.height - padding * 2;
@@ -277,7 +313,7 @@ module Real_Estate_Optimizer
             
             // Draw monthly cashflow line
             ctx.beginPath();
-            ctx.strokeStyle = 'rgb(65, 105, 225)';  // Royal Blue
+            ctx.strokeStyle = 'rgb(50, 50, 255)';  
             ctx.lineWidth = 2;
             monthlyCashflow.forEach((value, month) => {
               const x = padding + (graphWidth * (month / 72));
@@ -289,7 +325,7 @@ module Real_Estate_Optimizer
             
             // Draw accumulated cashflow line
             ctx.beginPath();
-            ctx.strokeStyle = 'rgb(46, 139, 87)';  // Sea Green
+            ctx.strokeStyle = 'rgb(255, 50, 50)';  
             ctx.lineWidth = 2;
             accumulatedCashflow.forEach((value, month) => {
               const x = padding + (graphWidth * (month / 72));
@@ -302,8 +338,8 @@ module Real_Estate_Optimizer
             // Add legend
             legendDiv.innerHTML = `
               <div style="background: rgba(255,255,255,0.8); padding: 5px;">
-                <div style="color: rgb(65, 105, 225); margin: 2px;">● 月度现金流 Monthly Cashflow</div>
-                <div style="color: rgb(46, 139, 87); margin: 2px;">● 累计现金流 Accumulated Cashflow</div>
+                <div style="color: rgb(50, 50, 255); margin: 2px;">● 月度现金流 Monthly Cashflow</div>
+                <div style="color: rgb(255, 50, 50); margin: 2px;">● 累计现金流 Accumulated Cashflow</div>
               </div>
             `;
           }
@@ -339,7 +375,6 @@ module Real_Estate_Optimizer
               console.log("Chart container is hidden or not found, skipping render");
               return;
             }
-          
             console.log("Raw sales data:", salesData);
             
             if (!salesData || !salesData.apartmentSales || !salesData.metadata) {
@@ -347,13 +382,11 @@ module Real_Estate_Optimizer
               return;
             }
             
-            // Set canvas size to parent size
-            canvas.width = canvas.parentElement.clientWidth;
-            canvas.height = canvas.parentElement.clientHeight;
+            // Set fixed canvas dimensions
+            canvas.width = 800;
+            canvas.height = 400;
             
             const ctx = canvas.getContext('2d');
-            
-            // Clear previous content
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             legendDiv.innerHTML = '';
             
@@ -493,6 +526,110 @@ module Real_Estate_Optimizer
                 console.error("Error updating cashflow report:", error);
               }
             }
+            function downloadCanvas(canvasId, fileName) {
+              const canvas = document.getElementById(canvasId);
+              if (!canvas) {
+                console.error('Canvas not found');
+                return;
+              }
+            
+              try {
+                // Create a new canvas for the complete image
+                const exportCanvas = document.createElement('canvas');
+                exportCanvas.width = canvas.width;
+                exportCanvas.height = canvas.height;
+                const ctx = exportCanvas.getContext('2d');
+            
+                // Fill white background
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+            
+                // Draw the original canvas content
+                ctx.drawImage(canvas, 0, 0);
+            
+                // Get the chart container
+                const container = canvas.closest('.chart-container');
+                if (!container) {
+                  console.error('Chart container not found');
+                  return;
+                }
+            
+                // Find the header and legend
+                const header = container.querySelector('h3');
+                const legendDiv = canvasId === 'salesChart' ? 
+                  document.getElementById('chartLegend') : 
+                  document.getElementById('cashflowLegend');
+            
+                // Save context state
+                ctx.save();
+            
+                // Draw header
+                if (header) {
+                  ctx.font = '13px Arial';
+                  ctx.fillStyle = 'black';
+                  ctx.textAlign = 'left';
+                  ctx.textBaseline = 'top';
+                  ctx.fillText(header.textContent, 20, 10);
+                }
+            
+                // Draw legend
+                if (legendDiv) {
+                  const legendContent = legendDiv.querySelector('div');
+                  if (legendContent) {
+                    ctx.font = '12px Arial';
+                    const legendItems = legendContent.children;
+                    let yOffset = 30;
+            
+                    Array.from(legendItems).forEach((item) => {
+                      // Extract color and text
+                      const color = item.style.color;
+                      const text = item.textContent.replace('●', '').trim();
+                      
+                      // Draw colored dot
+                      ctx.fillStyle = color;
+                      ctx.beginPath();
+                      ctx.arc(canvas.width - 150, yOffset + 4, 4, 0, Math.PI * 2);
+                      ctx.fill();
+                      
+                      // Draw text
+                      ctx.fillStyle = 'black';
+                      ctx.textAlign = 'left';
+                      ctx.fillText(text, canvas.width - 140, yOffset);
+                      
+                      yOffset += 20;
+                    });
+                  }
+                }
+            
+                // Restore context state
+                ctx.restore();
+            
+                // Convert to blob and trigger download
+                exportCanvas.toBlob(function(blob) {
+                  const url = URL.createObjectURL(blob);
+                  const downloadLink = document.createElement('a');
+                  downloadLink.download = `${fileName}_${formatDate(new Date())}.png`;
+                  downloadLink.href = url;
+                  document.body.appendChild(downloadLink);
+                  downloadLink.click();
+                  document.body.removeChild(downloadLink);
+                  URL.revokeObjectURL(url);
+                }, 'image/png');
+            
+              } catch (error) {
+                console.error('Error saving canvas:', error);
+              }
+            }
+
+            function formatDate(date) {
+              const year = date.getFullYear();
+              const month = String(date.getMonth() + 1).padStart(2, '0');
+              const day = String(date.getDate()).padStart(2, '0');
+              const hours = String(date.getHours()).padStart(2, '0');
+              const minutes = String(date.getMinutes()).padStart(2, '0');
+              
+              return `${year}${month}${day}_${hours}${minutes}`;
+            }
             function refreshData() {
               console.log("Refreshing data...");
               window.location = 'skp:refresh_data';
@@ -528,7 +665,7 @@ module Real_Estate_Optimizer
       dialog.show
     end
     def self.update_output_data(dialog)
-      # Update total areas
+      # Update total areas first
       total_area = calculate_total_construction_area
       total_sellable_area = calculate_total_sellable_construction_area
       dialog.execute_script("updateTotalArea('#{total_area.round}', '#{total_sellable_area.round}')")
@@ -544,15 +681,20 @@ module Real_Estate_Optimizer
       dialog.execute_script(update_script)
       
       begin
-        # Generate cashflow report
-        cashflow_html = CashFlowCalculator.generate_html_report
+        # Calculate cashflow data once and reuse
+        puts "Starting cashflow calculations..."
+        
+        # Calculate everything once and store the results
+        cashflow_data = CashFlowCalculator.calculate_sales_income
+        full_cashflow = CashFlowCalculator.calculate_and_print_full_cashflow_table(cashflow_data)
+        monthly_cashflow = CashFlowCalculator.calculate_monthly_cashflow(full_cashflow)
+        
+        # Generate HTML report using the calculated data
+        cashflow_html = CashFlowCalculator.generate_html_report(full_cashflow)
         json_encoded_cashflow = cashflow_html.to_json
         dialog.execute_script("updateCashflowReport(#{json_encoded_cashflow});")
         
-        # Prepare sales chart data
-        cashflow_data = CashFlowCalculator.calculate_sales_income
-        
-        # Format sales data for the chart
+        # Format sales data for the chart using the already calculated data
         sales_data = {
           apartmentSales: {},
           priceChanges: {},
@@ -595,8 +737,7 @@ module Real_Estate_Optimizer
           end
         end
     
-        # Get cashflow data
-        full_cashflow = CashFlowCalculator.calculate_and_print_full_cashflow_table
+        # Prepare chart data using the already calculated full_cashflow
         cashflow_chart_data = {
           monthly: full_cashflow[:monthly_cashflow],
           accumulated: full_cashflow[:accumulated_cashflow]
@@ -609,6 +750,7 @@ module Real_Estate_Optimizer
         JS
         
         dialog.execute_script(script)
+        puts "Cashflow calculations and updates completed."
         
       rescue => e
         puts "Error preparing chart data: #{e.message}"

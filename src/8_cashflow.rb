@@ -30,7 +30,7 @@ module Real_Estate_Optimizer
       project_data = JSON.parse(model.get_attribute('project_data', 'data') || '{}')
       land_cost_payment_schedule = project_data['inputs'] && project_data['inputs']['land_cost_payment'] || []
       
-      # puts "Land Cost Payment Schedule: #{land_cost_payment_schedule.inspect}"
+      # # puts "Land Cost Payment Schedule: #{land_cost_payment_schedule.inspect}"
       land_cost_payment_schedule
     end
 
@@ -44,9 +44,9 @@ module Real_Estate_Optimizer
       # Calculate payments
       payments = payment_schedule.map { |percentage| land_cost * percentage }
       
-      # puts "Land Cost: #{land_cost}"
-      # puts "Payment Schedule: #{payment_schedule.inspect}"
-      # puts "Land Cost Payments: #{payments.inspect}"
+      # # puts "Land Cost: #{land_cost}"
+      # # puts "Payment Schedule: #{payment_schedule.inspect}"
+      # # puts "Land Cost Payments: #{payments.inspect}"
       
       payments
     end
@@ -114,37 +114,37 @@ module Real_Estate_Optimizer
       model = Sketchup.active_model
       building_instances = TraversalUtils.traverse_building_instances(model)
     
-      puts "Traversing building instances in the model:"
+      # puts "Traversing building instances in the model:"
       
       building_instances.each do |instance, transformation|
-        puts "\nBuilding Instance: #{instance.definition.name}"
-        puts "  World Position: #{transformation.origin}"
+        # puts "\nBuilding Instance: #{instance.definition.name}"
+        # puts "  World Position: #{transformation.origin}"
         
         if instance.definition.attribute_dictionaries && instance.definition.attribute_dictionaries['building_data']
-          puts "  This is a confirmed building instance."
+          # puts "  This is a confirmed building instance."
           
           # Print building data
           building_data = instance.definition.attribute_dictionary('building_data')
           building_data.each do |key, value|
-            puts "  #{key}: #{value}"
+            # puts "  #{key}: #{value}"
           end
           
           # Print dynamic attributes
           dynamic_attrs = instance.attribute_dictionary('dynamic_attributes')
           if dynamic_attrs
-            puts "  Dynamic Attributes:"
+            # puts "  Dynamic Attributes:"
             dynamic_attrs.each do |key, value|
-              puts "    #{key}: #{value}"
+              # puts "    #{key}: #{value}"
             end
           else
-            puts "  No dynamic attributes found."
+            # puts "  No dynamic attributes found."
           end
     
           # Print associated property line keyword
           property_line_keyword = instance.definition.get_attribute('building_data', 'property_line_keyword')
-          puts "  Associated Property Line: #{property_line_keyword || 'Not associated'}"
+          # puts "  Associated Property Line: #{property_line_keyword || 'Not associated'}"
         else
-          puts "  This is not a building instance (no 'building_data' attribute dictionary)."
+          # puts "  This is not a building instance (no 'building_data' attribute dictionary)."
         end
       end
     end
@@ -202,8 +202,8 @@ module Real_Estate_Optimizer
       end
 
       # Print income table
-      # puts "Monthly Income Table (72 months):"
-      # puts "Month | " + income_table.keys.join(" | ") + " | Total"
+      # # puts "Monthly Income Table (72 months):"
+      # # puts "Month | " + income_table.keys.join(" | ") + " | Total"
       
       (0...72).each do |month|
         row = [month.to_s.rjust(5)]
@@ -260,22 +260,137 @@ module Real_Estate_Optimizer
       monthly_cashflow.map { |month| month[:net_cashflow] }
     end
 
-    def self.calculate_and_print_full_cashflow_table
+    def self.calculate_fitness_only(schedule, scene_switches, settings)
+      # Calculate sales income without UI updates
+      income_data = calculate_sales_income(scene_switches)
+      return -Float::INFINITY unless income_data
+      
+      # Calculate cashflow data without HTML generation
+      cashflow_data = calculate_core_cashflow(income_data)
+      return -Float::INFINITY unless cashflow_data
+      
+      if settings['optimization_method'] == 'npv'
+        monthly_cashflow = cashflow_data[:monthly_cashflow]
+        annual_discount_rate = settings['discount_rate']
+        monthly_discount_rate = (1 + annual_discount_rate)**(1.0/12) - 1
+        CashFlowCalculator.npv(monthly_cashflow, monthly_discount_rate)
+      else
+        monthly_cashflow = calculate_monthly_cashflow(cashflow_data)
+        key_indicators = calculate_key_indicators(monthly_cashflow)
+        irr = key_indicators[:yearly_irr] || -100
+        moic = key_indicators[:moic] || 0
+        scaled_irr = irr/100
+        scaled_moic = moic
+        (settings['irr_weight'] * scaled_irr + settings['moic_weight'] * scaled_moic)
+      end
+    end
+    
+    def self.calculate_core_cashflow(income_data)
       model = Sketchup.active_model
       project_data = get_project_data_with_defaults
       inputs = project_data['inputs']
-
+    
+      # Get base financial data
       land_cost = (inputs['land_cost'] || 0) * 10000
       land_cost_payment_schedule = inputs['land_cost_payment'] || Array.new(72, 0)
       unsaleable_amenity_cost = (inputs['unsaleable_amenity_cost'] || 0) * 10000
       unsaleable_amenity_cost_payment_schedule = inputs['unsaleable_amenity_cost_payment'] || Array.new(72, 0)
-
+    
       building_instances = TraversalUtils.traverse_building_instances(model)
-
       supervision_fund_requirements = calculate_supervision_fund_requirement(building_instances)
       supervision_fund_balance = 0
+    
+      apartment_income = income_data[:income_table].values.transpose.map { |month_incomes| month_incomes.inject(0, :+) }
+      construction_payments = calculate_construction_payments
+      basement_cashflows = calculate_basement_cashflows
+    
+      # Get rates
+      management_fee_rate = inputs['management_fee'] || 0
+      sales_fee_rate = inputs['sales_fee'] || 0
+      lvit_provisional_rate = inputs['LVIT_provisional_rate'] || 0
+      vat_surcharge_rate = inputs['VAT_surchage_rate'] || 0
+    
+      # Initialize arrays
+      monthly_cashflow = Array.new(72, 0)
+      accumulated_cashflow = Array.new(72, 0)
+      fees_and_taxes = Array.new(72, 0)
+    
+      # Calculate monthly cashflows
+      (0...72).each do |month|
+        current_requirement = supervision_fund_requirements[month]
+        
+        # Fund balance adjustments
+        fund_release = 0
+        if supervision_fund_balance > current_requirement
+          fund_release = supervision_fund_balance - current_requirement
+          supervision_fund_balance = current_requirement
+        end
+    
+        apartment_sales = apartment_income[month] || 0
+        
+        fund_contribution = 0
+        if supervision_fund_balance < current_requirement
+          fund_contribution = [current_requirement - supervision_fund_balance, apartment_sales].min
+          supervision_fund_balance += fund_contribution
+        end
+    
+        # Calculate payments and income
+        land_payment = land_cost * (land_cost_payment_schedule[month] || 0)
+        unsaleable_amenity_payment = unsaleable_amenity_cost * (unsaleable_amenity_cost_payment_schedule[month] || 0)
+        construction_payment = construction_payments[month] || 0
+        basement_income = basement_cashflows[:income][month] || 0
+        basement_expense = basement_cashflows[:expenses][month] || 0
+    
+        total_income = apartment_sales + basement_income
+        
+        # Calculate fees
+        fees_and_taxes[month] = total_income * (management_fee_rate + sales_fee_rate + 
+                                              lvit_provisional_rate + vat_surcharge_rate)
+    
+        expenses = land_payment + unsaleable_amenity_payment + construction_payment + 
+                  basement_expense + fees_and_taxes[month]
+    
+        # Calculate net cashflow
+        net_income = total_income + fund_release - fund_contribution - expenses
+        monthly_cashflow[month] = net_income
+        accumulated_cashflow[month] = (month > 0 ? accumulated_cashflow[month-1] : 0) + net_income
+      end
+    
+      # Calculate final results including corporate tax
+      total_income = apartment_income.sum + basement_cashflows[:income].sum
+      total_expenses = fees_and_taxes.sum + construction_payments.sum + 
+                      basement_cashflows[:expenses].sum +
+                      land_cost_payment_schedule.sum { |p| land_cost * p } +
+                      unsaleable_amenity_cost_payment_schedule.sum { |p| unsaleable_amenity_cost * p }
+    
+      net_profit_before_corporate_tax = total_income - total_expenses
+      corporate_tax = [net_profit_before_corporate_tax * 0.25, 0].max
+      
+      # Apply corporate tax to last month
+      monthly_cashflow[71] -= corporate_tax
+      accumulated_cashflow[71] -= corporate_tax
+    
+      {
+        monthly_cashflow: monthly_cashflow,
+        accumulated_cashflow: accumulated_cashflow,
+        corporate_tax: corporate_tax
+      }
+    end
 
-      income_data = calculate_sales_income
+    def self.calculate_and_print_full_cashflow_table(income_data)
+      model = Sketchup.active_model
+      project_data = get_project_data_with_defaults
+      inputs = project_data['inputs']
+    
+      land_cost = (inputs['land_cost'] || 0) * 10000
+      land_cost_payment_schedule = inputs['land_cost_payment'] || Array.new(72, 0)
+      unsaleable_amenity_cost = (inputs['unsaleable_amenity_cost'] || 0) * 10000
+      unsaleable_amenity_cost_payment_schedule = inputs['unsaleable_amenity_cost_payment'] || Array.new(72, 0)
+    
+      building_instances = TraversalUtils.traverse_building_instances(model)
+      supervision_fund_requirements = calculate_supervision_fund_requirement(building_instances)
+      supervision_fund_balance = 0
+    
       apartment_income = income_data[:income_table].values.transpose.map { |month_incomes| month_incomes.inject(0, :+) }
       construction_payments = calculate_construction_payments
       basement_cashflows = calculate_basement_cashflows
@@ -290,7 +405,7 @@ module Real_Estate_Optimizer
       fund_contributions = Array.new(72, 0)
       fund_releases = Array.new(72, 0)
     
-      # puts "Month | Apartment Sales | Fund Requirement | Fund Balance | Fund Contribution | Fund Release | Other Income | Expenses | Fees and Taxes | Net Cashflow | Accumulated Cashflow"
+      # # puts "Month | Apartment Sales | Fund Requirement | Fund Balance | Fund Contribution | Fund Release | Other Income | Expenses | Fees and Taxes | Net Cashflow | Accumulated Cashflow"
 
       (0...72).each do |month|
         current_requirement = supervision_fund_requirements[month]
@@ -362,14 +477,14 @@ module Real_Estate_Optimizer
       monthly_cashflow[71] -= corporate_tax
       accumulated_cashflow[71] -= corporate_tax
       
-      # puts "Monthly cashflow: #{monthly_cashflow.inspect}"
+      # # puts "Monthly cashflow: #{monthly_cashflow.inspect}"
       monthly_irr = FinancialCalculations.calculate_irr(monthly_cashflow)
-      # puts "Monthly IRR: #{monthly_irr}"
+      # # puts "Monthly IRR: #{monthly_irr}"
       if monthly_irr
         yearly_irr = (1 + monthly_irr)**12 - 1
-        # puts "Yearly IRR: #{(yearly_irr * 100).round(2)}%"
+        # # puts "Yearly IRR: #{(yearly_irr * 100).round(2)}%"
       else
-        # puts "IRR could not be calculated"
+        # # puts "IRR could not be calculated"
       end
       
       # Return the data including corporate tax
@@ -388,7 +503,6 @@ module Real_Estate_Optimizer
         basement_expenses: basement_cashflows[:expenses],
         corporate_tax: corporate_tax
       }
-      
     end
 
     def self.print_cashflow_row(*args)
@@ -465,7 +579,7 @@ module Real_Estate_Optimizer
         }
       end
     
-      # puts "Corporate tax calculated in monthly cashflow: #{corporate_tax}"
+      # # puts "Corporate tax calculated in monthly cashflow: #{corporate_tax}"
       monthly_cashflow
     end
 
@@ -541,11 +655,11 @@ module Real_Estate_Optimizer
       added_value = total_sales - deductible_items
       added_value_ratio = added_value / deductible_items
     
-      # puts "Total Sales: #{total_sales}"
-      # puts "Total Expenses Without Tax: #{total_expenses_without_tax}"
-      # puts "Deductible Items: #{deductible_items}"
-      # puts "Added Value: #{added_value}"
-      # puts "Added Value Ratio: #{added_value_ratio}"
+      # # puts "Total Sales: #{total_sales}"
+      # # puts "Total Expenses Without Tax: #{total_expenses_without_tax}"
+      # # puts "Deductible Items: #{deductible_items}"
+      # # puts "Added Value: #{added_value}"
+      # # puts "Added Value Ratio: #{added_value_ratio}"
     
       vat = if added_value_ratio < 0.2
               0
@@ -559,38 +673,37 @@ module Real_Estate_Optimizer
               added_value * 0.6 - deductible_items * 0.35
             end
     
-      # puts "Calculated VAT: #{vat}"
+      # # puts "Calculated VAT: #{vat}"
       vat
     end
 
-    def self.generate_html_report
-      cashflow_data = calculate_and_print_full_cashflow_table
-      # puts "Cashflow Data: #{cashflow_data.inspect}"
+    def self.generate_html_report(cashflow_data)
       monthly_cashflow = calculate_monthly_cashflow(cashflow_data)
-      # puts "Monthly Cashflow: #{monthly_cashflow.inspect}"
       key_indicators = calculate_key_indicators(monthly_cashflow)
-      # puts "Key Indicators: #{key_indicators.inspect}"
-
+    
       discount_rate = get_project_data_with_defaults['inputs']['discount_rate'] || 0.09
       monthly_discount_rate = (1 + discount_rate)**(1.0/12) - 1
       npv = npv(cashflow_data[:monthly_cashflow], monthly_discount_rate)
     
-
+      # Generate HTML report
       html = <<-HTML
         <h3>项目关键指标 Key Project Indicators</h3>
-          <table>
-            <tr><th>指标 Indicator</th><th>值 Value</th></tr>
-            <tr><td>内部收益率 IRR</td><td>#{key_indicators[:yearly_irr] ? "#{key_indicators[:yearly_irr].round(2)}%" : 'N/A'}</td></tr>
-            <tr><td>销售毛利率 Gross Profit Margin</td><td>#{key_indicators[:gross_profit_margin]}%</td></tr>
-            <tr><td>销售净利率 Net Profit Margin</td><td>#{key_indicators[:net_profit_margin]}%</td></tr>
-            <tr><td>现金流回正（月） Cash Flow Positive Month</td><td>#{key_indicators[:cash_flow_positive_month]}</td></tr>
-            <tr><td>项目总销售额（含税） Total Sales (incl. tax)</td><td>#{format_number(key_indicators[:total_sales])}</td></tr>
-            <tr><td>项目总投资（含税） Total Investment (incl. tax)</td><td>#{format_number(key_indicators[:total_investment])}</td></tr>
-            <tr><td>项目资金峰值 Peak Negative Cash Flow</td><td>#{format_number(key_indicators[:peak_negative_cash_flow])}</td></tr>
-            <tr><td>企业所得税 Corporate Tax</td><td>#{format_number(key_indicators[:corporate_tax])}</td></tr>
-            <tr><td>项目净利润（税后） Net Profit (After Tax)</td><td>#{format_number(key_indicators[:net_profit])}</td></tr>
-            <tr><td>MOIC</td><td>#{key_indicators[:moic] || 'N/A'}</td></tr>
-          </table>
+        <table>
+          <tr><th>指标 Indicator</th><th>值 Value</th></tr>
+          <tr><td>内部收益率 IRR</td><td>#{key_indicators[:yearly_irr] ? "#{key_indicators[:yearly_irr].round(2)}%" : 'N/A'}</td></tr>
+          <tr><td>销售毛利率 Gross Profit Margin</td><td>#{key_indicators[:gross_profit_margin]}%</td></tr>
+          <tr><td>销售净利率 Net Profit Margin</td><td>#{key_indicators[:net_profit_margin]}%</td></tr>
+          <tr><td>现金流回正（月） Cash Flow Positive Month</td><td>#{key_indicators[:cash_flow_positive_month]}</td></tr>
+          <tr><td>项目总销售额（含税） Total Sales (incl. tax)</td><td>#{format_number(key_indicators[:total_sales])}</td></tr>
+          <tr><td>项目总投资（含税） Total Investment (incl. tax)</td><td>#{format_number(key_indicators[:total_investment])}</td></tr>
+          <tr><td>项目资金峰值 Peak Negative Cash Flow</td><td>#{format_number(key_indicators[:peak_negative_cash_flow])}</td></tr>
+          <tr><td>企业所得税 Corporate Tax</td><td>#{format_number(key_indicators[:corporate_tax])}</td></tr>
+          <tr><td>项目净利润（税后） Net Profit (After Tax)</td><td>#{format_number(key_indicators[:net_profit])}</td></tr>
+          <tr><td>MOIC</td><td>#{key_indicators[:moic] || 'N/A'}</td></tr>
+        </table>
+        <h3>财务指标 Financial Metrics</h3>
+        <p>基于折现率 Discount Rate: #{(discount_rate * 100).round(2)}%净现值 NPV: #{format_number(npv)}</p>
+        <p>年化内部收益率 Yearly IRR: #{key_indicators[:yearly_irr] ? "#{key_indicators[:yearly_irr].round(2)}%" : 'N/A'}</p>
         <h3>现金流报告 Cashflow Report</h3>
         <table>
           <tr>
@@ -612,8 +725,7 @@ module Real_Estate_Optimizer
             <th>累计净现金流(万)<br>Accumulated Net Cashflow</th>
           </tr>
       HTML
-
-      # puts "Monthly Cashflow Month 72: #{monthly_cashflow[71].inspect}"
+    
       monthly_cashflow.each do |month_data|
         html += "<tr>"
         html += "<td>#{month_data[:month]}</td>"
@@ -634,19 +746,14 @@ module Real_Estate_Optimizer
         html += "<td>#{format_number(month_data[:accumulated_cashflow] / 10000)}</td>"
         html += "</tr>"
       end
-
+    
       html += <<-HTML
         </table>
-        <h3>财务指标 Financial Metrics</h3>
-        <p>基于折现率 Discount Rate: #{(discount_rate * 100).round(2)}%净现值 NPV: #{format_number(npv)}</p>
-        <p>年化内部收益率 Yearly IRR: #{key_indicators[:yearly_irr] ? "#{key_indicators[:yearly_irr].round(2)}%" : 'N/A'}</p>
-        
+      
       HTML
-
+    
       html
     end
-
-    
     
     def self.calculate_basement_cashflows
       model = Sketchup.active_model
@@ -724,16 +831,24 @@ module Real_Estate_Optimizer
       model = Sketchup.active_model
       building_instances = TraversalUtils.traverse_building_instances(model)
     
-      sales_table = Hash.new { |h, k| h[k] = Array.new(72, 0) }
+      # puts "\n=== Starting Sales Income Calculation ==="
+      
+      # Initialize tables
       stock_table = Hash.new { |h, k| h[k] = Array.new(72, 0) }
       income_table = Hash.new { |h, k| h[k] = Array.new(72, 0) }
+      sales_table = Hash.new { |h, k| h[k] = Array.new(72, 0) }
       total_income = Array.new(72, 0)
+      current_stock = Hash.new(0)  # Track running stock balance for each type
+      
+      # Get overlap matrix
+      overlap_data = model.attribute_dictionaries['overlap_data']
+      overlap_matrix = overlap_data ? JSON.parse(overlap_data['overlap_matrix'] || '{}') : {}
+      # puts "Loaded overlap matrix: #{overlap_matrix.inspect}"
     
-      # First pass: accumulate stocks
+      # First gather all stock additions
       building_instances.each do |instance, transformation|
         building_data = instance.definition.attribute_dictionary('building_data')
         dynamic_attrs = instance.attribute_dictionary('dynamic_attributes')
-    
         next unless building_data && dynamic_attrs
     
         apartment_stocks = JSON.parse(building_data['apartment_stocks'])
@@ -748,36 +863,85 @@ module Real_Estate_Optimizer
         end
       end
     
-      # Second pass: calculate sales and income
-      stock_table.each do |apt_type, stocks|
-        apt_data = JSON.parse(model.get_attribute('apartment_type_data', apt_type) || '{}')
-        sales_scenes = apt_data['sales_scenes'] || []
-        next if sales_scenes.empty?
+      # Calculate sales and income with overlap adjustments
+      (0...72).each do |month|
+        # puts "\nMonth #{month}:"
+        
+        # First update current stock with any new supply
+        stock_table.each do |apt_type, monthly_stocks|
+          new_supply = monthly_stocks[month]
+          if new_supply > 0
+            current_stock[apt_type] += new_supply
+            # puts "  #{apt_type}: New supply +#{new_supply}, Total stock now: #{current_stock[apt_type]}"
+          end
+        end
     
-        current_stock = 0
-        switch_time = scene_switches&.dig(apt_type) # Will be nil if scene_switches is nil
+        # Skip if no stock available
+        next if current_stock.empty? || current_stock.values.all?(&:zero?)
+        
+        # Gather available types and their base volumes for this month
+        available_types = {}
+        current_stock.each do |apt_type, stock|
+          next if stock <= 0
     
-        (0...72).each do |month|
-          current_stock += stocks[month]
+          apt_data = JSON.parse(model.get_attribute('apartment_type_data', apt_type) || '{}')
+          sales_scenes = apt_data['sales_scenes'] || []
+          next if sales_scenes.empty?
+    
+          scene = if scene_switches&.dig(apt_type) && month >= scene_switches[apt_type] && sales_scenes.length > 1
+            sales_scenes[1]
+          else
+            sales_scenes[0]
+          end
+    
+          available_types[apt_type] = {
+            stock: stock,
+            base_volume: scene['volumn'].to_i,
+            scene: scene,
+            area: apt_data['area'].to_f
+          }
+          # puts "  #{apt_type}: Stock=#{stock}, Base Volume=#{scene['volumn']}"
+        end
+    
+        # Calculate adjusted volumes considering overlap
+        adjusted_volumes = {}
+        available_types.each do |type, type_data|
+          demand_i = type_data[:base_volume]
+          adjustment = 0
+    
+          available_types.each do |other_type, other_data|
+            next if type == other_type
+            
+            demand_j = other_data[:base_volume]
+            next if demand_i + demand_j == 0
+    
+            p_ij = overlap_matrix.dig(type, other_type) || 0
+            current_adjustment = (p_ij * (demand_j * demand_i)) / (demand_i + demand_j)
+            adjustment += current_adjustment
+            
+            # puts "    Overlap #{type}->#{other_type}: p_ij=#{p_ij}, adjustment=#{current_adjustment}"
+          end
+    
+          final_volume = demand_i - adjustment
+          adjusted_volumes[type] = final_volume > 0 ? final_volume : 0
+          # puts "  #{type} Final Volume: #{adjusted_volumes[type]} (Original: #{demand_i})"
+        end
+    
+        # Apply adjusted volumes and update remaining stock
+        available_types.each do |apt_type, type_data|
+          max_volume = adjusted_volumes[apt_type]
+          actual_sales = [max_volume, type_data[:stock]].min
           
-          # Scene selection logic:
-          # If we have scene_switches (optimization mode) and it's after switch time, use second scene
-          # Otherwise use first scene
-          scene = if switch_time && month >= switch_time && sales_scenes.length > 1
-                    sales_scenes[1] # Use second scene
-                  else
-                    sales_scenes[0] # Use first scene
-                  end
-    
-          monthly_sales_volume = scene['volumn'].to_i
-          unit_price = scene['price'].to_f
-          area = apt_data['area'].to_f
-    
-          actual_sales = [current_stock, monthly_sales_volume].min
+          # Record sales and income
           sales_table[apt_type][month] = actual_sales
-          income_table[apt_type][month] = actual_sales * unit_price * area
-          total_income[month] += income_table[apt_type][month]
-          current_stock -= actual_sales
+          income = actual_sales * type_data[:scene]['price'].to_f * type_data[:area]
+          income_table[apt_type][month] = income
+          total_income[month] += income
+          
+          # Update remaining stock
+          current_stock[apt_type] -= actual_sales
+          
+          # puts "  #{apt_type} - Sales: #{actual_sales}, Income: #{income}, Remaining stock: #{current_stock[apt_type]}"
         end
       end
     
@@ -804,8 +968,8 @@ module Real_Estate_Optimizer
       cashflow = initialize_cashflow
       building_instances = find_building_instances(model)
       
-      # puts "Starting calculation of cashflow"
-      # puts "Total building instances found: #{building_instances.length}"
+      # # puts "Starting calculation of cashflow"
+      # # puts "Total building instances found: #{building_instances.length}"
 
       building_instances.each do |instance|
         process_building(instance, cashflow)
@@ -857,7 +1021,7 @@ module Real_Estate_Optimizer
           instance.set_attribute('dynamic_attributes', 'property_line_keyword', keyword)
         else
           instance.delete_attribute('dynamic_attributes', 'property_line_keyword')
-          # puts "Building '#{instance.definition.name}' (ID: #{instance.entityID}) is not within any property line"
+          # # puts "Building '#{instance.definition.name}' (ID: #{instance.entityID}) is not within any property line"
         end
       end
     end
@@ -922,66 +1086,148 @@ module Real_Estate_Optimizer
         cashflow[:apartment_stock][apt_type][sales_permit_time] += count
       end
     end
+
     def self.calculate_sales_and_income(cashflow)
       model = Sketchup.active_model
       price_changes = {}
       
+      # Get overlap matrix with debug logging
+      overlap_data = model.attribute_dictionaries['overlap_data']
+      overlap_matrix = overlap_data ? JSON.parse(overlap_data['overlap_matrix'] || '{}') : {}
+      # puts "\n=== OVERLAP MATRIX ===\n#{JSON.pretty_generate(overlap_matrix)}"
+      
+      # Initialize arrays with logging
       cashflow[:apartment_stock].each do |apt_type, stocks|
-        # Initialize arrays explicitly
         cashflow[:apartment_sales][apt_type] = Array.new(72, 0)
         price_changes[apt_type] = []
-        
-        # Get apartment data and sales scenes
-        apt_data = JSON.parse(model.get_attribute('apartment_type_data', apt_type) || '{}')
-        sales_scenes = apt_data['sales_scenes'] || []
-        next unless sales_scenes.any?
-        
-        current_stock = 0
-        last_price = nil
-        
-        # Create an explicit array for months instead of using a range
-        (0..71).to_a.each do |month|
-          # Add new stock
-          current_stock += stocks[month].to_i
-          
-          # Get current scene based on scene change month
-          current_scene = if sales_scenes.length > 1 && apt_data['scene_change_month'] && 
-                           month >= apt_data['scene_change_month']
-            sales_scenes[1]
-          else
-            sales_scenes[0]
-          end
-          
-          # Track price changes
-          current_price = current_scene['price'].to_f
-          if last_price && current_price != last_price
-            price_changes[apt_type] << month
-          end
-          last_price = current_price
-          
-          # Calculate and record sales
-          monthly_sales_volume = current_scene['volumn'].to_i
-          area = apt_data['area'].to_f
-          actual_sales = [current_stock, monthly_sales_volume].min
-          
-          cashflow[:apartment_sales][apt_type][month] = actual_sales
-          cashflow[:income][month] += actual_sales * current_price * area
-          current_stock -= actual_sales
-        end
       end
       
+      # puts "\n=== Processing Sales Month by Month ==="
+      
+      # Process month by month
+      (0..71).each do |month|
+        # puts "\nMonth #{month}:"
+        
+        # Step 1: Determine available types and their base volumes
+        available_types = {}
+        cashflow[:apartment_stock].each do |apt_type, stocks|
+          current_stock = stocks[month].to_i
+          next if current_stock <= 0
+
+          apt_data = JSON.parse(model.get_attribute('apartment_type_data', apt_type) || '{}')
+          sales_scenes = apt_data['sales_scenes'] || []
+          next unless sales_scenes.any?
+
+          scene_index = if sales_scenes.length > 1 && apt_data['scene_change_month'] && 
+                        month >= apt_data['scene_change_month']
+            1
+          else
+            0
+          end
+          
+          scene = sales_scenes[scene_index]
+          base_volume = scene['volumn'].to_i
+          
+          available_types[apt_type] = {
+            stock: current_stock,
+            base_volume: base_volume,
+            scene: scene,
+            area: apt_data['area'].to_f
+          }
+          # puts "  #{apt_type}: Stock=#{current_stock}, Base Volume=#{base_volume}"
+        end
+
+        # puts "  Available Types: #{available_types.keys.join(', ')}"
+
+        # Step 2: Calculate adjusted volumes
+        adjusted_volumes = calculate_adjusted_volumes(available_types, overlap_matrix)
+        
+        # puts "\n  === Adjusted Volumes ==="
+        adjusted_volumes.each do |type, volume|
+          # puts "  #{type}: #{volume} (Original: #{available_types[type][:base_volume]})"
+        end
+
+        # Step 3: Apply adjusted volumes
+        available_types.each do |apt_type, type_data|
+          max_volume = adjusted_volumes[apt_type]
+          actual_sales = [max_volume, type_data[:stock]].min
+          
+          # puts "\n  #{apt_type} Sales Decision:"
+          # puts "    Max Volume: #{max_volume}"
+          # puts "    Available Stock: #{type_data[:stock]}"
+          # puts "    Final Sales: #{actual_sales}"
+
+          # Record sales and calculate income
+          cashflow[:apartment_sales][apt_type][month] = actual_sales
+          income = actual_sales * type_data[:scene]['price'].to_f * type_data[:area]
+          cashflow[:income][month] += income
+          
+          # puts "    Recorded Sales: #{cashflow[:apartment_sales][apt_type][month]}"
+          # puts "    Income: #{income}"
+        end
+      end
+
       cashflow[:price_changes] = price_changes
+      # puts "\n=== Final Apartment Sales ==="
+      cashflow[:apartment_sales].each do |apt_type, sales|
+        # puts "#{apt_type}: #{sales.inspect}"
+      end
+      
       cashflow
     end
-    
+
+    def self.calculate_adjusted_volumes(available_types, overlap_matrix)
+      return {} if available_types.empty?
+
+      # puts "\nCalculating Adjusted Volumes:"
+      
+      # Initialize volume dict with base volumes
+      base_volumes = {}
+      available_types.each do |type, data|
+        base_volumes[type] = data[:base_volume]
+      end
+      # puts "Initial Base Volumes: #{base_volumes.inspect}"
+
+      # Calculate adjustments
+      final_volumes = {}
+      available_types.each do |type, type_data|
+        demand_i = type_data[:base_volume]
+        adjustment = 0
+        # puts "\nProcessing #{type} (Base Volume: #{demand_i})"
+
+        available_types.each do |other_type, other_data|
+          next if type == other_type
+          
+          demand_j = other_data[:base_volume]
+          next if demand_i + demand_j == 0
+
+          p_ij = overlap_matrix.dig(type, other_type) || 0
+          current_adjustment = (p_ij * (demand_j * demand_i)) / (demand_i + demand_j)
+          adjustment += current_adjustment
+          
+          # puts "  Overlap with #{other_type}:"
+          # puts "    Demand_j: #{demand_j}"
+          # puts "    p_ij: #{p_ij}"
+          # puts "    Current Adjustment: #{current_adjustment}"
+        end
+
+        final_volume = demand_i - adjustment
+        final_volumes[type] = final_volume > 0 ? final_volume : 0
+        # puts "  Final Volume for #{type}: #{final_volumes[type]} (Total Adjustment: #{adjustment})"
+      end
+
+      # puts "\nFinal Adjusted Volumes: #{final_volumes.inspect}"
+      final_volumes
+    end
+
     def self.display_cashflow(cashflow)
-      # puts "Month | Expenses | Income | Net Cash Flow | Apartment Stock | Apartment Sales"
+      # # puts "Month | Expenses | Income | Net Cash Flow | Apartment Stock | Apartment Sales"
       (0...72).each do |month|
         net = cashflow[:income][month] - cashflow[:expenses][month]
         cashflow[:net_cashflow][month] = net
         stock_info = cashflow[:apartment_stock].map { |type, stocks| "#{type}: #{stocks[month]}" }.join(", ")
         sales_info = cashflow[:apartment_sales].map { |type, sales| "#{type}: #{sales[month]}" }.join(", ")
-        # puts "#{month} | #{cashflow[:expenses][month]} | #{cashflow[:income][month]} | #{net} | #{stock_info} | #{sales_info}"
+        # # puts "#{month} | #{cashflow[:expenses][month]} | #{cashflow[:income][month]} | #{net} | #{stock_info} | #{sales_info}"
       end
     end
     
@@ -1003,9 +1249,9 @@ module Real_Estate_Optimizer
       # Calculate payments
       payments = payment_schedule.map { |percentage| unsaleable_amenity_cost * percentage }
       
-      # puts "Unsaleable Amenity Cost: #{unsaleable_amenity_cost}"
-      # puts "Payment Schedule: #{payment_schedule.inspect}"
-      # puts "Unsaleable Amenity Cost Payments: #{payments.inspect}"
+      # # puts "Unsaleable Amenity Cost: #{unsaleable_amenity_cost}"
+      # # puts "Payment Schedule: #{payment_schedule.inspect}"
+      # # puts "Unsaleable Amenity Cost Payments: #{payments.inspect}"
       
       payments
     end
@@ -1013,13 +1259,13 @@ module Real_Estate_Optimizer
     def self.test_property_line_associations
       model = Sketchup.active_model
       
-      # puts "Testing property line associations..."
+      # # puts "Testing property line associations..."
       associate_buildings_with_property_lines
       
       building_instances = find_building_instances(model)
       building_instances.each do |instance|
         keyword = instance.get_attribute('dynamic_attributes', 'property_line_keyword')
-        # puts "Building '#{instance.definition.name}' (ID: #{instance.entityID}) associated with property line '#{keyword || 'None'}'"
+        # # puts "Building '#{instance.definition.name}' (ID: #{instance.entityID}) associated with property line '#{keyword || 'None'}'"
       end
     end
 
