@@ -131,19 +131,19 @@ module Real_Estate_Optimizer
                 background-color: #f4f4f4;
               }
               #saveBtn, #recalcBtn {
-                padding: 10px 20px;
-                background-color: #28a745;
+                margin: 5px;
+                padding: 5px 10px;
+                background-color: #558855;
                 color: white;
                 border: none;
                 cursor: pointer;
-                font-size: 16px;
-                margin-right: 10px;
+                font-size: 13px;
               }
               #saveBtn:hover {
-                background-color: #218838;
+                background-color: #114411;
               }
               #recalcBtn {
-                background-color: #17a2b8;
+                background-color: #555588;
               }
               #recalcBtn:hover {
                 background-color: #117a8b;
@@ -165,6 +165,7 @@ module Real_Estate_Optimizer
                 flex-direction: column;
                 align-items: center;
               }
+    
             </style>
           </head>
           <body>

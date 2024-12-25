@@ -375,7 +375,6 @@ module Real_Estate_Optimizer
               console.log("Chart container is hidden or not found, skipping render");
               return;
             }
-            console.log("Raw sales data:", salesData);
             
             if (!salesData || !salesData.apartmentSales || !salesData.metadata) {
               console.error("Invalid sales data structure:", salesData);
@@ -438,9 +437,15 @@ module Real_Estate_Optimizer
               ctx.fillText(month.toString(), x, canvas.height - padding + 5);
             }
             
-            // Draw data lines
+            // Draw data lines and scene change indicators
             let legendHTML = '<div style="background: rgba(255,255,255,0.8); padding: 5px;">';
-            Object.entries(salesData.apartmentSales).forEach(([type, data], index) => {
+            console.log('Processing sales data:', salesData);
+          console.log('Price changes data:', salesData.priceChanges);
+          
+          Object.entries(salesData.apartmentSales).forEach(([type, data], index) => {
+              console.log(`Processing apartment type: ${type}`);
+              console.log(`Scene changes for ${type}:`, salesData.priceChanges[type]);
+              
               if (!Array.isArray(data) || !salesData.metadata[type]) {
                 console.log(`Skipping invalid data for ${type}`);
                 return;
@@ -458,6 +463,7 @@ module Real_Estate_Optimizer
               const hue = ((typeNumber - 50) * 2) % 360;
               const color = `hsl(${hue}, 70%, 50%)`;
               
+              // Draw the sales line
               ctx.beginPath();
               ctx.strokeStyle = color;
               ctx.lineWidth = 2;
@@ -473,32 +479,47 @@ module Real_Estate_Optimizer
                 } else {
                   ctx.lineTo(x, y);
                 }
-                
-                // Draw price change points
-                if (salesData.priceChanges[type] && 
-                    Array.isArray(salesData.priceChanges[type]) && 
-                    salesData.priceChanges[type].includes(month)) {
-                  ctx.save();
+              });
+              ctx.stroke();
+              
+              // Draw scene change indicators with enhanced visibility
+              if (salesData.priceChanges[type] && Array.isArray(salesData.priceChanges[type])) {
+                console.log(`Drawing scene change indicators for ${type}`);
+                salesData.priceChanges[type].forEach(month => {
+                  console.log(`Drawing indicator at month ${month} for ${type}`);
+                  const x = padding + (graphWidth * (month / 72));
+                  const value = data[month] || 0;
+                  const y = canvas.height - padding - (graphHeight * (value / maxSales));
+                  
+                  // Draw outer circle
+                  ctx.beginPath();
+                  ctx.arc(x, y, 6, 0, Math.PI * 2);
+                  ctx.fillStyle = 'white';
+                  ctx.fill();
+                  ctx.strokeStyle = color;
+                  ctx.lineWidth = 2;
+                  ctx.stroke();
+                  
+                  // Draw inner circle
                   ctx.beginPath();
                   ctx.arc(x, y, 4, 0, Math.PI * 2);
                   ctx.fillStyle = color;
                   ctx.fill();
-                  ctx.restore();
-                }
-              });
-              ctx.stroke();
+                });
+              }
               
               // Add to legend with the full original name
               legendHTML += `<div style="color: ${color}; margin: 2px;">● ${metadata.originalName}</div>`;
             });
+            
             legendHTML += '</div>';
             legendDiv.innerHTML = legendHTML;
           }
+          
           function updateSalesChart(data) {
             console.log('Received sales data:', data);
-            lastSalesData = data;  // Store the data
+            lastSalesData = data;
             
-            // Only render if we're on the SalesChart tab
             if (activeTab === 'SalesChart') {
               requestAnimationFrame(() => renderSalesChart(data));
             }
@@ -701,41 +722,54 @@ module Real_Estate_Optimizer
           metadata: {}
         }
         
-        # Process income table to get sales data
-        cashflow_data[:income_table].each do |apt_type, monthly_values|
-          type_number = extract_number_from_type(apt_type)
-          next unless type_number
+     # Process income table to get sales data
+      cashflow_data[:income_table].each do |apt_type, monthly_values|
+        type_number = extract_number_from_type(apt_type)
+        next unless type_number
+        
+        sales_data[:apartmentSales][apt_type] = Array.new(72, 0)
+        sales_data[:priceChanges][apt_type] = []
+        sales_data[:metadata][apt_type] = {
+          number: type_number,
+          originalName: apt_type
+        }
+        
+        model = Sketchup.active_model
+        apt_data = JSON.parse(model.get_attribute('apartment_type_data', apt_type) || '{}')
+        sales_scenes = apt_data['sales_scenes'] || []
+        
+        # Log data for all apartment types
+        puts "\n=== Apartment Data ==="
+        puts "Apartment type: #{apt_type}"
+        puts "Number of sales scenes: #{sales_scenes.length}"
+        puts "Scene change month: #{apt_data['scene_change_month']}"
+        puts "Sales scenes data: #{sales_scenes.inspect}"
+        
+        if sales_scenes.length > 1 && apt_data['scene_change_month']
+          sales_data[:priceChanges][apt_type] << apt_data['scene_change_month']
+          puts "Added price change at month: #{apt_data['scene_change_month']}"
+          puts "Price changes array: #{sales_data[:priceChanges][apt_type].inspect}"
+        end
+        
+        monthly_values.each_with_index do |income, month|
+          scene_index = if apt_data['scene_change_month'] && month >= apt_data['scene_change_month']
+                        1
+                      else
+                        0
+                      end
           
-          sales_data[:apartmentSales][apt_type] = Array.new(72, 0)
-          sales_data[:priceChanges][apt_type] = []
-          sales_data[:metadata][apt_type] = {
-            number: type_number,
-            originalName: apt_type
-          }
+          scene = sales_scenes[scene_index] if sales_scenes.any?
           
-          model = Sketchup.active_model
-          apt_data = JSON.parse(model.get_attribute('apartment_type_data', apt_type) || '{}')
-          sales_scenes = apt_data['sales_scenes'] || []
-          
-          if sales_scenes.length > 1 && apt_data['scene_change_month']
-            sales_data[:priceChanges][apt_type] << apt_data['scene_change_month']
-          end
-          
-          monthly_values.each_with_index do |income, month|
-            scene_index = if apt_data['scene_change_month'] && month >= apt_data['scene_change_month']
-                           1
-                         else
-                           0
-                         end
-            
-            scene = sales_scenes[scene_index] if sales_scenes.any?
-            
-            if scene && scene['price'].to_f > 0 && apt_data['area'].to_f > 0
-              sales_volume = income / (scene['price'].to_f * apt_data['area'].to_f)
-              sales_data[:apartmentSales][apt_type][month] = sales_volume
-            end
+          if scene && scene['price'].to_f > 0 && apt_data['area'].to_f > 0
+            sales_volume = income / (scene['price'].to_f * apt_data['area'].to_f)
+            sales_data[:apartmentSales][apt_type][month] = sales_volume
           end
         end
+      end
+
+      # Log final sales data structure
+      puts "\n=== Final Sales Data ==="
+      puts "Price changes data: #{sales_data[:priceChanges].inspect}"
     
         # Prepare chart data using the already calculated full_cashflow
         cashflow_chart_data = {
