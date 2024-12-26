@@ -80,7 +80,7 @@ module Real_Estate_Optimizer
       # Start color (red): RGB(255, 0, 0)
       start_r, start_g, start_b = 255, 0, 0
       # End color (white): RGB(255, 255, 255)
-      end_r, end_g, end_b = 255, 255, 255
+      end_r, end_g, end_b = 0, 0, 255
       
       # Normalize time to 0-1 range (71 months max)
       t = [init_time.to_f / 71.0, 1.0].min

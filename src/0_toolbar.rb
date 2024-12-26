@@ -58,6 +58,16 @@ module Real_Estate_Optimizer
       cmd_apartment_manager.status_bar_text = "Add or manage apartment types."
       toolbar.add_item(cmd_apartment_manager)
 
+      cmd_customer_overlap = UI::Command.new("Customer Overlap") {
+        CustomerOverlap.show_dialog
+      }
+      cmd_customer_overlap.small_icon = "../icons/customer_overlap.png"
+      cmd_customer_overlap.large_icon = "../icons/customer_overlap.png"
+      cmd_customer_overlap.tooltip = "客户重叠计算"
+      cmd_customer_overlap.status_bar_text = "Calculate customer overlap between apartment types"
+      toolbar.add_item(cmd_customer_overlap)
+
+
       cmd_building_type = UI::Command.new("Manage Building Types") {
         BuildingGenerator.show_dialog
       }
@@ -106,14 +116,6 @@ module Real_Estate_Optimizer
       cmd_optimization.status_bar_text = "Optimization"
       toolbar.add_item(cmd_optimization)
 
-      cmd_customer_overlap = UI::Command.new("Customer Overlap") {
-        CustomerOverlap.show_dialog
-      }
-      cmd_customer_overlap.small_icon = "../icons/customer_overlap.png"
-      cmd_customer_overlap.large_icon = "../icons/customer_overlap.png"
-      cmd_customer_overlap.tooltip = "客户重叠计算"
-      cmd_customer_overlap.status_bar_text = "Calculate customer overlap between apartment types"
-      toolbar.add_item(cmd_customer_overlap)
 
 
       layers = ['liq_color_mass', 'liq_architecture', 'liq_sunlight', 'liq_phasing', 'liq_price']

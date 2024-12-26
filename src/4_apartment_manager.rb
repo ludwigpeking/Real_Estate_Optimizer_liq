@@ -83,8 +83,13 @@ module Real_Estate_Optimizer
           </div>
 
           <div class="form-section">
-            <h3>销售场景</h3>
+            <h3>销售场景 Sales Scenes</h3>
             <div id="pricingScenesContainer"></div>
+            <div class="scene-switch">
+              <label for="scene_change_month">场景切换月份 Scene Switch Month:</label>
+              <input type="number" id="scene_change_month" min="0" max="72" value="72" placeholder="Enter month (0-72)">
+              <small class="input-hint">(从优化结果加载 Loaded from optimization results)</small>
+            </div>
             <button onclick="saveAttributes()">保存属性 Save Attributes</button>
             <button onclick="deleteApartmentType()">删除户型 Delete Apartment Type</button>
           </div>
@@ -157,10 +162,8 @@ module Real_Estate_Optimizer
             }
 
             function saveAttributes() {
-              if (!validateInputs()) {
-                return;
-              }
-
+              if (!validateInputs()) return;
+            
               var apartmentData = {
                 apartment_category: document.getElementById('apartment_category').value,
                 area: parseFloat(document.getElementById('apartment_type_area').value),
@@ -169,16 +172,24 @@ module Real_Estate_Optimizer
                 product_baseline_unit_cost_before_allocation: parseFloat(document.getElementById('product_baseline_unit_cost_before_allocation').value),
                 width: parseFloat(document.getElementById('width').value),
                 depth: parseFloat(document.getElementById('depth').value),
-                height: parseFloat(document.getElementById('height').value) || 3.0,  // Default to 3.0 if not specified
+                height: parseFloat(document.getElementById('height').value) || 3.0,
+                scene_change_month: parseInt(document.getElementById('scene_change_month').value),
                 sales_scenes: []
               };
-
+            
+              // Ensure scene_change_month is a valid number, default to 72 if invalid
+              if (isNaN(apartmentData.scene_change_month) || 
+                  apartmentData.scene_change_month < 0 || 
+                  apartmentData.scene_change_month > 72) {
+                apartmentData.scene_change_month = 72;
+              }
+            
               document.querySelectorAll('.pricing-scene').forEach(function(scene) {
                 var price = parseFloat(scene.querySelector('.price').value);
                 var volumn = parseInt(scene.querySelector('.volumn').value);
                 apartmentData.sales_scenes.push({ price: price, volumn: volumn });
               });
-
+            
               var apartmentTypeName = apartmentData.apartment_type_name;
               window.location = 'skp:save_attributes@' + apartmentTypeName + '@' + JSON.stringify(apartmentData);
             }
@@ -201,9 +212,12 @@ module Real_Estate_Optimizer
               var index = container.children.length;
               var div = document.createElement('div');
               div.className = 'pricing-scene';
-              div.innerHTML = '<input class="price" type="number" value="' + price + '" placeholder="销售场景' + (index + 1) + ' (元/平米)">' +
-                '<input class="volumn" type="number" value="' + volumn + '" placeholder="15套/月" >' +
-                '<button class="add" onclick="addPricingScene()">+</button>';
+              div.innerHTML = `
+                <label>场景 ${index + 1} Scene ${index + 1}</label>
+                <input class="price" type="number" value="${price}" placeholder="单价 Price (元/平米)"> <p>元/平米</p>
+                <input class="volumn" type="number" value="${volumn}" placeholder="月销量 Monthly Sales"> <p>套/月</p>
+              `;
+              
               if (index > 0) {
                 var removeButton = document.createElement('button');
                 removeButton.className = 'remove';
@@ -215,6 +229,7 @@ module Real_Estate_Optimizer
               }
               container.appendChild(div);
             }
+            
 
             function loadApartmentType(apartmentTypeName) {
               window.location = 'skp:load_apartment_type@' + apartmentTypeName;
@@ -230,7 +245,11 @@ module Real_Estate_Optimizer
               document.getElementById('width').value = data.width;
               document.getElementById('depth').value = data.depth;
               document.getElementById('height').value = data.height || 3.0;
-
+              
+              // Load scene change month - if it's not set, use 72 as default
+              var sceneChangeMonth = data.scene_change_month;
+              document.getElementById('scene_change_month').value = (sceneChangeMonth !== undefined && sceneChangeMonth !== null) ? sceneChangeMonth : 72;
+            
               var container = document.getElementById('pricingScenesContainer');
               container.innerHTML = '';
               data.sales_scenes.forEach(function(scene) {
