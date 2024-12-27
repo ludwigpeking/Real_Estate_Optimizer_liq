@@ -8,7 +8,8 @@ module Real_Estate_Optimizer
 
     def self.ensure_overlap_matrix_exists(apartment_types)
       model = Sketchup.active_model
-      overlap_data = model.attribute_dictionaries[OVERLAP_DATA_DICT] || model.attribute_dictionaries.add(OVERLAP_DATA_DICT)
+      overlap_data = model.attribute_dictionary(OVERLAP_DATA_DICT, true)
+
       existing_matrix_json = overlap_data[OVERLAP_MATRIX_KEY] || ''
 
       if existing_matrix_json.is_a?(String) && !existing_matrix_json.empty?
@@ -73,7 +74,13 @@ module Real_Estate_Optimizer
       model = Sketchup.active_model
       apartment_type_names = model.get_attribute('apartment_type_data', 'apartment_type_names', [])
       apartment_type_names.uniq!
-      apartment_type_names.sort!
+      apartment_type_names.sort_by! do |name|
+        if match = name.match(/^(\d+)/)
+          match[1].to_i
+        else
+          Float::INFINITY
+        end
+      end
 
       ensure_overlap_matrix_exists(apartment_type_names)
 
@@ -490,7 +497,13 @@ module Real_Estate_Optimizer
         model = Sketchup.active_model
         apartment_type_names = model.get_attribute('apartment_type_data', 'apartment_type_names', [])
         apartment_type_names.uniq!
-        apartment_type_names.sort!
+        apartment_type_names.sort_by! do |name|
+          if match = name.match(/^(\d+)/)
+            match[1].to_i
+          else
+            Float::INFINITY
+          end
+        end
       
         puts "Retrieving overlap data for apartment types: #{apartment_type_names.inspect}"
       
@@ -536,7 +549,7 @@ module Real_Estate_Optimizer
         begin
           matrix = JSON.parse(matrix_json)
           model = Sketchup.active_model
-          overlap_data = model.attribute_dictionaries[OVERLAP_DATA_DICT] || model.attribute_dictionaries.add(OVERLAP_DATA_DICT)
+          overlap_data = model.attribute_dictionary(OVERLAP_DATA_DICT, true)
           overlap_data[OVERLAP_MATRIX_KEY] = matrix.to_json
           puts "Saved overlap_matrix: #{matrix.inspect}"
 

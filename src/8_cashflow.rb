@@ -699,7 +699,7 @@ module Real_Estate_Optimizer
           <tr><td>项目资金峰值 Peak Negative Cash Flow</td><td>#{format_number(key_indicators[:peak_negative_cash_flow])}</td></tr>
           <tr><td>企业所得税 Corporate Tax</td><td>#{format_number(key_indicators[:corporate_tax])}</td></tr>
           <tr><td>项目净利润（税后） Net Profit (After Tax)</td><td>#{format_number(key_indicators[:net_profit])}</td></tr>
-          <tr><td>MOIC</td><td>#{key_indicators[:moic] || 'N/A'}</td></tr>
+          <tr><td>#{key_indicators[:moic] ? format('%.3f', key_indicators[:moic]) : 'N/A'}</td></tr>
         </table>
         <h3>财务指标 Financial Metrics</h3>
         <p>基于折现率 Discount Rate: #{(discount_rate * 100).round(2)}%净现值 NPV: #{format_number(npv)}</p>

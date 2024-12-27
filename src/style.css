@@ -222,15 +222,19 @@ input[type="checkbox"] {
 }
 
 .pricing-scene {
+  display: flex;          /* Use flex to put everything on one line (or wrap if needed) */
+  align-items: center;    /* Vertically center within the row */
+  gap: 8px;               /* A bit of space between elements */
   margin: 10px 0;
   padding: 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
 }
 
+/* Override label in .pricing-scene to be inline instead of block */
 .pricing-scene label {
-  display: block;
-  margin-bottom: 5px;
+  display: inline-block;
+  margin: 0;
   font-weight: bold;
 }
 

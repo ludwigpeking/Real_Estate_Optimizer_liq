@@ -85,6 +85,7 @@ module Real_Estate_Optimizer
           <div class="form-section">
             <h3>销售场景 Sales Scenes</h3>
             <div id="pricingScenesContainer"></div>
+            <button onclick="addPricingScene()">+ Add Pricing Scene</button>
             <div class="scene-switch">
               <label for="scene_change_month">场景切换月份 Scene Switch Month:</label>
               <input type="number" id="scene_change_month" min="0" max="72" value="72" placeholder="Enter month (0-72)">
