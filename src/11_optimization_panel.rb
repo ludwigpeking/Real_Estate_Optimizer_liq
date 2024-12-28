@@ -287,6 +287,7 @@ module Real_Estate_Optimizer
             function loadPropertyLines() {
               sketchup.get_property_lines();
             }
+            
             function applyDefaultValues() {
               const defaultValues = {
                 'irr_weight': 50,

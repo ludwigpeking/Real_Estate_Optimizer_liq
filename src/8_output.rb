@@ -1,5 +1,4 @@
 require_relative '8_cashflow'  
-require 'csv'
 require 'json'
 require_relative  '8_traversal_utils'
 require_relative '8_financial_calculations'
@@ -182,7 +181,6 @@ module Real_Estate_Optimizer
             <p>地上可售部分总货值 Total Sellable Value: <span id="totalSellableValue" style="font-weight: bold;">Calculating...</span> 万元</p>
             
             <div id="propertyLineStats" class="property-line-stats"></div>
-            <button onclick="generateCSV()">Generate CSV Report</button>
           </div>
 
           <div id="SalesChart" class="tabcontent">
@@ -365,6 +363,8 @@ module Real_Estate_Optimizer
             }
           }
 
+          
+
           function renderSalesChart(salesData) {
             console.log("Starting chart render process...");
             const canvas = document.getElementById('salesChart');
@@ -402,6 +402,11 @@ module Real_Estate_Optimizer
                 if (max > maxSales) maxSales = max;
               }
             });
+          
+            // Sort apartment types by number then letter (MODIFIED SORTING)
+            var sortedTypes = Object.keys(salesData.apartmentSales).sort(compareApartmentTypes);
+
+            console.log("Sorted types:", sortedTypes);
             
             // Draw axes
             ctx.beginPath();
@@ -439,21 +444,18 @@ module Real_Estate_Optimizer
             
             // Draw data lines and scene change indicators
             let legendHTML = '<div style="background: rgba(255,255,255,0.8); padding: 5px;">';
-            console.log('Processing sales data:', salesData);
-          console.log('Price changes data:', salesData.priceChanges);
-          
-          Object.entries(salesData.apartmentSales).forEach(([type, data], index) => {
-              console.log(`Processing apartment type: ${type}`);
-              console.log(`Scene changes for ${type}:`, salesData.priceChanges[type]);
+
+            // Process apartment types in sorted order
+            sortedTypes.forEach((type) => {
+              const data = salesData.apartmentSales[type];
+              const metadata = salesData.metadata[type];
               
-              if (!Array.isArray(data) || !salesData.metadata[type]) {
+              if (!Array.isArray(data) || !metadata) {
                 console.log(`Skipping invalid data for ${type}`);
                 return;
               }
               
-              const metadata = salesData.metadata[type];
               const typeNumber = metadata.number;
-              
               if (!typeNumber) {
                 console.log(`Skipping type ${type} - no valid number in metadata`);
                 return;
@@ -482,11 +484,9 @@ module Real_Estate_Optimizer
               });
               ctx.stroke();
               
-              // Draw scene change indicators with enhanced visibility
+              // Draw scene change indicators
               if (salesData.priceChanges[type] && Array.isArray(salesData.priceChanges[type])) {
-                console.log(`Drawing scene change indicators for ${type}`);
                 salesData.priceChanges[type].forEach(month => {
-                  console.log(`Drawing indicator at month ${month} for ${type}`);
                   const x = padding + (graphWidth * (month / 72));
                   const value = data[month] || 0;
                   const y = canvas.height - padding - (graphHeight * (value / maxSales));
@@ -508,14 +508,50 @@ module Real_Estate_Optimizer
                 });
               }
               
-              // Add to legend with the full original name
+              // Add to legend
               legendHTML += `<div style="color: ${color}; margin: 2px;">● ${metadata.originalName}</div>`;
             });
             
             legendHTML += '</div>';
             legendDiv.innerHTML = legendHTML;
           }
-          
+
+          function parseApartmentType(typeStr) {
+            // Read digits from the start
+            var digits = "";
+            var i = 0;
+            while (i < typeStr.length && typeStr[i] >= '0' && typeStr[i] <= '9') {
+              digits += typeStr[i];
+              i++;
+            }
+            
+            // Remainder (letters or other chars)
+            var letters = typeStr.substring(i);
+
+            // Convert to integer, default to 0 if empty
+            var number = digits ? parseInt(digits, 10) : 0;
+            
+            return {
+              number: number,
+              letters: letters
+            };
+          }
+
+          // Compare function that sorts by numeric portion, then by letter portion
+          function compareApartmentTypes(a, b) {
+            var A = parseApartmentType(a);
+            var B = parseApartmentType(b);
+
+            // Compare the numeric parts
+            if (A.number !== B.number) {
+              return A.number - B.number;
+            }
+            // Compare the leftover letters
+            if (A.letters < B.letters) return -1;
+            if (A.letters > B.letters) return 1;
+            return 0;
+          }
+
           function updateSalesChart(data) {
             console.log('Received sales data:', data);
             lastSalesData = data;
@@ -532,9 +568,7 @@ module Real_Estate_Optimizer
             console.log("Property line stats updated");
           }
 
-            function generateCSV() {
-              window.location = 'skp:generate_csv';
-            }
+
             function updateTotalArea(totalArea, totalSellableArea) {
               document.getElementById('totalArea').textContent = totalArea;
               document.getElementById('totalSellableArea').textContent = totalSellableArea;
@@ -673,7 +707,6 @@ module Real_Estate_Optimizer
 
       dialog.set_html(html_content)
 
-      dialog.add_action_callback("generate_csv") { generate_csv_report }
       
       dialog.add_action_callback("on_page_load") do
         update_output_data(dialog)
@@ -698,15 +731,26 @@ module Real_Estate_Optimizer
       # Update property line stats
       property_line_stats = generate_property_line_stats
       json_encoded_stats = property_line_stats.to_json
-      update_script = "console.log('Updating property line stats...'); updatePropertyLineStats(#{json_encoded_stats}); console.log('Update complete');"
+      update_script = "updatePropertyLineStats(#{json_encoded_stats});"
       dialog.execute_script(update_script)
       
       begin
-        # Calculate cashflow data once and reuse
-        puts "Starting cashflow calculations..."
+        # Get scene switches from apartment data
+        model = Sketchup.active_model
+        scene_switches = {}
+        apartment_type_names = model.get_attribute('apartment_type_data', 'apartment_type_names', [])
         
-        # Calculate everything once and store the results
-        cashflow_data = CashFlowCalculator.calculate_sales_income
+        apartment_type_names.each do |apt_type|
+          apt_data = JSON.parse(model.get_attribute('apartment_type_data', apt_type) || '{}')
+          if apt_data['scene_change_month']
+            scene_switches[apt_type] = apt_data['scene_change_month']
+          end
+        end
+        
+        # Calculate everything once with scene switches
+        puts "Starting cashflow calculations with scene switches..."
+        cashflow_data = CashFlowCalculator.calculate_sales_income(scene_switches)
+        puts 'Sales income data:', cashflow_data[:income_table]
         full_cashflow = CashFlowCalculator.calculate_and_print_full_cashflow_table(cashflow_data)
         monthly_cashflow = CashFlowCalculator.calculate_monthly_cashflow(full_cashflow)
         
@@ -715,69 +759,39 @@ module Real_Estate_Optimizer
         json_encoded_cashflow = cashflow_html.to_json
         dialog.execute_script("updateCashflowReport(#{json_encoded_cashflow});")
         
-        # Format sales data for the chart using the already calculated data
+        # Format sales data for the chart using the actual sales volumes
         sales_data = {
           apartmentSales: {},
           priceChanges: {},
           metadata: {}
         }
         
-     # Process income table to get sales data
-      cashflow_data[:income_table].each do |apt_type, monthly_values|
-        type_number = extract_number_from_type(apt_type)
-        next unless type_number
-        
-        sales_data[:apartmentSales][apt_type] = Array.new(72, 0)
-        sales_data[:priceChanges][apt_type] = []
-        sales_data[:metadata][apt_type] = {
-          number: type_number,
-          originalName: apt_type
-        }
-        
-        model = Sketchup.active_model
-        apt_data = JSON.parse(model.get_attribute('apartment_type_data', apt_type) || '{}')
-        sales_scenes = apt_data['sales_scenes'] || []
-        
-        # Log data for all apartment types
-        puts "\n=== Apartment Data ==="
-        puts "Apartment type: #{apt_type}"
-        puts "Number of sales scenes: #{sales_scenes.length}"
-        puts "Scene change month: #{apt_data['scene_change_month']}"
-        puts "Sales scenes data: #{sales_scenes.inspect}"
-        
-        if sales_scenes.length > 1 && apt_data['scene_change_month']
-          sales_data[:priceChanges][apt_type] << apt_data['scene_change_month']
-          puts "Added price change at month: #{apt_data['scene_change_month']}"
-          puts "Price changes array: #{sales_data[:priceChanges][apt_type].inspect}"
-        end
-        
-        monthly_values.each_with_index do |income, month|
-          scene_index = if apt_data['scene_change_month'] && month >= apt_data['scene_change_month']
-                        1
-                      else
-                        0
-                      end
+        # Use sales_table instead of calculating backwards from income
+        cashflow_data[:sales_table].each do |apt_type, monthly_values|
+          type_number = extract_number_from_type(apt_type)
+          next unless type_number
           
-          scene = sales_scenes[scene_index] if sales_scenes.any?
+          sales_data[:apartmentSales][apt_type] = monthly_values
+          sales_data[:priceChanges][apt_type] = []
+          sales_data[:metadata][apt_type] = {
+            number: type_number,
+            originalName: apt_type
+          }
           
-          if scene && scene['price'].to_f > 0 && apt_data['area'].to_f > 0
-            sales_volume = income / (scene['price'].to_f * apt_data['area'].to_f)
-            sales_data[:apartmentSales][apt_type][month] = sales_volume
+          # Add scene change points if they exist
+          if scene_switches[apt_type]
+            sales_data[:priceChanges][apt_type] << scene_switches[apt_type]
+            puts "Added price change for #{apt_type} at month #{scene_switches[apt_type]}"
           end
         end
-      end
-
-      # Log final sales data structure
-      puts "\n=== Final Sales Data ==="
-      puts "Price changes data: #{sales_data[:priceChanges].inspect}"
-    
-        # Prepare chart data using the already calculated full_cashflow
+        
+        # Prepare chart data
         cashflow_chart_data = {
           monthly: full_cashflow[:monthly_cashflow],
           accumulated: full_cashflow[:accumulated_cashflow]
         }
         
-        # Update both charts in a single script execution
+        # Update both charts
         script = <<-JS
           updateSalesChart(#{sales_data.to_json});
           updateCashflowChart(#{cashflow_chart_data.to_json});
@@ -825,96 +839,6 @@ module Real_Estate_Optimizer
       end
       total_sellable_area
     end
-
-    # def self.generate_csv_report
-    #   begin
-    #     puts "Attempting to access CashFlowCalculator..."
-    #     if defined?(Real_Estate_Optimizer::CashFlowCalculator)
-    #       # puts "CashFlowCalculator is defined."
-    #       cashflow_data = Real_Estate_Optimizer::CashFlowCalculator.calculate_and_print_full_cashflow_table
-    #       monthly_cashflow = Real_Estate_Optimizer::CashFlowCalculator.calculate_monthly_cashflow(cashflow_data)
-    #       key_indicators = Real_Estate_Optimizer::CashFlowCalculator.calculate_key_indicators(monthly_cashflow)
-    #       # puts "Received cashflow data, proceeding to generate CSV"
-          
-    #       # Default file name
-    #       default_file_name = "real_estate_cashflow_report.csv"
-          
-    #       # Open file dialog for user to choose save location and file name
-    #       file_path = UI.savepanel("Save Cashflow Report", "", default_file_name)
-          
-    #       if file_path
-    #         puts "CSV will be saved to: #{file_path}"
-            
-    #         # Open file in binary write mode
-    #         File.open(file_path, "wb") do |file|
-    #           # Write UTF-8 BOM
-    #           file.write("\xEF\xBB\xBF")
-    
-    #           # Create CSV object
-    #           csv = CSV.new(file)
-
-              
-    #           # Write key indicators
-    #           csv << ['项目关键指标 Key Project Indicators']
-    #           csv << ['指标 Indicator', '值 Value']
-    #           csv << ['内部收益率 IRR', "#{key_indicators[:irr] ? "#{key_indicators[:irr].round(2)}%" : 'N/A'}"]
-    #           csv << ['销售毛利率 Gross Profit Margin', "#{key_indicators[:gross_profit_margin]}%"]
-    #           csv << ['销售净利率 Net Profit Margin', "#{key_indicators[:net_profit_margin]}%"]
-    #           csv << ['现金流回正（月） Cash Flow Positive Month', key_indicators[:cash_flow_positive_month]]
-    #           csv << ['项目总销售额（含税） Total Sales (incl. tax)', key_indicators[:total_sales]]
-    #           csv << ['项目总投资（含税） Total Investment (incl. tax)', key_indicators[:total_investment]]
-    #           csv << ['项目资金峰值 Peak Negative Cash Flow', key_indicators[:peak_negative_cash_flow]]
-    #           csv << ['项目净利润 Net Profit', key_indicators[:net_profit]]
-    #           csv << ['企业所得税 Corporate Tax', key_indicators[:corporate_tax]]
-    #           csv << ['税后净利润 Net Profit After Tax', key_indicators[:net_profit] - key_indicators[:corporate_tax]]
-    #           csv << ['MOIC', key_indicators[:moic] || 'N/A']
-              
-    #           # Add a blank row for separation
-    #           csv << []
-              
-    #           # Write headers
-    #           csv << [
-    #             '月份 Month',
-    #             '计容产品销售收入 Apartment Sales',
-    #             '预售资金监管要求 Supervision Fund Requirement',
-    #             '资金监管存入 Fund Contribution',
-    #             '资金监管解活 Fund Release',
-    #             '车位销售收入 Parking Lot Sales',
-    #             '总销售收入 Total Sales Income',
-    #             '总现金流入小计 Total Cash Inflow',
-    #             '土地规费 Land Fees',
-    #             '配套建设费用 Amenity Construction Cost',
-    #             '计容产品建安费用 Apartment Construction Payment',
-    #             '税费 Fees and Taxes',
-    #             '地下建安费用 Underground Construction Cost',
-    #             '总现金流出小计 Total Cash Outflow',
-    #             '月净现金流 Monthly Net Cashflow',
-    #             '累计净现金流 Accumulated Net Cashflow',
-    #             '增值税重新申报 VAT Re-declaration',
-    #           ]
-              
-    #           # Write data
-    #           monthly_cashflow.each do |month_data|
-    #             csv << month_data.values
-    #           end
-    #         end
-    #         puts "CSV generation completed successfully"
-    #         UI.messagebox("CSV report generated and saved to: #{file_path}")
-    #       else
-    #         puts "CSV generation cancelled by user"
-    #         UI.messagebox("CSV generation cancelled.")
-    #       end
-    #     else
-    #       raise NameError, "CashFlowCalculator is not defined"
-    #     end
-    #   rescue StandardError => e
-    #     error_message = "Error generating CSV: #{e.message}\n\n"
-    #     error_message += "Error occurred at:\n#{e.backtrace.first}\n\n"
-    #     error_message += "Full backtrace:\n#{e.backtrace.join("\n")}"
-    #     puts error_message
-    #     UI.messagebox(error_message)
-    #   end
-    # end
 
     def self.generate_property_line_stats
       model = Sketchup.active_model

@@ -38,7 +38,6 @@ module Real_Estate_Optimizer
         <head>
           <meta charset="UTF-8">
           <link rel="stylesheet" type="text/css" href="file:///#{File.join(__dir__, 'style.css')}">
-          <script src="file:///#{File.join(__dir__, 'chart.js')}"></script>
         </head>
         <body>
           <div class="form-section">
@@ -143,9 +142,6 @@ module Real_Estate_Optimizer
             }
         }
         
-
-
-
             function updateApartmentTypeName() {
               var area = document.getElementById('apartment_type_area').value;
               var type = document.getElementById('apartment_category').value;
@@ -212,11 +208,13 @@ module Real_Estate_Optimizer
               var container = document.getElementById('pricingScenesContainer');
               var index = container.children.length;
               var div = document.createElement('div');
-              div.className = 'pricing-scene';
+              div.className = 'pricing-scene single-line';
               div.innerHTML = `
                 <label>场景 ${index + 1} Scene ${index + 1}</label>
-                <input class="price" type="number" value="${price}" placeholder="单价 Price (元/平米)"> <p>元/平米</p>
-                <input class="volumn" type="number" value="${volumn}" placeholder="月销量 Monthly Sales"> <p>套/月</p>
+                <input class="price" type="number" value="${price}" placeholder="单价 Price (元/平米)">
+                <span>元/平米</span>
+                <input class="volumn" type="number" value="${volumn}" placeholder="月销量 Monthly Sales">
+                <span>套/月</span>
               `;
               
               if (index > 0) {
@@ -276,33 +274,99 @@ module Real_Estate_Optimizer
               document.getElementById('tag').oninput = updateApartmentTypeName;
               addPricingScene();
               window.location = 'skp:get_saved_apartment_types';
-              
-              // Initialize overlap matrix after a slight delay to ensure apartment types are loaded
-              setTimeout(() => {
-                updateOverlapMatrix();
-              }, 1000);  // 1 second delay
-              
-              // Add observer for future changes to apartment types
-              const typesSelect = document.getElementById('savedApartmentTypes');
-              const observer = new MutationObserver(function(mutations) {
-                mutations.forEach(function(mutation) {
-                  if (mutation.type === 'childList') {
-                    updateOverlapMatrix();
-                  }
-                });
-              });
-              
-              observer.observe(typesSelect, {
-                childList: true,
-                subtree: true
-              });
-            }
-
-        
+            }        
           </script>
         </body>
         </html>
       HTML
+
+      def self.update_building_types_with_apartment(model, apartment_type_name, apartment_data)
+        puts "\n=== Updating Building Types for Apartment: #{apartment_type_name} ==="
+        
+        # Get building type names and project data
+        building_type_names = model.get_attribute('project_data', BuildingGenerator::BUILDING_TYPE_LIST_KEY, [])
+        project_data = JSON.parse(model.get_attribute('project_data', 'data', '{}'))
+        project_data['building_types'] ||= []
+        
+        puts "Found #{building_type_names.length} building types in type list"
+        puts "Found #{project_data['building_types'].length} building types in project data"
+      
+        # Get building types from either source
+        building_types = if !project_data['building_types'].empty?
+          project_data['building_types']
+        else
+          building_type_names.map do |name| 
+            definition = model.definitions[name]
+            if definition && definition.attribute_dictionaries && definition.attribute_dictionaries['building_data']
+              JSON.parse(definition.get_attribute('building_data', 'details'))
+            end
+          end.compact
+        end
+      
+        building_types.each do |building_type|
+          modified = false
+          total_cost = 0
+          total_area = 0
+          
+          puts "\nChecking building type: #{building_type['name']}"
+          
+          building_type['floorTypes'].each do |floor_type|
+            num_floors = floor_type['number'].to_i
+            
+            floor_type['apartmentTypes'].each do |apartment|
+              apt_name = apartment['name']
+              
+              # Get the current data for this apartment type
+              apt_data = if apt_name == apartment_type_name
+                modified = true
+                puts "Found target apartment type in floor type"
+                apartment_data
+              else
+                JSON.parse(model.get_attribute('apartment_type_data', apt_name) || '{}')
+              end
+              
+              next if apt_data.empty?
+              
+              # Calculate cost for this apartment occurrence
+              apt_area = apt_data['area'].to_f
+              apt_unit_cost = apt_data['product_baseline_unit_cost_before_allocation'].to_f
+              puts "  Apartment #{apt_name} - Area: #{apt_area}, Unit Cost: #{apt_unit_cost}"
+              apt_cost_per_unit = apt_area * apt_unit_cost
+              apt_total_cost = apt_cost_per_unit * num_floors
+              
+              total_cost += apt_total_cost
+              total_area += apt_area * num_floors
+            end
+          end
+          
+          if modified
+            puts "\nUpdating building type '#{building_type['name']}'"
+            puts "Previous total cost: #{building_type['total_cost'] || 'Not set'}"
+            puts "New total cost: #{total_cost}"
+            
+            # Update component definition
+            building_def = model.definitions[building_type['name']]
+            if building_def
+              building_def.set_attribute('building_data', 'total_cost', total_cost)
+              building_def.set_attribute('building_data', 'total_area', total_area)
+              building_def.set_attribute('building_data', 'details', building_type.to_json)
+              
+              # Verify the update
+              actual_cost = building_def.get_attribute('building_data', 'total_cost')
+              puts "Verified updated cost in component: #{actual_cost}"
+            end
+            
+            # Update project data
+            building_type['total_cost'] = total_cost
+            building_type['total_area'] = total_area
+          end
+        end
+        
+        # Save everything back
+        project_data['building_types'] = building_types
+        model.set_attribute('project_data', 'data', project_data.to_json)
+        puts "=== Building Type Update Complete ===\n"
+      end
 
       dialog.set_html(html_content)
 
@@ -310,37 +374,40 @@ module Real_Estate_Optimizer
         apartment_type_name, apartment_data_json = params.split('@', 2)
         apartment_data = JSON.parse(apartment_data_json)
         model = Sketchup.active_model
-
-        # Retrieve the current list of apartment type names
-        apartment_type_names = model.get_attribute('apartment_type_data', APARTMENT_TYPE_LIST_KEY, [])
-        
-        if apartment_type_names.include?(apartment_type_name)
-          result = UI.messagebox("户型名已存在。是否覆盖？ Apartment type name already exists. Overwrite?", MB_YESNO)
-          return if result == IDNO
-        else
-          apartment_type_names << apartment_type_name
-          model.set_attribute('apartment_type_data', APARTMENT_TYPE_LIST_KEY, apartment_type_names)
+      
+        begin
+          model.start_operation('Save Apartment Type', true)
+          
+          # Retrieve the current list of apartment type names
+          apartment_type_names = model.get_attribute('apartment_type_data', APARTMENT_TYPE_LIST_KEY, [])
+          
+          if apartment_type_names.include?(apartment_type_name)
+            result = UI.messagebox("户型名已存在。是否覆盖？ Apartment type name already exists. Overwrite?", MB_YESNO)
+            return if result == IDNO
+          else
+            apartment_type_names << apartment_type_name
+            model.set_attribute('apartment_type_data', APARTMENT_TYPE_LIST_KEY, apartment_type_names)
+          end
+      
+          model.set_attribute('apartment_type_data', apartment_type_name, apartment_data.to_json)
+          puts "Stored data for #{apartment_type_name}: #{apartment_data.inspect}"
+      
+          # Create or update the apartment component
+          create_apartment_component(apartment_data)
+      
+          # Update building types that contain this apartment type
+          update_building_types_with_apartment(model, apartment_type_name, apartment_data)
+      
+          model.commit_operation
+          
+          UI.messagebox("属性已保存 Attributes saved: " + apartment_data['apartment_type_name'])
+          update_saved_apartment_types(dialog)
+        rescue => e
+          model.abort_operation
+          puts "Error saving apartment type: #{e.message}"
+          puts e.backtrace
+          UI.messagebox("Error saving apartment type: #{e.message}")
         end
-
-        model.set_attribute('apartment_type_data', apartment_type_name, apartment_data.to_json)
-        puts "Stored data for #{apartment_type_name}: #{apartment_data.inspect}"  # Debugging line
-
-        # Create or update the apartment component
-        create_apartment_component(apartment_data)
-
-        UI.messagebox("属性已保存 Attributes saved: " + apartment_data['apartment_type_name'])
-        update_saved_apartment_types(dialog)
-        dialog.execute_script(<<-JS
-          setTimeout(() => {
-            const matrix = document.getElementById('overlapMatrix');
-            if (matrix) {
-              // Recalculate all overlap values since sales velocities might have changed
-              const inputs = matrix.querySelectorAll('input:not([readonly])');
-              inputs.forEach(input => validateOverlap(input));
-            }
-          }, 500);
-        JS
-        )
       end
 
       dialog.add_action_callback("delete_apartment_type") do |action_context, apartment_type_name|
@@ -395,47 +462,7 @@ module Real_Estate_Optimizer
         # Update apartment types in dialog
         dialog.execute_script("updateSavedApartmentTypes(#{sorted_types.to_json})")
         
-        # Prepare JavaScript command
-        js_command = <<-JS
-          window.savedOverlapMatrix = #{overlap_matrix.to_json};
-          console.log("Setting savedOverlapMatrix:", window.savedOverlapMatrix);
-          
-          setTimeout(() => {
-            console.log("Starting matrix update...");
-            updateOverlapMatrix();
-            
-            // First set all saved values
-            Object.keys(window.savedOverlapMatrix).forEach(type1 => {
-              Object.keys(window.savedOverlapMatrix[type1]).forEach(type2 => {
-                const input = document.getElementById(`overlap_${type1}_${type2}`);
-                if (input && !input.readOnly) {
-                  input.value = window.savedOverlapMatrix[type1][type2].toFixed(2);
-                  console.log(`Set value for ${type1}-${type2}: ${input.value}`);
-                }
-              });
-            });
-            
-            // Then update all reversal values at once
-            const editableInputs = document.querySelectorAll('#overlapMatrix input:not([readonly])');
-            console.log("Found editable inputs:", editableInputs.length);
-            
-            editableInputs.forEach(input => {
-              const parts = input.id.split('_');
-              if (parts.length === 3) {
-                const type1 = parts[1];
-                const type2 = parts[2];
-                console.log(`Requesting volumes for ${type1}-${type2}`);
-                const params = JSON.stringify({type1: type1, type2: type2});
-                window.location = 'skp:get_apartment_volumes@' + encodeURIComponent(params);
-              }
-            });
-          }, 1000);
-        JS
-        
-        # Execute JavaScript with debug output
-        puts "Executing JavaScript command..."
-        dialog.execute_script(js_command)
-        puts "JavaScript command executed"
+    
       end
       
       dialog.add_action_callback("get_apartment_volumes") do |action_context, params_json|
