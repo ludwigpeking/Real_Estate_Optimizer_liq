@@ -363,158 +363,204 @@ module Real_Estate_Optimizer
             }
           }
 
-          
+          function setLineDash(ctx, pattern) {
+            switch(pattern) {
+              case 'dot':
+                ctx.setLineDash([2, 2]);
+                break;
+              case 'dash':
+                ctx.setLineDash([6, 3]);
+                break;
+              case 'solid':
+                ctx.setLineDash([]);
+                break;
+            }
+          }
 
           function renderSalesChart(salesData) {
-            console.log("Starting chart render process...");
-            const canvas = document.getElementById('salesChart');
-            const chartContainer = document.getElementById('SalesChart');
-            const legendDiv = document.getElementById('chartLegend');
-            
-            if (!canvas || chartContainer.style.display === 'none') {
-              console.log("Chart container is hidden or not found, skipping render");
-              return;
-            }
-            
-            if (!salesData || !salesData.apartmentSales || !salesData.metadata) {
-              console.error("Invalid sales data structure:", salesData);
-              return;
-            }
-            
-            // Set fixed canvas dimensions
-            canvas.width = 800;
-            canvas.height = 400;
-            
-            const ctx = canvas.getContext('2d');
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            legendDiv.innerHTML = '';
-            
-            // Calculate scales
-            const padding = 40;
-            const graphWidth = canvas.width - padding * 2;
-            const graphHeight = canvas.height - padding * 2;
-            
-            // Find max value for Y scale
-            let maxSales = 0;
-            Object.entries(salesData.apartmentSales).forEach(([type, data]) => {
-              if (Array.isArray(data)) {
-                const max = Math.max(...data.map(v => v || 0));
-                if (max > maxSales) maxSales = max;
-              }
-            });
-          
-            // Sort apartment types by number then letter (MODIFIED SORTING)
-            var sortedTypes = Object.keys(salesData.apartmentSales).sort(compareApartmentTypes);
+    console.log("Starting chart render process...");
+    const canvas = document.getElementById('salesChart');
+    const chartContainer = document.getElementById('SalesChart');
+    const legendDiv = document.getElementById('chartLegend');
+    
+    if (!canvas || chartContainer.style.display === 'none') {
+        console.log("Chart container is hidden or not found, skipping render");
+        return;
+    }
+    
+    if (!salesData || !salesData.apartmentSales || !salesData.metadata) {
+        console.error("Invalid sales data structure:", salesData);
+        return;
+    }
+    
+    // Set fixed canvas dimensions
+    canvas.width = 800;
+    canvas.height = 400;
+    
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    legendDiv.innerHTML = '';
+    
+    // Calculate scales
+    const padding = 40;
+    const graphWidth = canvas.width - padding * 2;
+    const graphHeight = canvas.height - padding * 2;
+    
+    // Find max value for Y scale
+    let maxSales = 0;
+    Object.entries(salesData.apartmentSales).forEach(([type, data]) => {
+        if (Array.isArray(data)) {
+            const max = Math.max(...data.map(v => v || 0));
+            if (max > maxSales) maxSales = max;
+        }
+    });
 
-            console.log("Sorted types:", sortedTypes);
-            
-            // Draw axes
-            ctx.beginPath();
-            ctx.strokeStyle = '#000';
-            ctx.moveTo(padding, padding);
-            ctx.lineTo(padding, canvas.height - padding);
-            ctx.lineTo(canvas.width - padding, canvas.height - padding);
-            ctx.stroke();
-            
-            // Draw grid and labels
-            ctx.fillStyle = '#000';
-            ctx.textAlign = 'right';
-            ctx.textBaseline = 'middle';
-            
-            // Y-axis labels
-            for (let i = 0; i <= 5; i++) {
-              const y = padding + (graphHeight - graphHeight * (i / 5));
-              const value = Math.round(maxSales * (i / 5));
-              ctx.fillText(value.toLocaleString(), padding - 5, y);
-              
-              ctx.beginPath();
-              ctx.strokeStyle = '#eee';
-              ctx.moveTo(padding, y);
-              ctx.lineTo(canvas.width - padding, y);
-              ctx.stroke();
-            }
-            
-            // X-axis labels (every 6 months)
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'top';
-            for (let month = 0; month <= 72; month += 6) {
-              const x = padding + (graphWidth * (month / 72));
-              ctx.fillText(month.toString(), x, canvas.height - padding + 5);
-            }
-            
-            // Draw data lines and scene change indicators
-            let legendHTML = '<div style="background: rgba(255,255,255,0.8); padding: 5px;">';
+    // Sort apartment types by number then letter
+    const sortedTypes = Object.keys(salesData.apartmentSales).sort(compareApartmentTypes);
+    
+    // Draw axes
+    ctx.beginPath();
+    ctx.strokeStyle = '#000';
+    ctx.moveTo(padding, padding);
+    ctx.lineTo(padding, canvas.height - padding);
+    ctx.lineTo(canvas.width - padding, canvas.height - padding);
+    ctx.stroke();
+    
+    // Draw grid and labels
+    ctx.fillStyle = '#000';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    
+    // Y-axis labels
+    for (let i = 0; i <= 5; i++) {
+        const y = padding + (graphHeight - graphHeight * (i / 5));
+        const value = Math.round(maxSales * (i / 5));
+        ctx.fillText(value.toLocaleString(), padding - 5, y);
+        
+        ctx.beginPath();
+        ctx.strokeStyle = '#eee';
+        ctx.moveTo(padding, y);
+        ctx.lineTo(canvas.width - padding, y);
+        ctx.stroke();
+    }
+    
+    // X-axis labels (every 6 months)
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    for (let month = 0; month <= 72; month += 6) {
+        const x = padding + (graphWidth * (month / 72));
+        ctx.fillText(month.toString(), x, canvas.height - padding + 5);
+    }
+    
+    // Define line patterns
+    const linePatterns = [
+        { type: 'solid', dash: [] },
+        { type: 'dash', dash: [6, 3] },
+        { type: 'dot', dash: [2, 2] }
+    ];
 
-            // Process apartment types in sorted order
-            sortedTypes.forEach((type) => {
-              const data = salesData.apartmentSales[type];
-              const metadata = salesData.metadata[type];
-              
-              if (!Array.isArray(data) || !metadata) {
-                console.log(`Skipping invalid data for ${type}`);
-                return;
-              }
-              
-              const typeNumber = metadata.number;
-              if (!typeNumber) {
-                console.log(`Skipping type ${type} - no valid number in metadata`);
-                return;
-              }
-              
-              // Calculate color based on apartment size number
-              const hue = ((typeNumber - 50) * 2) % 360;
-              const color = `hsl(${hue}, 70%, 50%)`;
-              
-              // Draw the sales line
-              ctx.beginPath();
-              ctx.strokeStyle = color;
-              ctx.lineWidth = 2;
-              
-              let hasDrawnPoint = false;
-              data.forEach((value, month) => {
+    let legendHTML = '<div style="background: rgba(255,255,255,0.8); padding: 5px;">';
+
+    // Process apartment types in sorted order
+    sortedTypes.forEach((type, index) => {
+        const data = salesData.apartmentSales[type];
+        const metadata = salesData.metadata[type];
+        
+        if (!Array.isArray(data) || !metadata) {
+            console.log(`Skipping invalid data for ${type}`);
+            return;
+        }
+        
+        const typeNumber = metadata.number;
+        if (!typeNumber) {
+            console.log(`Skipping type ${type} - no valid number in metadata`);
+            return;
+        }
+        
+        // Calculate color based on apartment size number
+        const hue = ((typeNumber - 50) * 2) % 360;
+        const color = `hsl(${hue}, 70%, 50%)`;
+        
+        // Set line pattern
+        const pattern = linePatterns[index % linePatterns.length];
+        ctx.setLineDash(pattern.dash);
+        
+        // Draw the sales line
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        
+        let hasDrawnPoint = false;
+        data.forEach((value, month) => {
+            const x = padding + (graphWidth * (month / 72));
+            const y = canvas.height - padding - (graphHeight * ((value || 0) / maxSales));
+            
+            if (!hasDrawnPoint) {
+                ctx.moveTo(x, y);
+                hasDrawnPoint = true;
+            } else {
+                ctx.lineTo(x, y);
+            }
+        });
+        ctx.stroke();
+        
+        // Reset line dash for scene change indicators
+        ctx.setLineDash([]);
+        
+        // Draw scene change indicators
+        if (salesData.priceChanges[type] && Array.isArray(salesData.priceChanges[type])) {
+            salesData.priceChanges[type].forEach(month => {
                 const x = padding + (graphWidth * (month / 72));
-                const y = canvas.height - padding - (graphHeight * ((value || 0) / maxSales));
+                const value = data[month] || 0;
+                const y = canvas.height - padding - (graphHeight * (value / maxSales));
                 
-                if (!hasDrawnPoint) {
-                  ctx.moveTo(x, y);
-                  hasDrawnPoint = true;
-                } else {
-                  ctx.lineTo(x, y);
-                }
-              });
-              ctx.stroke();
-              
-              // Draw scene change indicators
-              if (salesData.priceChanges[type] && Array.isArray(salesData.priceChanges[type])) {
-                salesData.priceChanges[type].forEach(month => {
-                  const x = padding + (graphWidth * (month / 72));
-                  const value = data[month] || 0;
-                  const y = canvas.height - padding - (graphHeight * (value / maxSales));
-                  
-                  // Draw outer circle
-                  ctx.beginPath();
-                  ctx.arc(x, y, 6, 0, Math.PI * 2);
-                  ctx.fillStyle = 'white';
-                  ctx.fill();
-                  ctx.strokeStyle = color;
-                  ctx.lineWidth = 2;
-                  ctx.stroke();
-                  
-                  // Draw inner circle
-                  ctx.beginPath();
-                  ctx.arc(x, y, 4, 0, Math.PI * 2);
-                  ctx.fillStyle = color;
-                  ctx.fill();
-                });
-              }
-              
-              // Add to legend
-              legendHTML += `<div style="color: ${color}; margin: 2px;">● ${metadata.originalName}</div>`;
+                // Draw outer circle
+                ctx.beginPath();
+                ctx.arc(x, y, 6, 0, Math.PI * 2);
+                ctx.fillStyle = 'white';
+                ctx.fill();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Draw inner circle
+                ctx.beginPath();
+                ctx.arc(x, y, 4, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
             });
+        }
+        
+        // Add to legend with line pattern sample
+        legendHTML += `<div style="color: ${color}; margin: 2px; display: flex; align-items: center;">
+            <canvas width="20" height="10" style="margin-right: 5px;" id="legend_${type}"></canvas>
+            ${metadata.originalName}
+        </div>`;
+    });
+    
+    legendHTML += '</div>';
+    legendDiv.innerHTML = legendHTML;
+
+    // Draw line pattern samples in legend
+    sortedTypes.forEach((type, index) => {
+        const legendCanvas = document.getElementById(`legend_${type}`);
+        if (legendCanvas) {
+            const ltx = legendCanvas.getContext('2d');
+            const metadata = salesData.metadata[type];
+            const hue = ((metadata.number - 50) * 2) % 360;
+            const color = `hsl(${hue}, 70%, 50%)`;
+            const pattern = linePatterns[index % linePatterns.length];
             
-            legendHTML += '</div>';
-            legendDiv.innerHTML = legendHTML;
-          }
+            ltx.strokeStyle = color;
+            ltx.lineWidth = 2;
+            ltx.setLineDash(pattern.dash);
+            ltx.beginPath();
+            ltx.moveTo(0, 5);
+            ltx.lineTo(20, 5);
+            ltx.stroke();
+        }
+    });
+}
 
           function parseApartmentType(typeStr) {
             // Read digits from the start

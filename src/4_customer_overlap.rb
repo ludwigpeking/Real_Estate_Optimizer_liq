@@ -90,56 +90,73 @@ module Real_Estate_Optimizer
           :preferences_key => "com.example.sales_overlap_calculator",
           :scrollable => true,
           :resizable => true,
-          :width => 900,
-          :height => 700,
+          :width => 800,  # Reduced from 900
+          :height => 600, # Reduced from 700
           :left => 100,
           :top => 100,
-          :min_width => 600,
+          :min_width => 500,  # Reduced from 600
           :min_height => 400,
-          :max_width => 1200,
-          :max_height => 800,
           :style => UI::HtmlDialog::STYLE_DIALOG
         }
       )
-
+      
       html_content = <<-HTML
         <!DOCTYPE html>
         <html lang="en">
           <head>
             <meta charset="UTF-8" />
-            <link rel="stylesheet" type="text/css" href="file:///#{File.join(__dir__, 'style.css')}">
             <meta name="viewport" content="width=device-width, initial-scale=1" />
             <title>Advanced Sales Overlap Calculator</title>
             <style>
               body {
                 font-family: Arial, sans-serif;
-                margin: 20px;
+                margin: 15px;
+                font-size: 14px;
               }
-              h1,
+              h2 {
+                font-size: 18px;
+                margin-bottom: 15px;
+              }
               h3 {
+                font-size: 16px;
                 color: #333;
+                margin: 10px 0;
               }
               .input-section,
               .results-section {
-                margin-bottom: 30px;
+                margin-bottom: 20px;
               }
               .grid-table {
                 border-collapse: collapse;
-                margin-bottom: 20px;
+                margin-bottom: 15px;
                 width: 100%;
+                font-size: 13px;
               }
               .grid-table th,
               .grid-table td {
-                border: 1px solid #ccc;
-                padding: 8px 12px;
+                border: 1px solid #ddd;
+                padding: 6px 8px;
                 text-align: center;
               }
               .grid-table th {
                 background-color: #f4f4f4;
+                white-space: nowrap;
+              }
+              .grid-table input {
+                width: 60px;
+                padding: 2px 4px;
+                text-align: center;
+                font-size: 13px;
+              }
+              #salesScenariosTable {
+                max-width: 600px;
+              }
+              #overlapTable {
+                max-width: 800px;
               }
               #saveBtn, #recalcBtn {
-                margin: 5px;
-                padding: 5px 10px;
+                margin: 3px;
+                padding: 4px 8px;
                 background-color: #558855;
                 color: white;
                 border: none;
@@ -156,23 +173,29 @@ module Real_Estate_Optimizer
                 background-color: #117a8b;
               }
               .note {
-                font-size: 14px;
-                color: #555;
-                margin-bottom: 20px;
+                font-size: 13px;
+                color: #666;
+                margin: 10px 0;
               }
               .read-only {
-                background-color: #e9ecef;
+                background-color: #f8f9fa;
               }
               .zero-volume {
-                color: red;
+                color: #dc3545;
                 font-weight: bold;
+              }
+              p {
+                margin: 8px 0;
+                font-size: 13px;
               }
               .results-section {
                 display: flex;
                 flex-direction: column;
-                align-items: center;
               }
-    
+              #results {
+                font-size: 13px;
+                line-height: 1.4;
+              }
             </style>
           </head>
           <body>

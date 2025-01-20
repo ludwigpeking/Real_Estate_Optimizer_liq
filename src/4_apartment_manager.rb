@@ -308,8 +308,6 @@ module Real_Estate_Optimizer
           total_cost = 0
           total_area = 0
           
-          puts "\nChecking building type: #{building_type['name']}"
-          
           building_type['floorTypes'].each do |floor_type|
             num_floors = floor_type['number'].to_i
             
@@ -319,7 +317,6 @@ module Real_Estate_Optimizer
               # Get the current data for this apartment type
               apt_data = if apt_name == apartment_type_name
                 modified = true
-                puts "Found target apartment type in floor type"
                 apartment_data
               else
                 JSON.parse(model.get_attribute('apartment_type_data', apt_name) || '{}')
@@ -330,7 +327,6 @@ module Real_Estate_Optimizer
               # Calculate cost for this apartment occurrence
               apt_area = apt_data['area'].to_f
               apt_unit_cost = apt_data['product_baseline_unit_cost_before_allocation'].to_f
-              puts "  Apartment #{apt_name} - Area: #{apt_area}, Unit Cost: #{apt_unit_cost}"
               apt_cost_per_unit = apt_area * apt_unit_cost
               apt_total_cost = apt_cost_per_unit * num_floors
               
@@ -340,9 +336,7 @@ module Real_Estate_Optimizer
           end
           
           if modified
-            puts "\nUpdating building type '#{building_type['name']}'"
-            puts "Previous total cost: #{building_type['total_cost'] || 'Not set'}"
-            puts "New total cost: #{total_cost}"
+
             
             # Update component definition
             building_def = model.definitions[building_type['name']]
@@ -353,7 +347,6 @@ module Real_Estate_Optimizer
               
               # Verify the update
               actual_cost = building_def.get_attribute('building_data', 'total_cost')
-              puts "Verified updated cost in component: #{actual_cost}"
             end
             
             # Update project data
@@ -555,7 +548,7 @@ module Real_Estate_Optimizer
           if ['商铺', '办公', '公寓'].include?(category)
             material.color = Sketchup::Color.new(255, 0, 0)  # Red for commercial, office, and apartment
           else
-            hue = (apartment_data['area'].to_f - 50) * 2 % 360
+            hue = (apartment_data['area'].to_f - 60) * 2.25 % 360
             rgb = hsl_to_rgb(hue, 100, 50)
             material.color = Sketchup::Color.new(*rgb)
           end

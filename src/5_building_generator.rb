@@ -76,6 +76,7 @@ module Real_Estate_Optimizer
                           </label><br>
                           <label>X 坐标 X Position: <input type="number" id="apartmentX${apartmentTypeId}" value="0" step="0.1"></label>
                           <label>Y 坐标 Y Position: <input type="number" id="apartmentY${apartmentTypeId}" value="0" step="0.1"></label>
+                          <label>旋转 Rotation (deg):   <input type="number" id="apartmentRotation${apartmentTypeId}" value="0" step="1"></label>
                           <button onclick="removeApartmentType(${apartmentTypeId})">删除 Remove</button>
                       </div>
                   `;
@@ -216,17 +217,22 @@ module Real_Estate_Optimizer
                     };
 
                     floorType.querySelectorAll('.apartment-type').forEach(function(apartmentType) {
-                      let nameElement = apartmentType.querySelector('select[id^="apartmentName"]');
-                      let xElement = apartmentType.querySelector('input[id^="apartmentX"]');
-                      let yElement = apartmentType.querySelector('input[id^="apartmentY"]');
-                      let mirrorXElement = apartmentType.querySelector('input[id^="mirrorX"]');
+                      let nameElement      = apartmentType.querySelector('select[id^="apartmentName"]');
+                      let xElement         = apartmentType.querySelector('input[id^="apartmentX"]');
+                      let yElement         = apartmentType.querySelector('input[id^="apartmentY"]');
+                      let mirrorXElement   = apartmentType.querySelector('input[id^="mirrorX"]');
+                      let rotationElement  = apartmentType.querySelector('input[id^="apartmentRotation"]');
+                    
                       floorTypeData.apartmentTypes.push({
-                        name: nameElement ? nameElement.value : '',
-                        x: xElement ? parseFloat(xElement.value) || 0 : 0,
-                        y: yElement ? parseFloat(yElement.value) || 0 : 0,
-                        mirrorX: mirrorXElement ? mirrorXElement.checked : false
+                        name:    nameElement ? nameElement.value : '',
+                        x:       xElement ? parseFloat(xElement.value) || 0 : 0,
+                        y:       yElement ? parseFloat(yElement.value) || 0 : 0,
+                        mirrorX: mirrorXElement ? mirrorXElement.checked : false,
+                        // Add the rotationZ
+                        rotationZ: rotationElement ? parseFloat(rotationElement.value) || 0 : 0
                       });
                     });
+                    
 
                     formData.floorTypes.push(floorTypeData);
                   });
@@ -557,14 +563,22 @@ module Real_Estate_Optimizer
           js_code_lines << "document.getElementById('levelHeight' + document.querySelector('.floor-type:last-child').id.replace('floorType', '')).value = #{floor_type['levelHeight']};"
       
           floor_type['apartmentTypes'].each do |apt|
+            # Ensure rotationZ is a number; default to 0 if missing
+            rotation_value = apt['rotationZ'] || 0
+          
             js_code_lines << "addApartmentType(document.querySelector('.floor-type:last-child').id.replace('floorType', ''));"
             js_code_lines << "var lastApartment = document.querySelector('.floor-type:last-child .apartment-type:last-child');"
             js_code_lines << "lastApartment.querySelector('select').innerHTML = '<option value=\"#{apt['name']}\">#{apt['name']}</option>';"
             js_code_lines << "lastApartment.querySelector('select').value = '#{apt['name']}';"
             js_code_lines << "lastApartment.querySelector('input[id^=\"apartmentX\"]').value = #{apt['x']};"
             js_code_lines << "lastApartment.querySelector('input[id^=\"apartmentY\"]').value = #{apt['y']};"
+          
+            # Use rotation_value in the JS snippet:
+            js_code_lines << "lastApartment.querySelector('input[id^=\"apartmentRotation\"]').value = #{rotation_value};"
+          
             js_code_lines << "lastApartment.querySelector('input[id^=\"mirrorX\"]').checked = #{apt['mirrorX'] ? 'true' : 'false'};"
           end
+          
         end
       
         js_code_lines << "document.getElementById('totalArea').textContent = #{building_data['total_area'] || 0};"

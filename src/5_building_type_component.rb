@@ -146,13 +146,14 @@ module Real_Estate_Optimizer
           num_floors.times do
             floor_type['apartmentTypes'].each do |apartment|
               add_apartment(
-                building_def, 
-                apartment['x'].to_f, 
-                apartment['y'].to_f, 
-                z_offset, 
-                apartment['name'], 
+                building_def,
+                apartment['x'].to_f,
+                apartment['y'].to_f,
+                z_offset,
+                apartment['name'],
                 floor_height,
-                apartment['mirrorX']  # Pass the mirrorX value
+                apartment['mirrorX'],
+                apartment['rotationZ'].to_f  # <= Pass rotationZ
               )
             end
             z_offset += floor_height
@@ -160,30 +161,38 @@ module Real_Estate_Optimizer
         end
       end
       
-      def self.add_apartment(building_def, x_offset, y_offset, z_offset, apartment_name, floor_height, mirror_x)
+      
+      def self.add_apartment(building_def, x_offset, y_offset, z_offset, apartment_name, floor_height, mirror_x, rotation_z)
         model = Sketchup.active_model
         apartment_def = model.definitions[apartment_name]
-        
+      
         unless apartment_def
           UI.messagebox("Apartment type '#{apartment_name}' not found. Please create it first.")
           return
         end
       
-        # Create a new instance of the apartment and add it to the building
+        # Start with a translation
         transform = Geom::Transformation.new([x_offset.m, y_offset.m, z_offset.m])
-        
+      
+        # Then apply a rotation around the Z-axis (in SketchUp, angle is in radians)
+        unless rotation_z.nil? || rotation_z == 0
+          rotation_in_radians = rotation_z * Math::PI / 180.0
+          rotation_transform = Geom::Transformation.rotation(ORIGIN, Z_AXIS, rotation_in_radians)
+          transform = transform * rotation_transform
+        end
+      
+        # If mirror_x is true, apply a scale of -1 in the X direction
         if mirror_x
-          # Create a mirroring transformation
           mirror_transform = Geom::Transformation.scaling(-1, 1, 1)
-          # Combine the transformations
           transform = transform * mirror_transform
         end
-        
+      
         instance = building_def.entities.add_instance(apartment_def, transform)
       
         # Ensure the instance is on the 'liq_0' layer
         instance.layer = model.layers['liq_0']
       end
+      
 
       def self.get_apartment_type_data(model, apt_name)
         apartment_data = JSON.parse(model.get_attribute('apartment_type_data', apt_name) || '{}')
@@ -202,7 +211,7 @@ module Real_Estate_Optimizer
   
       def self.create_apartment_material(name, area)
         material = Sketchup.active_model.materials.add(name)
-        hue = (area - 50) * 2 % 360
+        hue = (area - 80) * 3 % 360
         material.color = Sketchup::Color.new(*hsl_to_rgb(hue, 100, 50))
         material
       end
