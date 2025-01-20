@@ -478,8 +478,8 @@ module Real_Estate_Optimizer
         }
         
         // Calculate color based on apartment size number
-        const hue = ((typeNumber - 50) * 2) % 360;
-        const color = `hsl(${hue}, 70%, 50%)`;
+        const hue = ((typeNumber - 50) * 2.5) % 360;
+        const color = `hsl(${hue}, 100%, 50%)`;
         
         // Set line pattern
         const pattern = linePatterns[index % linePatterns.length];
@@ -547,8 +547,8 @@ module Real_Estate_Optimizer
         if (legendCanvas) {
             const ltx = legendCanvas.getContext('2d');
             const metadata = salesData.metadata[type];
-            const hue = ((metadata.number - 50) * 2) % 360;
-            const color = `hsl(${hue}, 70%, 50%)`;
+            const hue = ((metadata.number - 50) * 2.5) % 360;
+            const color = `hsl(${hue}, 100%, 90%)`;
             const pattern = linePatterns[index % linePatterns.length];
             
             ltx.strokeStyle = color;
@@ -979,8 +979,8 @@ module Real_Estate_Optimizer
       table += "<table><tr><th>地块 Property Line</th>"
       sorted_apartment_types.each do |type|
         area = type.scan(/\d+/).first.to_f
-        hue = ((area - 50) * 2) % 360
-        table += "<th style='background-color: hsl(#{hue}, 100%, 50%); color: black; text-shadow: 0px 0px 4px white;'>#{type}</th>"
+        hue = ((area - 50) * 2.5) % 360
+        table += "<th style='background-color: hsl(#{hue}, 100%, 90%); color: black; text-shadow: 0px 0px 4px white;'>#{type}</th>"
       end
     
       table += "<th>户数小计 Total Apartments</th>"
@@ -1048,9 +1048,9 @@ module Real_Estate_Optimizer
         # puts "Debug: Apartment type: #{type}, Width: #{width}"
 
         area = type.scan(/\d+/).first.to_f
-        hue = ((area - 50) * 2) % 360
+        hue = ((area - 50) * 2.5) % 360
 
-        table += "<tr><td style='background-color: hsl(#{hue}, 100%, 50%); color: black; text-shadow: 0px 0px 3px white;'>#{type}</td><td>#{count}</td><td>#{percentage}%</td>"
+        table += "<tr><td style='background-color: hsl(#{hue}, 100%, 90%); color: black; text-shadow: 0px 0px 3px white;'>#{type}</td><td>#{count}</td><td>#{percentage}%</td>"
         table += "<td>#{width}</td>"
         
         apt_area = apartment_data[type][:area]

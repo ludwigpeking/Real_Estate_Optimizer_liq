@@ -548,8 +548,8 @@ module Real_Estate_Optimizer
           if ['商铺', '办公', '公寓'].include?(category)
             material.color = Sketchup::Color.new(255, 0, 0)  # Red for commercial, office, and apartment
           else
-            hue = (apartment_data['area'].to_f - 60) * 2.25 % 360
-            rgb = hsl_to_rgb(hue, 100, 50)
+            hue = (apartment_data['area'].to_f - 50) * 2.5 % 360
+            rgb = hsl_to_rgb(hue, 100, 85)
             material.color = Sketchup::Color.new(*rgb)
           end
           

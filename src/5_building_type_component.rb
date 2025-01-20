@@ -209,13 +209,6 @@ module Real_Estate_Optimizer
         }
       end
   
-      def self.create_apartment_material(name, area)
-        material = Sketchup.active_model.materials.add(name)
-        hue = (area - 80) * 3 % 360
-        material.color = Sketchup::Color.new(*hsl_to_rgb(hue, 100, 50))
-        material
-      end
-  
       def self.add_dynamic_attributes(instance, building_type)
         # Set dynamic attributes on the component instance
         instance.set_attribute('dynamic_attributes', 'construction_init_time', 0)
