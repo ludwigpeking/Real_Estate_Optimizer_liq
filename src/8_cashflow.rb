@@ -503,7 +503,9 @@ module Real_Estate_Optimizer
       total_fees_and_taxes = 0
       corporate_tax = 0
     
-      monthly_cashflow = cashflow_data[:monthly_cashflow].map.with_index do |cashflow, month|
+      # Change this to force 72 months instead of using map
+      monthly_cashflow = Array.new(72) do |month|
+        cashflow = cashflow_data[:monthly_cashflow][month] || 0
         apartment_sales = cashflow_data[:income_table].values.inject(0) { |sum, v| sum + v[month] }
         fund_requirement = cashflow_data[:supervision_fund_requirements][month]
         fund_contribution = cashflow_data[:fund_contributions][month]
@@ -526,14 +528,9 @@ module Real_Estate_Optimizer
     
         # Calculate VAT re-declaration for the last month
         vat_redeclaration = 0
-        if month == cashflow_data[:monthly_cashflow].length - 1
+        if month == 71  # Changed from length-1 to explicit 71
           vat_redeclaration = calculate_vat_redeclaration(total_sales, total_expenses_without_tax)
           fees_and_taxes += vat_redeclaration
-          
-          # Calculate corporate tax only once, in the last month
-          net_profit_before_corporate_tax = total_sales - total_expenses_without_tax - total_fees_and_taxes
-          corporate_tax = [net_profit_before_corporate_tax * 0.25, 0].max
-          fees_and_taxes += corporate_tax
         end
     
         total_cash_outflow = land_fees + amenity_cost + apartment_construction + fees_and_taxes + underground_construction
@@ -559,11 +556,10 @@ module Real_Estate_Optimizer
           net_cashflow: net_cashflow,
           accumulated_cashflow: accumulated_cashflow,
           vat_redeclaration: vat_redeclaration,
-          corporate_tax: month == cashflow_data[:monthly_cashflow].length - 1 ? corporate_tax : 0
+          corporate_tax: 0  # Removed corporate tax calculation
         }
       end
     
-      # # puts "Corporate tax calculated in monthly cashflow: #{corporate_tax}"
       monthly_cashflow
     end
 

@@ -977,10 +977,16 @@ module Real_Estate_Optimizer
     
       table = "<h3>分地块统计 Property Line Statistics</h3>"
       table += "<table><tr><th>地块 Property Line</th>"
+      
       sorted_apartment_types.each do |type|
-        area = type.scan(/\d+/).first.to_f
-        hue = ((area - 50) * 2.5) % 360
-        table += "<th style='background-color: hsl(#{hue}, 100%, 90%); color: black; text-shadow: 0px 0px 4px white;'>#{type}</th>"
+        # Check if type contains commercial keywords
+        if type.include?('商铺') || type.include?('办公') || type.include?('公寓')
+          table += "<th style='background-color: hsl(0, 100%, 90%); color: black; text-shadow: 0px 0px 4px white;'>#{type}</th>"
+        else
+          area = type.scan(/\d+/).first.to_f
+          hue = ((area - 50) * 2.5) % 360
+          table += "<th style='background-color: hsl(#{hue}, 100%, 90%); color: black; text-shadow: 0px 0px 4px white;'>#{type}</th>"
+        end
       end
     
       table += "<th>户数小计 Total Apartments</th>"
@@ -991,6 +997,7 @@ module Real_Estate_Optimizer
       table += "<th>可售净容积率 FAR</th>"
       table += "<th>建筑密度 Footprint Coverage Rate (%)</th></tr>"
     
+      # Rest of the code remains the same
       sorted_property_lines.each do |keyword|
         data = property_line_data[keyword]
         table += "<tr><td style='font-weight: bold; font-size: 120%;'>#{keyword}</td>"
@@ -1019,7 +1026,6 @@ module Real_Estate_Optimizer
         data[:apartment_stocks].each do |type, count|
           total_apartments[type] += count
           
-          # Fetch apartment data if not already fetched
           unless apartment_data[type]
             apt_data = get_apartment_data(type)
             apartment_data[type] = {
@@ -1036,7 +1042,7 @@ module Real_Estate_Optimizer
       
       table = "<h3>户型统计 Apartment Type Statistics Across Parcels</h3>"
       table += "<table><tr><th>户型 Apartment Type</th><th>小计 Total Count</th><th>户数比 Percentage</th>"
-      table += "<th>面宽 Width (m)</th>"  # New column
+      table += "<th>面宽 Width (m)</th>"
       table += "<th>单价1</th><th>总价1</th><th>月流速1</th>"
       table += "<th>单价2</th><th>总价2</th><th>月流速2</th>"
       table += "<th>单价3</th><th>总价3</th><th>月流速3</th></tr>"
@@ -1045,12 +1051,17 @@ module Real_Estate_Optimizer
         count = total_apartments[type]
         percentage = (count.to_f / grand_total * 100).round(2)
         width = apartment_data[type][:width]
-        # puts "Debug: Apartment type: #{type}, Width: #{width}"
-
-        area = type.scan(/\d+/).first.to_f
-        hue = ((area - 50) * 2.5) % 360
-
-        table += "<tr><td style='background-color: hsl(#{hue}, 100%, 90%); color: black; text-shadow: 0px 0px 3px white;'>#{type}</td><td>#{count}</td><td>#{percentage}%</td>"
+    
+        # Determine background color based on type
+        bg_color = if type.include?('商铺') || type.include?('办公') || type.include?('公寓')
+          "hsl(0, 100%, 90%)"  # Red for commercial types
+        else
+          area = type.scan(/\d+/).first.to_f
+          hue = ((area - 50) * 2.5) % 360
+          "hsl(#{hue}, 100%, 90%)"
+        end
+    
+        table += "<tr><td style='background-color: #{bg_color}; color: black; text-shadow: 0px 0px 3px white;'>#{type}</td><td>#{count}</td><td>#{percentage}%</td>"
         table += "<td>#{width}</td>"
         
         apt_area = apartment_data[type][:area]
