@@ -557,30 +557,68 @@ module Real_Estate_Optimizer
           js_code_lines << "document.getElementById('customNameSuffix').value = '#{suffix}';"
         end
       
-        building_data['floorTypes'].each_with_index do |floor_type, index|
-          js_code_lines << "addFloorType();"
-          js_code_lines << "document.getElementById('numberFloors' + document.querySelector('.floor-type:last-child').id.replace('floorType', '')).value = #{floor_type['number']};"
-          js_code_lines << "document.getElementById('levelHeight' + document.querySelector('.floor-type:last-child').id.replace('floorType', '')).value = #{floor_type['levelHeight']};"
+        # Create a function to add floor types sequentially
+        js_code_lines << <<-JS
+          async function addFloorTypesSequentially(floorTypes) {
+            for (let floorType of floorTypes) {
+              // Add floor type
+              addFloorType();
+              
+              // Wait for the floor type to be added to DOM
+              await new Promise(resolve => setTimeout(resolve, 100));
+              
+              // Get the last floor type element
+              const lastFloorType = document.querySelector('.floor-type:last-child');
+              if (!lastFloorType) {
+                console.error('Failed to find last floor type');
+                continue;
+              }
+              
+              const floorTypeId = lastFloorType.id.replace('floorType', '');
+              
+              // Set floor type values - Note: using floorType from the parameter now
+              document.getElementById('numberFloors' + floorTypeId).value = floorType.number;
+              document.getElementById('levelHeight' + floorTypeId).value = floorType.levelHeight;
+              
+              // Add apartment types sequentially
+              for (let apt of floorType.apartmentTypes) {
+                addApartmentType(floorTypeId);
+                
+                // Wait for apartment type to be added to DOM
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                const lastApartment = lastFloorType.querySelector('.apartment-type:last-child');
+                if (!lastApartment) {
+                  console.error('Failed to find last apartment type');
+                  continue;
+                }
+                
+                const select = lastApartment.querySelector('select');
+                if (select) {
+                  select.innerHTML = '<option value="' + apt.name + '">' + apt.name + '</option>';
+                  select.value = apt.name;
+                }
+                
+                const xInput = lastApartment.querySelector('input[id^="apartmentX"]');
+                if (xInput) xInput.value = apt.x;
+                
+                const yInput = lastApartment.querySelector('input[id^="apartmentY"]');
+                if (yInput) yInput.value = apt.y;
+                
+                const rotationInput = lastApartment.querySelector('input[id^="apartmentRotation"]');
+                if (rotationInput) rotationInput.value = apt.rotationZ || 0;
+                
+                const mirrorInput = lastApartment.querySelector('input[id^="mirrorX"]');
+                if (mirrorInput) mirrorInput.checked = apt.mirrorX;
+              }
+            }
+          }
+        JS
       
-          floor_type['apartmentTypes'].each do |apt|
-            # Ensure rotationZ is a number; default to 0 if missing
-            rotation_value = apt['rotationZ'] || 0
-          
-            js_code_lines << "addApartmentType(document.querySelector('.floor-type:last-child').id.replace('floorType', ''));"
-            js_code_lines << "var lastApartment = document.querySelector('.floor-type:last-child .apartment-type:last-child');"
-            js_code_lines << "lastApartment.querySelector('select').innerHTML = '<option value=\"#{apt['name']}\">#{apt['name']}</option>';"
-            js_code_lines << "lastApartment.querySelector('select').value = '#{apt['name']}';"
-            js_code_lines << "lastApartment.querySelector('input[id^=\"apartmentX\"]').value = #{apt['x']};"
-            js_code_lines << "lastApartment.querySelector('input[id^=\"apartmentY\"]').value = #{apt['y']};"
-          
-            # Use rotation_value in the JS snippet:
-            js_code_lines << "lastApartment.querySelector('input[id^=\"apartmentRotation\"]').value = #{rotation_value};"
-          
-            js_code_lines << "lastApartment.querySelector('input[id^=\"mirrorX\"]').checked = #{apt['mirrorX'] ? 'true' : 'false'};"
-          end
-          
-        end
+        # Call the sequential loading function
+        js_code_lines << "addFloorTypesSequentially(#{building_data['floorTypes'].to_json});"
       
+        # Rest of your code remains the same...
         js_code_lines << "document.getElementById('totalArea').textContent = #{building_data['total_area'] || 0};"
         js_code_lines << "document.getElementById('footprintArea').textContent = #{building_data['footprint_area'] || 0};"
         js_code_lines << "document.getElementById('monthsFromConstructionInitToZeroLevel').value = #{building_data['standardConstructionTime']['monthsFromConstructionInitToZeroLevel']};"
@@ -590,54 +628,16 @@ module Real_Estate_Optimizer
         js_code_lines << "document.getElementById('supervisionFundPercentage').value = #{building_data['standardConstructionTime']['supervisionFundPercentage']};"
       
         # Populate payment schedules
-        js_code_lines << "console.log('Loading Supervision Fund Release Schedule:', #{building_data['supervisionFundReleaseSchedule'].to_json});"
-        js_code_lines << "console.log('Loading Construction Payment Schedule:', #{building_data['constructionPaymentSchedule'].to_json});"
         js_code_lines << "populatePaymentTable('supervisionFundReleaseSchedule', #{(building_data['supervisionFundReleaseSchedule'] || Real_Estate_Optimizer::DefaultValues::PROJECT_DEFAULTS[:inputs][:supervision_fund_release_schedule]).to_json});"
         js_code_lines << "populatePaymentTable('constructionPaymentSchedule', #{(building_data['constructionPaymentSchedule'] || Real_Estate_Optimizer::DefaultValues::PROJECT_DEFAULTS[:inputs][:construction_payment_schedule]).to_json});"
       
-        # Validate payment sums after populating
+        # Validate payment sums and update building name
         js_code_lines << "validatePaymentSum('supervisionFundReleaseSchedule');"
         js_code_lines << "validatePaymentSum('constructionPaymentSchedule');"
-        js_code_lines << "verifyAllCellsPopulated();"
+        js_code_lines << "setTimeout(() => { updateBuildingTypeName(); }, 1000);"
+        js_code_lines << "setTimeout(() => { populateApartmentOptions(); }, 1500);"
       
-        js_code_lines << "updateBuildingTypeName();"
-        
-        # Populate apartment options after setting values
-        js_code_lines << "populateApartmentOptions();"
-        
-        # Restore the previously set values for apartment types
-        building_data['floorTypes'].each_with_index do |floor_type, floor_index|
-          floor_type['apartmentTypes'].each_with_index do |apt, apt_index|
-            js_code_lines << "document.querySelectorAll('.floor-type')[#{floor_index}].querySelectorAll('.apartment-type select')[#{apt_index}].value = '#{apt['name']}';"
-          end
-        end
-      
-        # Add verification function
-        js_code_lines << "
-          function verifyLoadedData() {
-            let supervisionData = [];
-            let constructionData = [];
-            
-            document.querySelectorAll('#supervisionFundReleaseSchedule input').forEach(input => {
-              supervisionData.push(parseFloat(input.value) || 0);
-            });
-            
-            document.querySelectorAll('#constructionPaymentSchedule input').forEach(input => {
-              constructionData.push(parseFloat(input.value) || 0);
-            });
-            
-            console.log('Verified Supervision Fund Release Schedule:', supervisionData);
-            console.log('Verified Construction Payment Schedule:', constructionData);
-          }
-        "
-        
-        # Call verification function
-        js_code_lines << "verifyLoadedData();"
-      
-        # Join all lines into a single string
-        js_code = js_code_lines.join("\n")
-        
-        dialog.execute_script(js_code)
+        dialog.execute_script(js_code_lines.join("\n"))
       end
     end
   end

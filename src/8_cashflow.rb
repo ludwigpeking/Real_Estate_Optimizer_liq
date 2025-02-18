@@ -302,7 +302,7 @@ module Real_Estate_Optimizer
       # Calculate monthly cashflows
       (0...72).each do |month|
         current_requirement = supervision_fund_requirements[month]
-        
+    
         # Fund balance adjustments
         fund_release = 0
         if supervision_fund_balance > current_requirement
@@ -311,7 +311,7 @@ module Real_Estate_Optimizer
         end
     
         apartment_sales = apartment_income[month] || 0
-        
+    
         fund_contribution = 0
         if supervision_fund_balance < current_requirement
           fund_contribution = [current_requirement - supervision_fund_balance, apartment_sales].min
@@ -326,10 +326,10 @@ module Real_Estate_Optimizer
         basement_expense = basement_cashflows[:expenses][month] || 0
     
         total_income = apartment_sales + basement_income
-        
+    
         # Calculate fees
         fees_and_taxes[month] = total_income * (management_fee_rate + sales_fee_rate + 
-                                              lvit_provisional_rate + vat_surcharge_rate)
+                                                lvit_provisional_rate + vat_surcharge_rate)
     
         expenses = land_payment + unsaleable_amenity_payment + construction_payment + 
                   basement_expense + fees_and_taxes[month]
@@ -340,19 +340,17 @@ module Real_Estate_Optimizer
         accumulated_cashflow[month] = (month > 0 ? accumulated_cashflow[month-1] : 0) + net_income
       end
     
-      # Calculate final results including corporate tax
-      total_income = apartment_income.sum + basement_cashflows[:income].sum
-      total_expenses = fees_and_taxes.sum + construction_payments.sum + 
-                      basement_cashflows[:expenses].sum +
-                      land_cost_payment_schedule.sum { |p| land_cost * p } +
-                      unsaleable_amenity_cost_payment_schedule.sum { |p| unsaleable_amenity_cost * p }
+      # Calculate total net income before tax
+      total_income_before_tax = monthly_cashflow.sum { |month| month }
     
-      net_profit_before_corporate_tax = total_income - total_expenses
-      corporate_tax = [net_profit_before_corporate_tax * 0.25, 0].max
-      
-      # Apply corporate tax to last month
+      # Calculate corporate tax (25% rate, or modify as necessary)
+      corporate_tax_rate = 0.25
+      corporate_tax = [total_income_before_tax * corporate_tax_rate, 0].max
+    
+      # Apply corporate tax to the last month (month 72)
       monthly_cashflow[71] -= corporate_tax
       accumulated_cashflow[71] -= corporate_tax
+    
     
       {
         monthly_cashflow: monthly_cashflow,
@@ -360,6 +358,7 @@ module Real_Estate_Optimizer
         corporate_tax: corporate_tax
       }
     end
+    
 
     def self.calculate_and_print_full_cashflow_table(income_data)
       model = Sketchup.active_model
@@ -503,9 +502,7 @@ module Real_Estate_Optimizer
       total_fees_and_taxes = 0
       corporate_tax = 0
     
-      # Change this to force 72 months instead of using map
-      monthly_cashflow = Array.new(72) do |month|
-        cashflow = cashflow_data[:monthly_cashflow][month] || 0
+      monthly_cashflow = cashflow_data[:monthly_cashflow].map.with_index do |cashflow, month|
         apartment_sales = cashflow_data[:income_table].values.inject(0) { |sum, v| sum + v[month] }
         fund_requirement = cashflow_data[:supervision_fund_requirements][month]
         fund_contribution = cashflow_data[:fund_contributions][month]
@@ -528,9 +525,14 @@ module Real_Estate_Optimizer
     
         # Calculate VAT re-declaration for the last month
         vat_redeclaration = 0
-        if month == 71  # Changed from length-1 to explicit 71
+        if month == cashflow_data[:monthly_cashflow].length - 1
           vat_redeclaration = calculate_vat_redeclaration(total_sales, total_expenses_without_tax)
           fees_and_taxes += vat_redeclaration
+          
+          # Calculate corporate tax only once, in the last month
+          net_profit_before_corporate_tax = total_sales - total_expenses_without_tax - total_fees_and_taxes
+          corporate_tax = [net_profit_before_corporate_tax * 0.25, 0].max
+          fees_and_taxes += corporate_tax
         end
     
         total_cash_outflow = land_fees + amenity_cost + apartment_construction + fees_and_taxes + underground_construction
@@ -556,10 +558,9 @@ module Real_Estate_Optimizer
           net_cashflow: net_cashflow,
           accumulated_cashflow: accumulated_cashflow,
           vat_redeclaration: vat_redeclaration,
-          corporate_tax: 0  # Removed corporate tax calculation
+          corporate_tax: month == cashflow_data[:monthly_cashflow].length - 1 ? corporate_tax : 0
         }
-      end
-    
+      end      
       monthly_cashflow
     end
 
@@ -660,10 +661,11 @@ module Real_Estate_Optimizer
     def self.generate_html_report(cashflow_data)
       monthly_cashflow = calculate_monthly_cashflow(cashflow_data)
       key_indicators = calculate_key_indicators(monthly_cashflow)
-    
+      
+      # Calculate NPV using the discount rate (annual)
       discount_rate = get_project_data_with_defaults['inputs']['discount_rate'] || 0.09
       monthly_discount_rate = (1 + discount_rate)**(1.0/12) - 1
-      npv = npv(cashflow_data[:monthly_cashflow], monthly_discount_rate)
+      npv_value = npv(cashflow_data[:monthly_cashflow], monthly_discount_rate)
     
       # Generate HTML report
       html = <<-HTML
@@ -671,6 +673,7 @@ module Real_Estate_Optimizer
         <table>
           <tr><th>指标 Indicator</th><th>值 Value</th></tr>
           <tr><td>内部收益率 IRR</td><td>#{key_indicators[:yearly_irr] ? "#{key_indicators[:yearly_irr].round(2)}%" : 'N/A'}</td></tr>
+          <tr><td>净现值 NPV</td><td>#{format_number(npv_value / 10000)}万元</td></tr> <!-- Added NPV Row -->
           <tr><td>销售毛利率 Gross Profit Margin</td><td>#{key_indicators[:gross_profit_margin]}%</td></tr>
           <tr><td>销售净利率 Net Profit Margin</td><td>#{key_indicators[:net_profit_margin]}%</td></tr>
           <tr><td>现金流回正（月） Cash Flow Positive Month</td><td>#{key_indicators[:cash_flow_positive_month]}</td></tr>
@@ -682,7 +685,7 @@ module Real_Estate_Optimizer
           <tr><td>MOIC</td><td>#{key_indicators[:moic] ? format('%.3f', key_indicators[:moic]) : 'N/A'}</td></tr>
         </table>
         <h3>财务指标 Financial Metrics</h3>
-        <p>基于折现率 Discount Rate: #{(discount_rate * 100).round(2)}%净现值 NPV: #{format_number(npv)}</p>
+        <p>基于折现率 Discount Rate: #{(discount_rate * 100).round(2)}%净现值 NPV: #{format_number(npv_value / 10000)}</p>
         <p>年化内部收益率 Yearly IRR: #{key_indicators[:yearly_irr] ? "#{key_indicators[:yearly_irr].round(2)}%" : 'N/A'}</p>
         <h3>现金流报告 Cashflow Report</h3>
         <table>
@@ -729,11 +732,11 @@ module Real_Estate_Optimizer
     
       html += <<-HTML
         </table>
-      
       HTML
     
       html
     end
+    
     
     def self.calculate_basement_cashflows
       model = Sketchup.active_model
@@ -821,10 +824,6 @@ module Real_Estate_Optimizer
       # Get overlap matrix
       overlap_data = model.attribute_dictionaries['overlap_data']
       overlap_matrix = overlap_data ? JSON.parse(overlap_data['overlap_matrix'] || '{}') : {}
-      
-      # Debug for Month 12
-      puts "\nOverlap Matrix:"
-      puts JSON.pretty_generate(overlap_matrix)
     
       # First gather all stock additions
       building_instances.each do |instance, transformation|
@@ -855,15 +854,6 @@ module Real_Estate_Optimizer
     
         next if current_stock.empty? || current_stock.values.all?(&:zero?)
     
-        if month == 12
-          puts "\nMonth 12 Debug Information:"
-          puts "==================================="
-          puts "Current stock levels:"
-          current_stock.each do |type, amount|
-            puts "#{type}: #{amount}"
-          end
-        end
-    
         # Gather available types and their current scenes
         available_types = {}
         current_stock.each do |apt_type, stock|
@@ -876,43 +866,21 @@ module Real_Estate_Optimizer
     
           # Determine which scene to use based on scene_switches parameter
           current_scene = if scene_switches&.dig(apt_type) && month >= scene_switches[apt_type] && sales_scenes.length > 1
-            if month == 12
-              puts "\nApartment Type: #{apt_type}"
-              puts "Using Scene 2 (switched at month #{scene_switches[apt_type]})"
-              puts "Scene Price: #{sales_scenes[1]['price']}"
-              puts "Scene Volume: #{sales_scenes[1]['volumn']}"
-            end
             sales_scenes[1]
           else
-            if month == 12
-              puts "\nApartment Type: #{apt_type}"
-              puts "Using Scene 1"
-              puts "Scene Price: #{sales_scenes[0]['price']}"
-              puts "Scene Volume: #{sales_scenes[0]['volumn']}"
-            end
             sales_scenes[0]
           end
     
           available_types[apt_type] = {
             stock: stock,
-            volume: current_scene['volumn'].to_i,
+            volume: current_scene['volumn'].to_f,  # Changed from .to_i to .to_f
             price: current_scene['price'].to_f,
             area: apt_data['area'].to_f
           }
         end
     
-        if month == 12
-          puts "\nAvailable Types for Overlap Calculation:"
-          puts JSON.pretty_generate(available_types)
-        end
-    
         # Calculate adjusted volumes considering overlap
         adjusted_volumes = calculate_overlap_adjustments(available_types, overlap_matrix)
-    
-        if month == 12
-          puts "\nAdjusted Volumes after Overlap:"
-          puts JSON.pretty_generate(adjusted_volumes)
-        end
     
         # Apply sales and update remaining stock
         available_types.each do |apt_type, type_data|
@@ -926,13 +894,6 @@ module Real_Estate_Optimizer
           
           # Update remaining stock
           current_stock[apt_type] -= actual_sales
-    
-          if month == 12
-            puts "\nFinal Sales for #{apt_type}:"
-            puts "Max Volume: #{max_volume}"
-            puts "Actual Sales: #{actual_sales}"
-            puts "Remaining Stock: #{current_stock[apt_type]}"
-          end
         end
       end
     
@@ -1194,7 +1155,7 @@ module Real_Estate_Optimizer
         end
     
         final_volume = demand_i - adjustment
-        final_volumes[type] = final_volume > 0 ? final_volume : 0
+        final_volumes[type] = [final_volume, 0.0].max
       end
     
       final_volumes
@@ -1236,7 +1197,7 @@ module Real_Estate_Optimizer
         end
 
         final_volume = demand_i - adjustment
-        final_volumes[type] = final_volume > 0 ? final_volume : 0
+        final_volumes[type] = [final_volume, 0.0].max
         # puts "  Final Volume for #{type}: #{final_volumes[type]} (Total Adjustment: #{adjustment})"
       end
 

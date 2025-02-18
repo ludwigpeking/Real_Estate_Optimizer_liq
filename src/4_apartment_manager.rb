@@ -151,7 +151,7 @@ module Real_Estate_Optimizer
 
             function validateInputs() {
               var area = document.getElementById('apartment_type_area').value;
-              if (!area || isNaN(area) || area <= 0) {
+              if (!area || isNaN(area) || area < 0) {
                 alert("请填写有效的户型建筑面积 Please enter a valid apartment type area.");
                 return false;
               }

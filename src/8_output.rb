@@ -44,6 +44,8 @@ module Real_Estate_Optimizer
             background-color: #f1f1f1;
             margin-bottom: 8px;
           }
+
+  
           
           .tab button {
             background-color: inherit;
@@ -140,19 +142,32 @@ module Real_Estate_Optimizer
           }
 
           .chart-container {
-            width: 800px;
+            width: 800px;  /* Keep original width */
             height: 400px;
             margin: 20px auto;
             position: relative;
           }
-
+          
           canvas#salesChart,
           canvas#cashflowChart {
+            width: 800px;
+            height: 400px;
             display: block;
+          }
+          
+          #chartLegend, #cashflowLegend {
+            position: absolute;
+            top: 10px;
+            left: 800px;
+            margin-left: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 5px;
+            border-radius: 4px;
+            width: 180px;
           }
           .download-button {
             padding: 8px 16px;
-            background-color: #4CAF50;
+            background-color: #888;
             color: white;
             border: none;
             border-radius: 4px;
@@ -162,8 +177,77 @@ module Real_Estate_Optimizer
           }
 
           .download-button:hover {
-            background-color: #45a049;
+            background-color: #bbb;
           }
+
+          .number-input-container {
+              display: flex;
+              align-items: center;
+              gap: 2px;
+          }
+
+          .arrow-btn {
+              padding: 2px 6px;
+              background: #f5f5f5;
+              border: 1px solid #ddd;
+              cursor: pointer;
+              font-size: 10px;
+          }
+
+          .arrow-btn:hover {
+              background: #e5e5e5;
+          }
+
+          .apartment-value {
+              font-size: 12px;
+              padding: 2px;
+          }
+          /* Add this to your existing CSS */
+.scene-month-input {
+  width: 40px;
+  text-align: center;
+  border: 1px solid #ddd;
+  padding: 2px;
+  font-size: 12px;
+  -moz-appearance: textfield; /* Firefox */
+}
+
+/* Remove arrows from number input */
+.scene-month-input::-webkit-outer-spin-button,
+.scene-month-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Style KPI tables consistently */
+.kpi-summary {
+  margin: 10px 0;
+  padding: 10px;
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.kpi-summary table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.kpi-summary td {
+  padding: 4px 8px;
+  border: none;
+}
+
+.kpi-summary td:first-child {
+  width: 60%;
+  color: #333;
+}
+
+.kpi-summary td:last-child {
+  text-align: right;
+  font-weight: bold;
+  color: #000;
+}
         </style>
         </head>
         <body>
@@ -186,8 +270,8 @@ module Real_Estate_Optimizer
           <div id="SalesChart" class="tabcontent">
             <div class="chart-container" style="height: 400px; position: relative;">
               <h3>产品销售表 Sales Chart</h3>
-              <canvas id="salesChart" style="width: 100%; height: 100%;"></canvas>
-              <div id="chartLegend" style="position: absolute; top: 10px; right: 10px;"></div>
+              <canvas id="salesChart" style="width: 800px; height: 100%;"></canvas>
+              <div id="chartLegend" style="position: absolute; top: 10px; right: 50px;"></div>
             </div>
             <div style="text-align: center; margin: 10px;">
               <button onclick="downloadCanvas('salesChart', '销售曲线')" class="download-button">
@@ -196,7 +280,7 @@ module Real_Estate_Optimizer
             </div>
             <div class="chart-container" style="height: 400px; position: relative; margin-top: 20px;">
               <h3>现金流曲线 Cashflow Curves</h3>
-              <canvas id="cashflowChart" style="width: 100%; height: 100%;"></canvas>
+              <canvas id="cashflowChart" style="width: 800px; height: 100%;"></canvas>
               <div id="cashflowLegend" style="position: absolute; top: 10px; right: 10px;"></div>
             </div>
             <div style="text-align: center; margin: 10px;">
@@ -335,33 +419,33 @@ module Real_Estate_Optimizer
             
             // Add legend
             legendDiv.innerHTML = `
-              <div style="background: rgba(255,255,255,0.8); padding: 5px;">
-                <div style="color: rgb(50, 50, 255); margin: 2px;">● 月度现金流 Monthly Cashflow</div>
-                <div style="color: rgb(255, 50, 50); margin: 2px;">● 累计现金流 Accumulated Cashflow</div>
-              </div>
-            `;
+            <div style="background: rgba(255,255,255,0.8); padding: 5px;">
+              <div style="color: rgb(50, 50, 255); margin: 2px;">● 月度现金流 Monthly Cashflow</div>
+              <div style="color: rgb(255, 50, 50); margin: 2px;">● 累计现金流 Accumulated Cashflow</div>
+            </div>
+          `;
           }
           
-          // Simplified openTab function
           function openTab(tabName) {
             var i, tabcontent, tablinks;
             tabcontent = document.getElementsByClassName("tabcontent");
             for (i = 0; i < tabcontent.length; i++) {
-              tabcontent[i].style.display = "none";
+                tabcontent[i].style.display = "none";
             }
             
             document.getElementById(tabName).style.display = "block";
             activeTab = tabName;
             
             if (tabName === 'SalesChart') {
-              if (lastSalesData) {
-                requestAnimationFrame(() => renderSalesChart(lastSalesData));
-              }
-              if (lastCashflowData) {
-                requestAnimationFrame(() => renderCashflowChart(lastCashflowData));
-              }
+                if (lastSalesData) {
+                    requestAnimationFrame(() => renderSalesChart(lastSalesData));
+                }
+                if (lastCashflowData) {
+                    requestAnimationFrame(() => renderCashflowChart(lastCashflowData));
+                }
             }
-          }
+        }
+        
 
           function setLineDash(ctx, pattern) {
             switch(pattern) {
@@ -378,79 +462,80 @@ module Real_Estate_Optimizer
           }
 
           function renderSalesChart(salesData) {
-    console.log("Starting chart render process...");
-    const canvas = document.getElementById('salesChart');
-    const chartContainer = document.getElementById('SalesChart');
-    const legendDiv = document.getElementById('chartLegend');
+            console.log("Full sales data for debugging:", salesData.apartmentSales);
+            console.log("Starting chart render process...");
+            const canvas = document.getElementById('salesChart');
+            const chartContainer = document.getElementById('SalesChart');
+            const legendDiv = document.getElementById('chartLegend');
+            
+            if (!canvas || chartContainer.style.display === 'none') {
+                console.log("Chart container is hidden or not found, skipping render");
+                return;
+            }
+            
+            if (!salesData || !salesData.apartmentSales || !salesData.metadata) {
+                console.error("Invalid sales data structure:", salesData);
+                return;
+            }
     
-    if (!canvas || chartContainer.style.display === 'none') {
-        console.log("Chart container is hidden or not found, skipping render");
-        return;
-    }
-    
-    if (!salesData || !salesData.apartmentSales || !salesData.metadata) {
-        console.error("Invalid sales data structure:", salesData);
-        return;
-    }
-    
-    // Set fixed canvas dimensions
-    canvas.width = 800;
-    canvas.height = 400;
-    
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    legendDiv.innerHTML = '';
-    
-    // Calculate scales
-    const padding = 40;
-    const graphWidth = canvas.width - padding * 2;
-    const graphHeight = canvas.height - padding * 2;
-    
-    // Find max value for Y scale
-    let maxSales = 0;
-    Object.entries(salesData.apartmentSales).forEach(([type, data]) => {
-        if (Array.isArray(data)) {
-            const max = Math.max(...data.map(v => v || 0));
-            if (max > maxSales) maxSales = max;
-        }
-    });
+            // Set fixed canvas dimensions
+            canvas.width = 800;
+            canvas.height = 400;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            legendDiv.innerHTML = '';
+            
+            // Calculate scales
+            const padding = 40;
+            const graphWidth = canvas.width - padding * 2;
+            const graphHeight = canvas.height - padding * 2;
+            
+            // Find max value for Y scale
+            let maxSales = 0;
+            Object.entries(salesData.apartmentSales).forEach(([type, data]) => {
+                if (Array.isArray(data)) {
+                    const max = Math.max(...data.map(v => v || 0));
+                    if (max > maxSales) maxSales = max;
+                }
+            });
 
-    // Sort apartment types by number then letter
-    const sortedTypes = Object.keys(salesData.apartmentSales).sort(compareApartmentTypes);
+            // Sort apartment types by number then letter
+            const sortedTypes = Object.keys(salesData.apartmentSales).sort(compareApartmentTypes);
+            
+            // Draw axes
+            ctx.beginPath();
+            ctx.strokeStyle = '#000';
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, canvas.height - padding);
+            ctx.lineTo(canvas.width - padding, canvas.height - padding);
+            ctx.stroke();
+            
+            // Draw grid and labels
+            ctx.fillStyle = '#000';
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'middle';
     
-    // Draw axes
-    ctx.beginPath();
-    ctx.strokeStyle = '#000';
-    ctx.moveTo(padding, padding);
-    ctx.lineTo(padding, canvas.height - padding);
-    ctx.lineTo(canvas.width - padding, canvas.height - padding);
-    ctx.stroke();
-    
-    // Draw grid and labels
-    ctx.fillStyle = '#000';
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    
-    // Y-axis labels
-    for (let i = 0; i <= 5; i++) {
-        const y = padding + (graphHeight - graphHeight * (i / 5));
-        const value = Math.round(maxSales * (i / 5));
-        ctx.fillText(value.toLocaleString(), padding - 5, y);
-        
-        ctx.beginPath();
-        ctx.strokeStyle = '#eee';
-        ctx.moveTo(padding, y);
-        ctx.lineTo(canvas.width - padding, y);
-        ctx.stroke();
-    }
-    
-    // X-axis labels (every 6 months)
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    for (let month = 0; month <= 72; month += 6) {
-        const x = padding + (graphWidth * (month / 72));
-        ctx.fillText(month.toString(), x, canvas.height - padding + 5);
-    }
+            // Y-axis labels
+            for (let i = 0; i <= 5; i++) {
+                const y = padding + (graphHeight - graphHeight * (i / 5));
+                const value = Math.round(maxSales * (i / 5));
+                ctx.fillText(value.toLocaleString(), padding - 5, y);
+                
+                ctx.beginPath();
+                ctx.strokeStyle = '#eee';
+                ctx.moveTo(padding, y);
+                ctx.lineTo(canvas.width - padding, y);
+                ctx.stroke();
+            }
+            
+            // X-axis labels (every 6 months)
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'top';
+            for (let month = 0; month <= 72; month += 6) {
+                const x = padding + (graphWidth * (month / 72));
+                ctx.fillText(month.toString(), x, canvas.height - padding + 5);
+            }
     
     // Define line patterns
     const linePatterns = [
@@ -532,9 +617,20 @@ module Real_Estate_Optimizer
         }
         
         // Add to legend with line pattern sample
-        legendHTML += `<div style="color: ${color}; margin: 2px; display: flex; align-items: center;">
-            <canvas width="20" height="10" style="margin-right: 5px;" id="legend_${type}"></canvas>
-            ${metadata.originalName}
+        legendHTML += `<div style="color: ${color}; margin: 8px 0; display: flex; align-items: center; gap: 10px;">
+        <canvas width="30" height="10" style="margin-right: 5px;" id="legend_${type}"></canvas>
+        <span style="flex: 1;">${metadata.originalName}</span>
+        <div class="number-input-container">
+          <button class="arrow-btn" onclick="adjustSceneMonth('${type}', -1)">◀</button>
+          <input type="number" 
+                class="scene-month-input" 
+                id="scene_month_${type}" 
+                value="${metadata.scene_change_month || 72}"
+                min="0" 
+                max="72"
+                onchange="updateSceneMonth('${type}', this.value)">
+          <button class="arrow-btn" onclick="adjustSceneMonth('${type}', 1)">▶</button>
+        </div>
         </div>`;
     });
     
@@ -543,23 +639,42 @@ module Real_Estate_Optimizer
 
     // Draw line pattern samples in legend
     sortedTypes.forEach((type, index) => {
-        const legendCanvas = document.getElementById(`legend_${type}`);
-        if (legendCanvas) {
-            const ltx = legendCanvas.getContext('2d');
-            const metadata = salesData.metadata[type];
-            const hue = ((metadata.number - 50) * 2.5) % 360;
-            const color = `hsl(${hue}, 100%, 90%)`;
-            const pattern = linePatterns[index % linePatterns.length];
-            
-            ltx.strokeStyle = color;
-            ltx.lineWidth = 2;
-            ltx.setLineDash(pattern.dash);
-            ltx.beginPath();
-            ltx.moveTo(0, 5);
-            ltx.lineTo(20, 5);
-            ltx.stroke();
-        }
-    });
+      const legendCanvas = document.getElementById(`legend_${type}`);
+      if (legendCanvas) {
+          const ltx = legendCanvas.getContext('2d');
+          
+          // First fill the entire canvas with solid white
+          ltx.fillStyle = 'white';
+          ltx.fillRect(0, 0, legendCanvas.width, legendCanvas.height);
+          
+          const metadata = salesData.metadata[type];
+          const hue = ((metadata.number - 50) * 2.5) % 360;
+          const color = `hsl(${hue}, 100%, 50%)`; // Use full saturation color
+          const pattern = linePatterns[index % linePatterns.length];
+          
+          ltx.strokeStyle = color;
+          ltx.lineWidth = 2;
+          ltx.setLineDash(pattern.dash);
+          ltx.beginPath();
+          ltx.moveTo(0, 5);
+          ltx.lineTo(30, 5);
+          ltx.stroke();
+      }
+  });
+}
+function adjustSceneMonth(type, delta) {
+    const input = document.getElementById(`scene_month_${type}`);
+    const newValue = Math.min(72, Math.max(0, parseInt(input.value || 72) + delta));
+    input.value = newValue;
+    updateSceneMonth(type, newValue);
+}
+
+function updateSceneMonth(type, value) {
+    // Ensure value is between 0 and 72
+    value = Math.min(72, Math.max(0, parseInt(value) || 72));
+    
+    // Save back to SketchUp model
+    window.location = `skp:update_scene_month@${type}@${value}`;
 }
 
           function parseApartmentType(typeStr) {
@@ -619,14 +734,76 @@ module Real_Estate_Optimizer
               document.getElementById('totalArea').textContent = totalArea;
               document.getElementById('totalSellableArea').textContent = totalSellableArea;
             }
+            function formatToWan(number) {
+              return (number / 10000).toFixed();
+            }
+            
             function updateCashflowReport(html) {
               try {
-                document.getElementById('CashflowReport').innerHTML = html;
-                console.log("Cashflow report updated successfully");
+                const div = document.createElement('div');
+                div.innerHTML = html;
+                
+                // Find and update the specific values in the KPI table
+                const rows = div.querySelectorAll('tr');
+                rows.forEach(row => {
+                  const cells = row.querySelectorAll('td');
+                  if (cells.length >= 2) {
+                    const label = cells[0].textContent.trim(); // Trim any extra spaces
+                    
+                    // Check if the row contains a relevant label
+                    if (label.includes('项目总销售额') || 
+                        label.includes('项目总投资') || 
+                        label.includes('项目资金峰值') || 
+                        label.includes('企业所得税') || 
+                        label.includes('项目净利润')) {
+                      
+                      const value = parseFloat(cells[1].textContent.replace(/,/g, ''));
+                      if (!isNaN(value)) {
+                        cells[1].textContent = formatToWan(value) + ' 万元'; // Update with formatted value
+                      }
+                    }
+                  }
+                });
+                
+                // After updating, set the HTML in both the CashflowReport tab (Tag 2) and SalesChart tab (Tag 3)
+                
+                // Update the CashflowReport tab (Tag 2)
+                const cashflowContainer = document.getElementById('CashflowReport');
+                cashflowContainer.innerHTML = div.innerHTML;
+                console.log("KPI table updated in CashflowReport tab");
+            
+                // Clone and insert into the SalesChart tab (Tag 3)
+                const salesChartContainer = document.getElementById('SalesChart');
+                const firstChart = salesChartContainer.querySelector('.chart-container');
+            
+                // Remove any existing KPI summary in SalesChart tab
+                const existingKpi = salesChartContainer.querySelector('.kpi-summary');
+                if (existingKpi) {
+                  existingKpi.remove();
+                }
+            
+                // Create a new container for the cloned KPI table
+                const kpiSummaryContainer = document.createElement('div');
+                kpiSummaryContainer.className = 'kpi-summary';
+            
+                // Add the header and cloned table
+                const header = document.createElement('h3');
+                header.textContent = '项目关键指标 Key Project Indicators';
+                kpiSummaryContainer.appendChild(header);
+                kpiSummaryContainer.appendChild(div.querySelector('table').cloneNode(true));
+            
+                // Insert the cloned KPI summary before the first chart in SalesChart tab
+                if (firstChart) {
+                  salesChartContainer.insertBefore(kpiSummaryContainer, firstChart);
+                }
+                console.log("KPI table updated in SalesChart tab");
+            
               } catch (error) {
                 console.error("Error updating cashflow report:", error);
               }
             }
+            
+            
             function downloadCanvas(canvasId, fileName) {
               const canvas = document.getElementById(canvasId);
               if (!canvas) {
@@ -753,7 +930,23 @@ module Real_Estate_Optimizer
 
       dialog.set_html(html_content)
 
-      
+      dialog.add_action_callback("update_scene_month") do |action_context, params|
+        type, month = params.split('@', 2)
+        model = Sketchup.active_model
+        
+        # Get current apartment data
+        apartment_data = JSON.parse(model.get_attribute('apartment_type_data', type) || '{}')
+        
+        # Update the scene change month
+        apartment_data['scene_change_month'] = month.to_i
+        
+        # Save back
+        model.set_attribute('apartment_type_data', type, apartment_data.to_json)
+        
+        # Trigger a refresh of the output data
+        update_output_data(dialog)
+    end
+
       dialog.add_action_callback("on_page_load") do
         update_output_data(dialog)
       end
@@ -819,9 +1012,14 @@ module Real_Estate_Optimizer
           
           sales_data[:apartmentSales][apt_type] = monthly_values
           sales_data[:priceChanges][apt_type] = []
+          
+          # Get the apartment data to access scene_change_month
+          apt_data = JSON.parse(model.get_attribute('apartment_type_data', apt_type) || '{}')
+          
           sales_data[:metadata][apt_type] = {
             number: type_number,
-            originalName: apt_type
+            originalName: apt_type,
+            scene_change_month: apt_data['scene_change_month'] || 72  # Add this line
           }
           
           # Add scene change points if they exist
@@ -1017,7 +1215,7 @@ module Real_Estate_Optimizer
       
       table += "</table>"
     end
-    
+
     def self.generate_apartment_type_table(property_line_data, all_apartment_types)
       total_apartments = Hash.new(0)
       apartment_data = {}

@@ -216,8 +216,8 @@ module Real_Estate_Optimizer
                 <thead>
                   <tr>
                     <th rowspan="2">户型 Apartment Type</th>
-                    <th colspan="2">场景1 Scene 1</th>
-                    <th colspan="2">场景2 Scene 2</th>
+                    <th colspan="2">量价关系1 Scene 1 保计划流速的量价关系</th>
+                    <th colspan="2">量价关系2 Scene 2 保价格的量价关系（流速下降到计划一半）</th>
                   </tr>
                   <tr>
                     <th>月流速 Volume</th>
