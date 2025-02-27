@@ -20,7 +20,7 @@ module Real_Estate_Optimizer
 
       # UI.messagebox("Creating Real_Estate_Optimizer Toolbar")
 
-      toolbar = UI::Toolbar.new "妙算 Realestate Optimizer"
+      toolbar = UI::Toolbar.new "庙算 Decisive - Realestate Optimizer"
 
       cmd_input = UI::Command.new("Input") {
         Input.show_dialog

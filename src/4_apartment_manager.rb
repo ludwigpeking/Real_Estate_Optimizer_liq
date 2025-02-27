@@ -56,8 +56,43 @@ module Real_Estate_Optimizer
 
             <label for="apartment_type_area">户型建筑面积 (平米)</label>
             <input type="number" id="apartment_type_area" value="110"><br>
+            <div style="margin-top: 12px; margin-bottom: 12px;">
+              <label style="display: block; margin-bottom: 6px;">户型颜色 Apartment Color:</label>
+              <div class="custom-color-picker">
+                <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                  <div class="color-preview" id="color-preview" style="width: 32px; height: 32px; border: 1px solid #ccc; cursor: pointer;"></div>
+                  <div style="margin-left: 8px; font-size: 12px; color: #666;">
+                    (Click color box to show/hide options)
+                  </div>
+                </div>
 
-
+                <div class="color-options" id="color-options" style="display:none; margin-top: 8px; border: 1px solid #ddd; padding: 12px; background: #f9f9f9; border-radius: 4px;">
+                  <div class="color-input-container" style="margin-bottom: 10px;">
+                    <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                      <label for="color-r-input" style="width: 20px; margin-right: 8px;">R:</label>
+                      <input type="number" id="color-r-input" min="0" max="255" value="0" style="width: 60px;">
+                      <div id="live-color-preview" style="width: 32px; height: 32px; border: 1px solid #ccc; margin-left: 15px;"></div>
+                    </div>
+                    <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                      <label for="color-g-input" style="width: 20px; margin-right: 8px;">G:</label>
+                      <input type="number" id="color-g-input" min="0" max="255" value="0" style="width: 60px;">
+                    </div>
+                    <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                      <label for="color-b-input" style="width: 20px; margin-right: 8px;">B:</label>
+                      <input type="number" id="color-b-input" min="0" max="255" value="0" style="width: 60px;">
+                    </div>
+                  </div>
+                  
+                  <div style="display: flex; gap: 8px;">
+                    <button id="apply-color" style="padding: 4px 12px;">Apply</button>
+                    <button id="reset-color" style="padding: 4px 12px;">Reset to Auto</button>
+                  </div>
+                </div>
+              </div>
+              <div style="font-size: 12px; color: #666; margin-top: 4px;">
+                (Auto-generated from area unless custom color selected)
+              </div>
+            </div>
             <label for="tag">备注</label>
             <input type="text" id="tag" value=""><br>
 
@@ -102,6 +137,123 @@ module Real_Estate_Optimizer
           </div>
           <script>
 
+          function calculateAutoColor(area) {
+              if (!area) return '#CCCCCC';
+              const hue = (area - 50) * 2.5 % 360;
+              return `hsl(${hue}, 100%, 85%)`;
+          }
+          // Convert RGB to hex
+          function rgbToHex(r, g, b) {
+            return '#' + [r, g, b].map(x => {
+                const hex = parseInt(x).toString(16);
+                return hex.length === 1 ? '0' + hex : hex;
+            }).join('');
+          }
+
+          // Convert hex to RGB
+          function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : null;
+          }
+
+          function clampRgb(value) {
+              const num = parseInt(value);
+              return isNaN(num) ? 0 : Math.max(0, Math.min(255, num));
+          }
+
+          // Update RGB inputs from hex color
+          function updateRgbInputs(hexColor) {
+              const rgb = hexToRgb(hexColor);
+              if (rgb) {
+                  document.getElementById('color-r-input').value = rgb.r;
+                  document.getElementById('color-g-input').value = rgb.g;
+                  document.getElementById('color-b-input').value = rgb.b;
+              }
+          }
+          function initializeColorPicker() {
+            const colorPreview = document.getElementById('color-preview');
+            const colorOptions = document.getElementById('color-options');
+            const rInput = document.getElementById('color-r-input');
+            const gInput = document.getElementById('color-g-input');
+            const bInput = document.getElementById('color-b-input');
+            const applyButton = document.getElementById('apply-color');
+            const resetButton = document.getElementById('reset-color');
+            const areaInput = document.getElementById('apartment_type_area');
+            const livePreview = document.getElementById('live-color-preview');
+            
+            // Initialize with auto color
+            let currentColor = calculateAutoColor(areaInput.value);
+            colorPreview.style.backgroundColor = currentColor;
+            livePreview.style.backgroundColor = currentColor;
+            
+            // Set initial RGB values from auto color
+            updateRgbInputs(currentColor);
+            
+            // Show/hide color options when clicking preview
+            colorPreview.addEventListener('click', () => {
+              colorOptions.style.display = colorOptions.style.display === 'none' ? 'block' : 'none';
+            });
+          
+            // Function to update the live preview
+            function updateLivePreview() {
+              const r = clampRgb(rInput.value);
+              const g = clampRgb(gInput.value);
+              const b = clampRgb(bInput.value);
+              
+              const hexColor = rgbToHex(r, g, b);
+              livePreview.style.backgroundColor = hexColor;
+            }
+            
+            // Update live preview when RGB values change
+            rInput.addEventListener('input', updateLivePreview);
+            gInput.addEventListener('input', updateLivePreview);
+            bInput.addEventListener('input', updateLivePreview);
+          
+            // Apply RGB color when button is clicked
+            applyButton.addEventListener('click', () => {
+              const r = clampRgb(rInput.value);
+              const g = clampRgb(gInput.value);
+              const b = clampRgb(bInput.value);
+              
+              // Update RGB inputs with valid values
+              rInput.value = r;
+              gInput.value = g;
+              bInput.value = b;
+              
+              // Convert to hex for storage
+              const hexColor = rgbToHex(r, g, b);
+              currentColor = hexColor;
+              
+              // Update both previews
+              colorPreview.style.backgroundColor = currentColor;
+              livePreview.style.backgroundColor = currentColor;
+              colorPreview.setAttribute('data-custom-color', 'true');
+            });
+          
+            // Reset to auto color
+            resetButton.addEventListener('click', () => {
+              currentColor = calculateAutoColor(areaInput.value);
+              colorPreview.style.backgroundColor = currentColor;
+              livePreview.style.backgroundColor = currentColor;
+              updateRgbInputs(currentColor);
+              colorPreview.removeAttribute('data-custom-color');
+            });
+          
+            // Update on area change if not using custom color
+            areaInput.addEventListener('input', (e) => {
+              if (!colorPreview.hasAttribute('data-custom-color')) {
+                currentColor = calculateAutoColor(e.target.value);
+                colorPreview.style.backgroundColor = currentColor;
+                livePreview.style.backgroundColor = currentColor;
+                updateRgbInputs(currentColor);
+              }
+            });
+          }
+    
           function saveOverlapMatrix() {
             const matrix = {};
             const types = Array.from(document.querySelectorAll('#overlapMatrix th'))
@@ -157,11 +309,20 @@ module Real_Estate_Optimizer
               }
               return true;
             }
-
             function saveAttributes() {
               if (!validateInputs()) return;
             
+              var colorPreview = document.getElementById('color-preview');
+              var rInput = document.getElementById('color-r-input');
+              var gInput = document.getElementById('color-g-input');
+              var bInput = document.getElementById('color-b-input');
+              
+              // Get color in hex format
+              var colorHex = colorPreview.hasAttribute('data-custom-color') ? 
+                rgbToHex(rInput.value, gInput.value, bInput.value) : null;
+            
               var apartmentData = {
+                color: colorHex,
                 apartment_category: document.getElementById('apartment_category').value,
                 area: parseFloat(document.getElementById('apartment_type_area').value),
                 tag: document.getElementById('tag').value,
@@ -189,7 +350,43 @@ module Real_Estate_Optimizer
             
               var apartmentTypeName = apartmentData.apartment_type_name;
               window.location = 'skp:save_attributes@' + apartmentTypeName + '@' + JSON.stringify(apartmentData);
+          }
+
+    
+          function populateApartmentType(apartmentData) {
+            var data = JSON.parse(apartmentData);
+            document.getElementById('apartment_category').value = data.apartment_category;
+            document.getElementById('apartment_type_area').value = data.area;
+            document.getElementById('tag').value = data.tag;
+            document.getElementById('apartment_type_name').innerText = data.apartment_type_name;
+            document.getElementById('product_baseline_unit_cost_before_allocation').value = data.product_baseline_unit_cost_before_allocation;
+            document.getElementById('width').value = data.width;
+            document.getElementById('depth').value = data.depth;
+            document.getElementById('height').value = data.height || 3.0;
+            
+            // Load scene change month - if it's not set, use 72 as default
+            var sceneChangeMonth = data.scene_change_month;
+            document.getElementById('scene_change_month').value = (sceneChangeMonth !== undefined && sceneChangeMonth !== null) ? sceneChangeMonth : 72;
+            
+            const colorPreview = document.getElementById('color-preview');
+            
+            if (data.color) {
+              colorPreview.style.backgroundColor = data.color;
+              updateRgbInputs(data.color);
+              colorPreview.setAttribute('data-custom-color', 'true');
+            } else {
+              const autoColor = calculateAutoColor(data.area);
+              colorPreview.style.backgroundColor = autoColor;
+              updateRgbInputs(autoColor);
+              colorPreview.removeAttribute('data-custom-color');
             }
+            
+            var container = document.getElementById('pricingScenesContainer');
+            container.innerHTML = '';
+            data.sales_scenes.forEach(function(scene) {
+              addPricingScene(scene.price, scene.volumn);
+            });
+          }
 
             function deleteApartmentType() {
               var select = document.getElementById('savedApartmentTypes');
@@ -234,27 +431,7 @@ module Real_Estate_Optimizer
               window.location = 'skp:load_apartment_type@' + apartmentTypeName;
             }
 
-            function populateApartmentType(apartmentData) {
-              var data = JSON.parse(apartmentData);
-              document.getElementById('apartment_category').value = data.apartment_category;
-              document.getElementById('apartment_type_area').value = data.area;
-              document.getElementById('tag').value = data.tag;
-              document.getElementById('apartment_type_name').innerText = data.apartment_type_name;
-              document.getElementById('product_baseline_unit_cost_before_allocation').value = data.product_baseline_unit_cost_before_allocation;
-              document.getElementById('width').value = data.width;
-              document.getElementById('depth').value = data.depth;
-              document.getElementById('height').value = data.height || 3.0;
-              
-              // Load scene change month - if it's not set, use 72 as default
-              var sceneChangeMonth = data.scene_change_month;
-              document.getElementById('scene_change_month').value = (sceneChangeMonth !== undefined && sceneChangeMonth !== null) ? sceneChangeMonth : 72;
-            
-              var container = document.getElementById('pricingScenesContainer');
-              container.innerHTML = '';
-              data.sales_scenes.forEach(function(scene) {
-                addPricingScene(scene.price, scene.volumn);
-              });
-            }
+        
             
             function updateSavedApartmentTypes(apartmentTypes) {
               var select = document.getElementById('savedApartmentTypes');
@@ -268,13 +445,14 @@ module Real_Estate_Optimizer
             }
 
             window.onload = function() {
-              // Keep all existing functionality
+              // Existing code...
               document.getElementById('apartment_type_area').oninput = updateApartmentTypeName;
               document.getElementById('apartment_category').onchange = updateApartmentTypeName;
               document.getElementById('tag').oninput = updateApartmentTypeName;
+              initializeColorPicker();
               addPricingScene();
               window.location = 'skp:get_saved_apartment_types';
-            }        
+          }
           </script>
         </body>
         </html>
@@ -545,13 +723,20 @@ module Real_Estate_Optimizer
           material = model.materials[material_name] || model.materials.add(material_name)
           
           category = apartment_data['apartment_category']
-          if ['商铺', '办公', '公寓'].include?(category)
-            material.color = Sketchup::Color.new(255, 0, 0)  # Red for commercial, office, and apartment
-          else
+          if apartment_data['color']
+            # Parse the custom color to RGB
+            color_str = apartment_data['color'].gsub('#', '')
+            r = color_str[0..1].to_i(16)
+            g = color_str[2..3].to_i(16)
+            b = color_str[4..5].to_i(16)
+            material.color = Sketchup::Color.new(r, g, b)
+        elsif ['商铺', '办公', '公寓'].include?(category)
+            material.color = Sketchup::Color.new(255, 0, 0)  # Red for commercial
+        else
             hue = (apartment_data['area'].to_f - 50) * 2.5 % 360
             rgb = hsl_to_rgb(hue, 100, 85)
             material.color = Sketchup::Color.new(*rgb)
-          end
+        end
           
           # Apply material to faces in liq_color_mass layer
           group.entities.grep(Sketchup::Face).each { |entity| 

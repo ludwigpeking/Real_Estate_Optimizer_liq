@@ -10,7 +10,7 @@ module Real_Estate_Optimizer
   def activate
     puts "Activating Real Estate Optimizer plugin..."
     # Remove existing toolbar if it exists
-    toolbar = UI::Toolbar.new "妙算 Realestate Optimizer"
+    toolbar = UI::Toolbar.new "庙算 Decisive - Realestate Optimizer"
     toolbar.remove if toolbar.respond_to?(:remove)
 
     ApartmentManager.ensure_layers_exist

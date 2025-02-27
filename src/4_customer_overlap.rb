@@ -277,6 +277,12 @@ module Real_Estate_Optimizer
               }
 
               function getTypeColor(type) {
+                // First try to get color from the apartment type data
+                if (salesScenarios[type] && salesScenarios[type].color) {
+                  return salesScenarios[type].color;
+                }
+                
+                // If no color is found, use the original auto-calculation logic
                 // Check for commercial types first
                 if (type.includes('商铺') || type.includes('办公') || type.includes('公寓')) {
                   return "hsl(0, 100%, 90%)";  // Red for commercial types
@@ -751,7 +757,8 @@ module Real_Estate_Optimizer
           apartment_data = JSON.parse(apartment_data_json) rescue {}
           
           sales_scenarios[type] = {
-            scenes: []
+            scenes: [],
+            color: apartment_data['color']  # Add the color property here
           }
           
           if apartment_data['sales_scenes']
