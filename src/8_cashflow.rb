@@ -666,14 +666,14 @@ module Real_Estate_Optimizer
       discount_rate = get_project_data_with_defaults['inputs']['discount_rate'] || 0.09
       monthly_discount_rate = (1 + discount_rate)**(1.0/12) - 1
       npv_value = npv(cashflow_data[:monthly_cashflow], monthly_discount_rate)
-    
-      # Generate HTML report
+
+      # Generate HTML report with improved table styling
       html = <<-HTML
         <h3>项目关键指标 Key Project Indicators</h3>
         <table>
           <tr><th>指标 Indicator</th><th>值 Value</th></tr>
           <tr><td>内部收益率 IRR</td><td>#{key_indicators[:yearly_irr] ? "#{key_indicators[:yearly_irr].round(2)}%" : 'N/A'}</td></tr>
-          <tr><td>净现值 NPV</td><td>#{format_number(npv_value / 10000)}万元</td></tr> <!-- Added NPV Row -->
+          <tr><td>净现值 NPV</td><td>#{format_number(npv_value / 10000)}万元</td></tr>
           <tr><td>销售毛利率 Gross Profit Margin</td><td>#{key_indicators[:gross_profit_margin]}%</td></tr>
           <tr><td>销售净利率 Net Profit Margin</td><td>#{key_indicators[:net_profit_margin]}%</td></tr>
           <tr><td>现金流回正（月） Cash Flow Positive Month</td><td>#{key_indicators[:cash_flow_positive_month]}</td></tr>
@@ -688,27 +688,28 @@ module Real_Estate_Optimizer
         <p>基于折现率 Discount Rate: #{(discount_rate * 100).round(2)}%净现值 NPV: #{format_number(npv_value / 10000)}</p>
         <p>年化内部收益率 Yearly IRR: #{key_indicators[:yearly_irr] ? "#{key_indicators[:yearly_irr].round(2)}%" : 'N/A'}</p>
         <h3>现金流报告 Cashflow Report</h3>
-        <table>
-          <tr>
-            <th>月份<br>Month</th>
-            <th>计容产品销售收入(万)<br>Apartment Sales</th>
-            <th>预售资金监管要求(万)<br>Supervision Fund Requirement</th>
-            <th>资金监管存入(万)<br>Fund Contribution</th>
-            <th>资金监管解活(万)<br>Fund Release</th>
-            <th>车位销售收入(万)<br>Parking Lot Sales</th>
-            <th>总销售收入(万)<br>Total Sales Income</th>
-            <th>总现金流入小计(万)<br>Total Cash Inflow</th>
-            <th>土地规费(万)<br>Land Fees</th>
-            <th>配套建设费用(万)<br>Amenity Construction Cost</th>
-            <th>计容产品建安费用(万)<br>Apartment Construction Payment</th>
-            <th>税费(万)<br>Fees and Taxes</th>
-            <th>地下建安费用(万)<br>Underground Construction Cost</th>
-            <th>总现金流出小计(万)<br>Total Cash Outflow</th>
-            <th>月净现金流(万)<br>Monthly Net Cashflow</th>
-            <th>累计净现金流(万)<br>Accumulated Net Cashflow</th>
-          </tr>
+        <div class="table-container">
+          <table class="cashflow-table">
+            <tr>
+              <th>月份<br>Month</th>
+              <th>计容产品销售<br>Apt Sales</th>
+              <th>预售资金监管<br>Fund Req.</th>
+              <th>资金监管存入<br>Fund In</th>
+              <th>资金监管解活<br>Fund Out</th>
+              <th>车位销售<br>Parking</th>
+              <th>总销售收入<br>Total Sales</th>
+              <th>总现金流入<br>Cash In</th>
+              <th>土地规费<br>Land Fees</th>
+              <th>配套建设<br>Amenity</th>
+              <th>计容产品建安<br>Construction</th>
+              <th>税费<br>Taxes</th>
+              <th>地下建安<br>Underground</th>
+              <th>总现金流出<br>Cash Out</th>
+              <th>月净现金流<br>Net Cashflow</th>
+              <th>累计净现金流<br>Accumulated</th>
+            </tr>
       HTML
-    
+
       monthly_cashflow.each do |month_data|
         html += "<tr>"
         html += "<td>#{month_data[:month]}</td>"
@@ -729,11 +730,12 @@ module Real_Estate_Optimizer
         html += "<td>#{format_number(month_data[:accumulated_cashflow] / 10000)}</td>"
         html += "</tr>"
       end
-    
+
       html += <<-HTML
-        </table>
+          </table>
+        </div>
       HTML
-    
+
       html
     end
     

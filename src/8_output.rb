@@ -94,7 +94,6 @@ module Real_Estate_Optimizer
             background-color: #d00; /* Slightly darker red on hover */
           }
           
-          /* Table styles */
           table {
             border-collapse: collapse;
             width: 100%;
@@ -106,11 +105,37 @@ module Real_Estate_Optimizer
             padding: 4px 6px;
             text-align: right;
             font-size: 12px;
+            white-space: nowrap;
           }
           
           th {
             background-color: #f2f2f2;
             font-weight: normal;
+          }         
+          .table-container {
+            width: 100%;
+            overflow-x: auto;
+            margin-bottom: 15px;
+          }
+
+          .cashflow-table {
+            min-width: 100%;
+            table-layout: auto;
+          }
+
+          .cashflow-table th {
+            font-size: 11px;
+            padding: 4px 3px;
+            text-align: center;
+            vertical-align: middle;
+            max-width: 70px; /* Limit width of headers */
+            white-space: normal; /* Allow text to wrap */
+            height: 40px; /* Fixed height for header cells */
+          }
+
+          .cashflow-table td {
+            font-size: 11px;
+            padding: 2px 3px;
           }
           
           /* Property line stats */
@@ -804,7 +829,6 @@ function updateSceneMonth(type, value) {
             console.log("Property line stats updated");
           }
 
-
             function updateTotalArea(totalArea, totalSellableArea) {
               document.getElementById('totalArea').textContent = totalArea;
               document.getElementById('totalSellableArea').textContent = totalSellableArea;
@@ -1248,9 +1272,8 @@ function updateSceneMonth(type, value) {
     def self.generate_property_line_table(property_line_data, all_apartment_types)
       sorted_apartment_types = sort_apartment_types(all_apartment_types)
       sorted_property_lines = property_line_data.keys.sort_by { |name| property_line_sort_key(name) }
-    
-      table = "<h3>分地块统计 Property Line Statistics</h3>"
-      table += "<table><tr><th>地块 Property Line</th>"
+      table = "<div class='table-container'><h3>分地块统计 Property Line Statistics</h3>"
+      table += "<table><tr><th>地块<br>Property Line</th>"
       
       sorted_apartment_types.each do |type|
         # Get custom color from apartment data
@@ -1269,13 +1292,13 @@ function updateSceneMonth(type, value) {
         end
       end
     
-      table += "<th>户数小计 Total Apartments</th>"
-      table += "<th>用地面积 Parcel Ground Area (m²)</th>"
-      table += "<th>总建面 Total Construction Area (m²)</th>"
-      table += "<th>总可售建面 Total Sellable Construction Area (m²)</th>"
-      table += "<th>计容配套面积 Amenity GFA in FAR (m²)</th>"
-      table += "<th>可售净容积率 FAR</th>"
-      table += "<th>建筑密度 Footprint Coverage Rate (%)</th></tr>"
+      table += "<th>户数小计<br>Total<br>Apartments</th>"
+      table += "<th>用地面积<br>Parcel<br> Ground<br> Area (m²)</th>"
+      table += "<th>总建面<br>Total <br>Constrct <br>Area (m²)</th>"
+      table += "<th>总可售建面<br>Total <br>Sellable <br>Construction<br> Area (m²)</th>"
+      table += "<th>计容配套面积<br>Amenity <br>GFA in FAR (m²)</th>"
+      table += "<th>可售净容积率<br>FAR</th>"
+      table += "<th>建筑密度<br>Footprint <br>Coverage<br> Rate (%)</th></tr>"
     
       # Rest of the code remains the same
       sorted_property_lines.each do |keyword|
@@ -1295,7 +1318,7 @@ function updateSceneMonth(type, value) {
         table += "<td>#{data[:footprint_coverage_rate]}%</td></tr>"
       end
       
-      table += "</table>"
+      table += "</table></div>"
     end
 
     def self.generate_apartment_type_table(property_line_data, all_apartment_types)
@@ -1320,7 +1343,7 @@ function updateSceneMonth(type, value) {
       grand_total = total_apartments.values.inject(0, :+)
       sorted_apartment_types = sort_apartment_types(all_apartment_types)
       
-      table = "<h3>户型统计 Apartment Type Statistics Across Parcels</h3>"
+      table = "<div class='table-container'><h3>户型统计 Apartment Type Statistics Across Parcels</h3>"
       table += "<table><tr><th>户型 Apartment Type</th><th>小计 Total Count</th><th>户数比 Percentage</th>"
       table += "<th>面宽 Width (m)</th>"
       table += "<th>单价1</th><th>总价1</th><th>月流速1</th>"
@@ -1369,7 +1392,7 @@ function updateSceneMonth(type, value) {
         table += "</tr>"
       end
       
-      table += "</table>"
+      table += "</table></div>"
     end
 
     def self.extract_number_from_type(apt_type)
