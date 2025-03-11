@@ -470,8 +470,8 @@ module Real_Estate_Optimizer
         # # puts "IRR could not be calculated"
       end
       
-      # Return the data including corporate tax
-      {
+      # Create the result hash
+      result = {
         monthly_cashflow: monthly_cashflow,
         accumulated_cashflow: accumulated_cashflow,
         supervision_fund_requirements: supervision_fund_requirements,
@@ -486,6 +486,71 @@ module Real_Estate_Optimizer
         basement_expenses: basement_cashflows[:expenses],
         corporate_tax: corporate_tax
       }
+
+      building_instances = TraversalUtils.traverse_building_instances(model)
+      total_from_instances = 0
+      building_instances_count = 0
+      
+      puts "\n=== BUILDING COSTS BREAKDOWN ===\n"
+      puts "Building Name | Total Cost"
+      puts "------------------------"
+      
+      total_from_instances = 0
+      building_instances_count = 0
+      total_apartment_units = 0
+      
+      building_instances.each do |instance, transformation|
+        building_data = instance.definition.attribute_dictionary('building_data')
+        next unless building_data
+        
+        name = instance.definition.name
+        cost = building_data['total_cost'].to_f
+        
+        # Count apartment units in this building
+        apartment_units = 0
+        if building_data['apartment_stocks']
+          apt_stocks = JSON.parse(building_data['apartment_stocks'])
+          apartment_units = apt_stocks.values.sum
+          total_apartment_units += apartment_units
+        end
+        
+        puts "#{name} | #{format_number(cost)} | #{apartment_units}"
+        
+        total_from_instances += cost
+        building_instances_count += 1
+      end
+      
+      puts "----------------------------------------"
+      puts "Total: #{format_number(total_from_instances)} | #{total_apartment_units} units"
+      puts "=========================\n\n"
+
+      total_from_cashflow = construction_payments.sum
+      payment_schedule = project_data['inputs']['construction_payment_schedule'] || 
+                        DEFAULT_VALUES['inputs']['construction_payment_schedule'] || []
+      payment_sum = payment_schedule.sum
+
+      puts "\n=== CONSTRUCTION COST VERIFICATION ===\n"
+      puts "Total cost from #{building_instances_count} building instances: #{format_number(total_from_instances)}"
+      puts "Total cost in cashflow calculations: #{format_number(total_from_cashflow)}"
+      puts "Difference: #{format_number(total_from_instances - total_from_cashflow)}"
+      puts "Payment schedule sums to: #{(payment_sum * 100).round(2)}%"
+
+      if (payment_sum - 1.0).abs > 0.01
+        puts "\n⚠️ WARNING: Payment schedule does not sum to 100%!"
+        puts "This explains a discrepancy of approximately: #{format_number(total_from_instances * (1.0 - payment_sum))}"
+      end
+
+      # Record verification results in the output
+      result[:verification] = {
+        instances_cost: total_from_instances,
+        cashflow_cost: total_from_cashflow,
+        difference: total_from_instances - total_from_cashflow,
+        payment_schedule_sum: payment_sum,
+        building_count: building_instances_count
+      }
+
+      # Return the result with verification data included
+      result
     end
 
     def self.print_cashflow_row(*args)
@@ -916,24 +981,7 @@ module Real_Estate_Optimizer
     
       monthly_land_cost
     end
-    
-    def self.calculate_cashflow
-      model = Sketchup.active_model
-      cashflow = initialize_cashflow
-      building_instances = find_building_instances(model)
-      
-      # # puts "Starting calculation of cashflow"
-      # # puts "Total building instances found: #{building_instances.length}"
-
-      building_instances.each do |instance|
-        process_building(instance, cashflow)
-      end
-
-      
-      calculate_sales_and_income(cashflow)
-      add_land_cost_payment(cashflow)
-      display_cashflow(cashflow)
-    end
+  
     
     def self.initialize_cashflow
       {

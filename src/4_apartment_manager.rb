@@ -682,7 +682,7 @@ module Real_Estate_Optimizer
     def self.create_apartment_component(apartment_data)
       model = Sketchup.active_model
       definitions = model.definitions
-      
+      architecture_material = DefaultValues.get_architecture_white_material
       component_name = apartment_data['apartment_type_name']
       
       model.start_operation('Create/Update Apartment Component', true)
@@ -717,7 +717,7 @@ module Real_Estate_Optimizer
         face = group.entities.add_face([0, 0, 0], [0, depth, 0], [width, depth, 0], [width, 0, 0])
         face.pushpull(-height)
     
-        # Only create and apply material for liq_color_mass layer
+        # Apply appropriate material based on layer
         if layer_name == 'liq_color_mass'
           material_name = "#{component_name}_color_mass"
           material = model.materials[material_name] || model.materials.add(material_name)
@@ -730,21 +730,27 @@ module Real_Estate_Optimizer
             g = color_str[2..3].to_i(16)
             b = color_str[4..5].to_i(16)
             material.color = Sketchup::Color.new(r, g, b)
-        elsif ['商铺', '办公', '公寓'].include?(category)
+          elsif ['商铺', '办公', '公寓'].include?(category)
             material.color = Sketchup::Color.new(255, 0, 0)  # Red for commercial
-        else
+          else
             hue = (apartment_data['area'].to_f - 50) * 2.5 % 360
             rgb = hsl_to_rgb(hue, 100, 85)
             material.color = Sketchup::Color.new(*rgb)
-        end
+          end
           
           # Apply material to faces in liq_color_mass layer
           group.entities.grep(Sketchup::Face).each { |entity| 
             entity.material = material
             entity.layer = layer_name
           }
+        elsif layer_name == 'liq_architecture'
+          # Apply the shared white material to liq_architecture layer
+          group.entities.grep(Sketchup::Face).each { |entity| 
+            entity.material = architecture_material
+            entity.layer = layer_name
+          }
         else
-          # For all other layers, use default material
+          # For other layers, use default material (nil)
           group.entities.grep(Sketchup::Face).each { |entity| 
             entity.material = nil
             entity.layer = layer_name
