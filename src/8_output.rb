@@ -501,8 +501,7 @@ module Real_Estate_Optimizer
             }
           }
           function renderSalesChart(salesData) {
-            console.log("Full sales data for debugging:", salesData.apartmentSales);
-            console.log("Starting chart render process...");
+
             const canvas = document.getElementById('salesChart');
             const chartContainer = document.getElementById('SalesChart');
             const legendDiv = document.getElementById('chartLegend');
@@ -1307,7 +1306,7 @@ function updateSceneMonth(type, value) {
         sorted_apartment_types.each do |type|
           count = data[:apartment_stocks][type] || 0
           percentage = (count.to_f / data[:total_apartments] * 100).round(2)
-          table += "<td>#{count} (#{percentage}%)</td>"
+          table += "<td>#{count}<br>(#{percentage}%)</td>"
         end
         table += "<td>#{data[:total_apartments]}</td>"
         table += "<td>#{data[:property_area].round}</td>"

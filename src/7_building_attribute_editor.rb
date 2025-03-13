@@ -197,8 +197,8 @@ module Real_Estate_Optimizer
           begin
             # Update phasing color and ensure phasing layer is visible
             Real_Estate_Optimizer::PhasingColorUpdater.update_single_building(entity)
-            phasing_layer = model.layers['liq_phasing']
-            phasing_layer.visible = true if phasing_layer
+            # phasing_layer = model.layers['liq_phasing']
+            # phasing_layer.visible = true if phasing_layer
           rescue => e
             puts "Error updating phasing color: #{e.message}"
             puts e.backtrace

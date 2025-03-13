@@ -491,9 +491,9 @@ module Real_Estate_Optimizer
       total_from_instances = 0
       building_instances_count = 0
       
-      puts "\n=== BUILDING COSTS BREAKDOWN ===\n"
-      puts "Building Name | Total Cost"
-      puts "------------------------"
+      # puts "\n=== BUILDING COSTS BREAKDOWN ===\n"
+      # puts "Building Name | Total Cost"
+      # puts "------------------------"
       
       total_from_instances = 0
       building_instances_count = 0
@@ -514,26 +514,25 @@ module Real_Estate_Optimizer
           total_apartment_units += apartment_units
         end
         
-        puts "#{name} | #{format_number(cost)} | #{apartment_units}"
+        # puts "#{name} | #{format_number(cost)} | #{apartment_units}"
         
         total_from_instances += cost
         building_instances_count += 1
       end
       
-      puts "----------------------------------------"
-      puts "Total: #{format_number(total_from_instances)} | #{total_apartment_units} units"
-      puts "=========================\n\n"
-
+      # puts "----------------------------------------"
+      # puts "Total: #{format_number(total_from_instances)} | #{total_apartment_units} units"
+      # puts "=========================\n\n"
       total_from_cashflow = construction_payments.sum
       payment_schedule = project_data['inputs']['construction_payment_schedule'] || 
-                        DEFAULT_VALUES['inputs']['construction_payment_schedule'] || []
+                        Real_Estate_Optimizer::DefaultValues::PROJECT_DEFAULTS[:inputs]['construction_payment_schedule'] || []
       payment_sum = payment_schedule.sum
 
-      puts "\n=== CONSTRUCTION COST VERIFICATION ===\n"
-      puts "Total cost from #{building_instances_count} building instances: #{format_number(total_from_instances)}"
-      puts "Total cost in cashflow calculations: #{format_number(total_from_cashflow)}"
-      puts "Difference: #{format_number(total_from_instances - total_from_cashflow)}"
-      puts "Payment schedule sums to: #{(payment_sum * 100).round(2)}%"
+      # puts "\n=== CONSTRUCTION COST VERIFICATION ===\n"
+      # puts "Total cost from #{building_instances_count} building instances: #{format_number(total_from_instances)}"
+      # puts "Total cost in cashflow calculations: #{format_number(total_from_cashflow)}"
+      # puts "Difference: #{format_number(total_from_instances - total_from_cashflow)}"
+      # puts "Payment schedule sums to: #{(payment_sum * 100).round(2)}%"
 
       if (payment_sum - 1.0).abs > 0.01
         puts "\n⚠️ WARNING: Payment schedule does not sum to 100%!"
