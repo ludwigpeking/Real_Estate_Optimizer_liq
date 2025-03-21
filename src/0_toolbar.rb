@@ -7,8 +7,7 @@ require_relative '6_insert_building'
 require_relative '7_building_attribute_editor'
 require_relative '8_output'
 require_relative '11_optimization_panel'
-
-
+require_relative '10_solar_hour'
 
 module Real_Estate_Optimizer
   module Toolbar
@@ -20,7 +19,7 @@ module Real_Estate_Optimizer
 
       # UI.messagebox("Creating Real_Estate_Optimizer Toolbar")
 
-      toolbar = UI::Toolbar.new "庙算 Decisive - Realestate Optimizer"
+      toolbar = UI::Toolbar.new "妙算 Decisive - Realestate Optimizer"
 
       cmd_input = UI::Command.new("Input") {
         Input.show_dialog
@@ -115,12 +114,10 @@ module Real_Estate_Optimizer
       cmd_optimization.tooltip = "优化分期"
       cmd_optimization.status_bar_text = "Optimization"
       toolbar.add_item(cmd_optimization)
-
-
-
-      layers = ['liq_color_mass', 'liq_architecture', 'liq_sunlight', 'liq_phasing', 'liq_price']
-      layer_names = ['面积色块 Color Mass', '外观设计 Architecture', '日照 Sunlight', '分期 Phasing', '价格系数 Price']
-
+      layers = ['liq_color_mass', 'liq_architecture', 'liq_phasing', 'liq_price'] # Removed liq_sunlight
+      layer_names = ['面积色块 Color Mass', '外观设计 Architecture', '分期 Phasing', '价格系数 Price'] # Removed Sunlight
+            
+      # Create commands without shortcuts
       layers.each_with_index do |layer, index|
         cmd_layer = UI::Command.new(" 切换到图层 Switch to #{layer_names[index]}") {
           ApartmentManager.switch_layer(layer)
@@ -130,17 +127,71 @@ module Real_Estate_Optimizer
         cmd_layer.tooltip = "Switch to #{layer_names[index]} Layer"
         cmd_layer.status_bar_text = "Switch visibility to #{layer_names[index]} layer"
         toolbar.add_item(cmd_layer)
-
       end
 
-      # cmd_reload = UI::Command.new("Reload Plugin") {
-      #   Real_Estate_Optimizer.reload
-      # }
-      # cmd_reload.small_icon = "../icons/reload.png"
-      # cmd_reload.large_icon = "../icons/reload.png"
-      # cmd_reload.tooltip = "Reload Real Estate Optimizer Plugin"
-      # cmd_reload.status_bar_text = "Reload the entire Real Estate Optimizer plugin"
-      # toolbar.add_item(cmd_reload)
+
+      cmd_sunlight = UI::Command.new("Sunlight Analysis") {
+        puts "Sunlight button clicked!" # Debug output to Ruby Console
+        begin
+          Real_Estate_Optimizer::SolarAnalyzer.activate_tool
+        rescue => e
+          UI.messagebox("Error activating solar tool: #{e.message}")
+          puts "Error: #{e.backtrace.join("\n")}" # Detailed error to console
+        end
+      }
+      cmd_sunlight.small_icon = "../icons/layer_liq_sunlight.png"
+      cmd_sunlight.large_icon = "../icons/layer_liq_sunlight.png"
+      cmd_sunlight.tooltip = "Calculate sunlight hours (click point in model)"
+      cmd_sunlight.status_bar_text = "Calculate sunlight exposure hours"
+      toolbar.add_item(cmd_sunlight)
+      
+      # Button 2: Show solar settings dialog
+      cmd_sunlight_settings = UI::Command.new("Sunlight Settings") {
+        puts "Sunlight settings button clicked!" # Debug output to Ruby Console
+        begin
+          Real_Estate_Optimizer::SolarAnalyzer.show_settings_dialog
+        rescue => e
+          UI.messagebox("Error showing settings dialog: #{e.message}")
+          puts "Error: #{e.backtrace.join("\n")}" # Detailed error to console
+        end
+      }
+      cmd_sunlight_settings.small_icon = "../icons/layer_liq_sunlight_settings.png" # Use appropriate icon
+      cmd_sunlight_settings.large_icon = "../icons/layer_liq_sunlight_settings.png"
+      cmd_sunlight_settings.tooltip = "Sunlight Analysis Settings"
+      cmd_sunlight_settings.status_bar_text = "Configure solar analysis settings"
+      toolbar.add_item(cmd_sunlight_settings)
+      
+      # Remove the context menu handler since we're using separate buttons
+      
+      def self.register_keyboard_shortcuts
+        # Create or find the menu
+        plugins_menu = UI.menu("Plugins")
+        menu = plugins_menu.add_submenu("Decisive")
+        
+        # Define shortcuts
+        menu.add_item("Switch to Color Mass") {
+          ApartmentManager.switch_layer("liq_color_mass")
+        }
+        
+        menu.add_item("Switch to Architecture") {
+          ApartmentManager.switch_layer("liq_architecture")
+        }
+        
+        menu.add_item("Switch to Solar") {
+          ApartmentManager.switch_layer("liq_sunlight")
+        }
+
+        menu.add_item("Switch to Phasing") {
+          ApartmentManager.switch_layer("liq_phasing")
+        }
+
+        menu.add_item("Switch to Price") {
+          ApartmentManager.switch_layer("liq_price")
+        }
+      end
+      
+      # Call this method after creating the toolbar
+      register_keyboard_shortcuts
 
       # Ensure the toolbar is visible
       toolbar.show if toolbar.get_last_state == TB_VISIBLE

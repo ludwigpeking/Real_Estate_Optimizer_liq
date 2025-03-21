@@ -30,7 +30,53 @@ module Real_Estate_Optimizer
                 <meta charset="UTF-8">
                 <link rel="stylesheet" type="text/css" href="file:///#{File.join(__dir__, 'style.css')}">
 
+              <style>
+                /* Add collapsible section styling */
+                .collapsible-section h3 {
+                    margin-bottom: 0;
+                    cursor: pointer;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 8px;
+                    background-color: #f8f8f8;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                }
+                
+                .collapsible-section h3::after {
+                    content: "▼";
+                    font-size: 12px;
+                    transition: transform 0.2s;
+                }
+                
+                .collapsible-section.collapsed h3::after {
+                    content: "▶";
+                }
+                
+                .collapsible-content {
+                    overflow: hidden;
+                    max-height: 1000px;
+                    transition: max-height 0.3s ease-in-out;
+                    border-left: 1px solid #ddd;
+                    border-right: 1px solid #ddd;
+                    border-bottom: 1px solid #ddd;
+                    padding: 0 10px;
+                    background-color: white;
+                }
+                
+                .collapsible-section.collapsed .collapsible-content {
+                    max-height: 0;
+                    padding-top: 0;
+                    padding-bottom: 0;
+                    border: none;
+                }
+            </style>
             <script>
+                function toggleCollapsible(sectionId) {
+                  const section = document.getElementById(sectionId);
+                  section.classList.toggle('collapsed');
+                }
                 function extractNumber(str) {
                   const match = str.match(/^(\d+)/);
                   return match ? parseInt(match[1], 10) : Infinity;
@@ -287,12 +333,16 @@ module Real_Estate_Optimizer
                         window.location = 'skp:delete_building_type@' + encodeURIComponent(selectedName);
                     }
                 }
-
                 window.onload = function() {
-                    createScheduleTables();
-                    populateApartmentOptions();
-                    loadSavedBuildingTypes();
-                }
+                  createScheduleTables();
+                  populateApartmentOptions();
+                  loadSavedBuildingTypes();
+                  
+                  // These lines are now redundant but harmless
+                  document.getElementById('standardConstructionTimeSection').classList.add('collapsed');
+                  document.getElementById('supervisionFundSection').classList.add('collapsed');
+                  document.getElementById('constructionPaymentSection').classList.add('collapsed');
+              }
 
                 function loadSavedBuildingTypes() {
                     window.location = 'skp:get_saved_building_types';
@@ -330,55 +380,59 @@ module Real_Estate_Optimizer
                   });
                 }
             </script>
-            </head>
+            </head>    
             <body>
-            <div id="floorTypesContainer" class="form-section">
-                <h3>楼层类型 Floor Types</h3>
-            </div>
-            <button type="button" onclick="addFloorType()" class="add-btn">+ 增加楼层类型 Add Floor Type</button>
-        
-            <div class="form-section">
-                <h3>标准施工时间 Standard Construction Time</h3>
-                <label>开工到正负零月数 Months From Construction Init To Zero Level:</label>
-                <input type="number" id="monthsFromConstructionInitToZeroLevel" value="2"><br>
-                <label>正负零到封顶月数 Months From Zero Level To Roof Level:</label>
-                <input type="number" id="monthsFromZeroLevelToRoofLevel" value="4"><br>
-                <label>封顶到交付月数 Months From Roof Level To Delivery:</label>
-                <input type="number" id="monthsFromRoofLevelToDelivery" value="6"><br>
-                <label>开工到取销售证月数 Months From Construction Init To Sale:</label>
-                <input type="number" id="monthsFromConstructionInitToSale" value="2"><br>
-                <label>资金监管比例 Supervision Fund Percentage:</label>
-                <input type="number" id="supervisionFundPercentage" value="1"><br>
-            </div>
-        
-            <div class="form-section">
-                <h3>资金监管解活时间 (从开工开始计算) Supervision Fund Release Schedule</h3>
-                <table id="supervisionFundReleaseSchedule"></table>
-                <p>总和 Sum: <span id="supervisionFundReleaseSchedule_sum">0.00</span></p>
-                <p id="supervisionFundReleaseSchedule_error" class="error" style="display:none;">总和应为1 Sum should be 1</p>
-            </div>
-        
-            <div class="form-section">
-                <h3>施工付款计划 (从开工开始计算) Construction Payment Schedule</h3>
-                <table id="constructionPaymentSchedule"></table>
-                <p>总和 Sum: <span id="constructionPaymentSchedule_sum">0.00</span></p>
-                <p id="constructionPaymentSchedule_error" class="error" style="display:none;">总和应为1 Sum should be 1</p>
-            </div>
-        
-            <div class="form-section">
-              <h3>保存与加载 Save and Load</h3>
-              <p>楼型名称 Building Type Name: <span id="buildingTypeName"></span></p>
-              <label for="customNameSuffix">自定义名称后缀 Custom Name Suffix:</label>
-              <input type="text" id="customNameSuffix" onchange="updateBuildingTypeName()">
-              <p>建筑面积 Total Area: <span id="totalArea">0</span> m²</p>
-              <p>占地面积 Footprint Area: <span id="footprintArea">0</span> m²</p>
-              <button type="button" onclick="submitForm()">保存楼型 Save Building Type</button>
-              <select id="savedBuildingTypes" onchange="loadBuildingType()">
-                <option value="">选择楼型 Select a building type</option>
-              </select>
-              <button type="button" onclick="deleteBuildingType()">删除楼型 Delete Building Type</button>
-            </div>
-            </body>
+              <div id="floorTypesContainer" class="form-section">
+                  <h3>楼层类型 Floor Types</h3>
+              </div>
+              <button type="button" onclick="addFloorType()" class="add-btn">+ 增加楼层类型 Add Floor Type</button>
+              <div id="standardConstructionTimeSection" class="form-section collapsible-section collapsed">
+                  <h3 onclick="toggleCollapsible('standardConstructionTimeSection')">标准施工时间 Standard Construction Time</h3>
+                  <div class="collapsible-content">
+                      <label>开工到正负零月数 Months From Construction Init To Zero Level:</label>
+                      <input type="number" id="monthsFromConstructionInitToZeroLevel" value="2"><br>
+                      <label>正负零到封顶月数 Months From Zero Level To Roof Level:</label>
+                      <input type="number" id="monthsFromZeroLevelToRoofLevel" value="4"><br>
+                      <label>封顶到交付月数 Months From Roof Level To Delivery:</label>
+                      <input type="number" id="monthsFromRoofLevelToDelivery" value="6"><br>
+                      <label>开工到取销售证月数 Months From Construction Init To Sale:</label>
+                      <input type="number" id="monthsFromConstructionInitToSale" value="2"><br>
+                      <label>资金监管比例 Supervision Fund Percentage:</label>
+                      <input type="number" id="supervisionFundPercentage" value="1"><br>
+                  </div>
+              </div>
+              <div id="supervisionFundSection" class="form-section collapsible-section collapsed">
+                  <h3 onclick="toggleCollapsible('supervisionFundSection')">资金监管解活时间 (从开工开始计算) Supervision Fund Release Schedule</h3>
+                  <div class="collapsible-content">
+                      <table id="supervisionFundReleaseSchedule"></table>
+                      <p>总和 Sum: <span id="supervisionFundReleaseSchedule_sum">0.00</span></p>
+                      <p id="supervisionFundReleaseSchedule_error" class="error" style="display:none;">总和应为1 Sum should be 1</p>
+                  </div>
+              </div>
+
+              <div id="constructionPaymentSection" class="form-section collapsible-section collapsed">
+                  <h3 onclick="toggleCollapsible('constructionPaymentSection')">施工付款计划 (从开工开始计算) Construction Payment Schedule</h3>
+                  <div class="collapsible-content">
+                      <table id="constructionPaymentSchedule"></table>
+                      <p>总和 Sum: <span id="constructionPaymentSchedule_sum">0.00</span></p>
+                      <p id="constructionPaymentSchedule_error" class="error" style="display:none;">总和应为1 Sum should be 1</p>
+                  </div>
+              </div>
+
+              <div class="form-section">
+                <h3>保存与加载 Save and Load</h3>
+                <p>楼型名称 Building Type Name: <span id="buildingTypeName"></span></p>
+                <label for="customNameSuffix">自定义名称后缀 Custom Name Suffix:</label>
+                <input type="text" id="customNameSuffix" onchange="updateBuildingTypeName()">
+                <p>建筑面积 Total Area: <span id="totalArea">0</span> m²</p>
+                <p>占地面积 Footprint Area: <span id="footprintArea">0</span> m²</p>
+                <button type="button" onclick="submitForm()">保存楼型 Save Building Type</button>
+                <select id="savedBuildingTypes" onchange="loadBuildingType()">
+                  <option value="">选择楼型 Select a building type</option>
+                </select>
+                <button type="button" onclick="deleteBuildingType()">删除楼型 Delete Building Type</button>
+              </div>
+              </body> 
         </html>
         HTML
 

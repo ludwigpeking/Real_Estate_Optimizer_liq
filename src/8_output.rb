@@ -180,28 +180,28 @@ module Real_Estate_Optimizer
           }
 
           .chart-container {
-            width: 800px;  /* Keep original width */
+            width: 800px;  /* Change to 650px */
             height: 400px;
             margin: 20px auto;
             position: relative;
+            display: flex;  /* Add this to align chart and legend horizontally */
+            align-items: flex-start;  /* Add this to align items at the top */
           }
           
           canvas#salesChart,
           canvas#cashflowChart {
-            width: 800px;
+            width: 650px;  /* Change from 800px */
             height: 400px;
             display: block;
           }
           
           #chartLegend, #cashflowLegend {
-            position: absolute;
-            top: 10px;
-            left: 800px;
+            position: relative;  /* Change from absolute */
             margin-left: 10px;
             background: rgba(255, 255, 255, 0.8);
             padding: 5px;
             border-radius: 4px;
-            width: 180px;
+            width: 140px;  /* Slightly reduced from 180px */
           }
           .download-button {
             padding: 8px 16px;
@@ -309,7 +309,7 @@ module Real_Estate_Optimizer
 
           <div id="SalesChart" class="tabcontent">
             <div class="chart-container" style="height: 400px; position: relative;">
-              <h3>产品销售表 Sales Chart</h3>
+              <h3>产品销售表 Sales Chart</h3><br>
               <canvas id="salesChart" style="width: 800px; height: 100%;"></canvas>
               <div id="chartLegend" style="position: absolute; top: 10px; right: 50px;"></div>
             </div>
@@ -319,7 +319,7 @@ module Real_Estate_Optimizer
               </button>
             </div>
             <div class="chart-container" style="height: 400px; position: relative; margin-top: 20px;">
-              <h3>现金流曲线 Cashflow Curves</h3>
+              <h3>现金流曲线 Cashflow Curves</h3><br>
               <canvas id="cashflowChart" style="width: 800px; height: 100%;"></canvas>
               <div id="cashflowLegend" style="position: absolute; top: 10px; right: 10px;"></div>
             </div>
@@ -357,16 +357,16 @@ module Real_Estate_Optimizer
               return;
             }
           
-            // Set fixed canvas dimensions
-            canvas.width = 800;
+            // Reduce canvas width to make room for legend
+            canvas.width = 650; // Reduced from 800
             canvas.height = 400;
             
             const ctx = canvas.getContext('2d');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             legendDiv.innerHTML = '';
             
-            // Rest of the chart rendering logic with fixed dimensions
-            const padding = 60;
+            // Rest of the chart rendering logic with adjusted dimensions
+            const padding = 30;
             const graphWidth = canvas.width - padding * 2;
             const graphHeight = canvas.height - padding * 2;
             
@@ -517,7 +517,7 @@ module Real_Estate_Optimizer
             }
           
             // Set fixed canvas dimensions
-            canvas.width = 800;
+            canvas.width = 650;
             canvas.height = 400;
             
             const ctx = canvas.getContext('2d');
@@ -912,7 +912,7 @@ function updateSceneMonth(type, value) {
               try {
                 // Create a new canvas for the complete image
                 const exportCanvas = document.createElement('canvas');
-                exportCanvas.width = canvas.width;
+                exportCanvas.width = 800; // Keep this at 800 for the export
                 exportCanvas.height = canvas.height;
                 const ctx = exportCanvas.getContext('2d');
             
@@ -1018,6 +1018,22 @@ function updateSceneMonth(type, value) {
             document.addEventListener('DOMContentLoaded', function() {
               // Open the Summary tab by default
               document.getElementById("defaultOpen").click();
+              // Signal that the page is loaded
+              window.location = 'skp:on_page_load';
+            });
+            // Initialize when the page loads
+            document.addEventListener('DOMContentLoaded', function() {
+              // Open the Summary tab by default
+              document.getElementById("defaultOpen").click();
+              
+              // Add space key listener for refresh
+              document.addEventListener('keydown', function(event) {
+                if (event.key === ' ' || event.keyCode === 32) {
+                  event.preventDefault(); // Prevent page scrolling
+                  refreshData();
+                }
+              });
+              
               // Signal that the page is loaded
               window.location = 'skp:on_page_load';
             });

@@ -18,7 +18,7 @@ module Real_Estate_Optimizer
       
       dialog.set_html(create_html)
       dialog.add_action_callback("update_attributes") { |action_context, value| 
-        puts "update_attributes callback received with value: #{value}" # Debug log
+        # puts "update_attributes callback received with value: #{value}" # Debug log
         update_attributes(value) 
       }
       
